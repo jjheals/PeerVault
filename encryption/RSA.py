@@ -1,8 +1,7 @@
 # https://stuvel.eu/python-rsa-doc/usage.html#generating-keys 
 
 import rsa
-import Cryptodome #pycrytodome (this is the new version of pycryptodomex & enhanced pycrypto...)
-import Crypto     #pycryptodomex
+from Cryptodome.Cipher import AES
 
 
 def main():
@@ -43,11 +42,15 @@ def main():
     
 
 # encrypting and decrypting 
-    # 
-    AEScipherobj = Cryptodome.cipher.AES.new()
-    AEScipherobj.encrypt(encodedimagefile)
 
+    print(dir(AES))
+    AEScipherobj = AES.new(myprivkey, AES.MODE_CCM)
+    # key = get_random_bytes(16)
+    # c = AES.new(key, AES.MODE_GCM)
+    # # AEScipherobj.encrypt(encodedimagefile)
+    # AEScipher = AEScipherobj.encrypt(encodedplaintext)
 
-    
+    # ciphertextfile = open("AEScipher.txt", "wb")
+    # ciphertextfile.write(AEScipher)
 
 main();
