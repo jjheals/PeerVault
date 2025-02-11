@@ -24,12 +24,15 @@ logging.basicConfig(
 )
 
 # --- Start listener --- #
-print(f'\033[0m[{now()}] \033[94mStarting multicast listener.\033[0m')
+print(f'\n\033[0m[{now()}] \033[94mStarting multicast listener.\033[0m')
 logging.info('Starting multicast listener.')
+
+print(config['multicast-config']['MCAST_GROUP'])
 
 # Join the multicast group
 join_multicast(
-    config['MCAST_GROUP'],
-    config['MCAST_PORT']
+    config['multicast-config']['MCAST_GROUP'],
+    int(config['multicast-config']['MCAST_PORT']),
+    config['multicast-config']['LOCAL_IP']
 )
 

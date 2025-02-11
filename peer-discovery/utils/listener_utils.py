@@ -3,7 +3,7 @@ import struct
 import json
 
 
-def join_multicast(mcast_group:str, mcast_port:int) -> None:
+def join_multicast(mcast_group:str, mcast_port:int, local_ip:str) -> None:
     """Listens for multicast messages from peers.
     
         ARGS: 
@@ -19,14 +19,13 @@ def join_multicast(mcast_group:str, mcast_port:int) -> None:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # Bind to the multicast port
-    sock.bind(("", mcast_port))
+    sock.bind((local_ip, mcast_port))
 
     # Construct a message to send to the multicast group
     mcast_req:bytes = struct.pack(
         "4sl", 
         socket.inet_aton(mcast_group), 
         socket.INADDR_ANY
-    
     )
 
     # Send the multicast message to the group
