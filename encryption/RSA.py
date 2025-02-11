@@ -3,9 +3,6 @@
 import rsa
 from Cryptodome.Cipher import AES
 
-
-
-
 def main():
     # generate the keys --> may take a long time... only run this 1x...
     (mypubkey, myprivkey) = rsa.newkeys(512)

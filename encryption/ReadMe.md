@@ -7,3 +7,18 @@ AES through the python module pyaes was not importing properly
 
 
 ** Should these all be implemented by hand for our security focus?
+    potentially implement this later
+
+
+Python libraries:
+
+    Pyaes --> not working
+
+    pycryptodome/pycryptodomex --> 
+
+    rsa -->
+
+    os -->
+
+
+TODO -- test with different file types (txt, image, audio, photo, movie, etc. )
