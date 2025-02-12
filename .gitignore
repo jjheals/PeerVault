@@ -1,3 +1,4 @@
-logs
-peer-data
-*__pycache__*
+peer-discovery/logs
+peer-discovery/peer-data
+peer-discovery/config/
+*__pycache__/
