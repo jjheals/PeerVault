@@ -1,11 +1,16 @@
 import socket
 import struct
 import json 
+from configparser import ConfigParser
 
 
-MCAST_GRP = "239.255.1.1"   # Multicast group addr
-MCAST_PORT = 5001           # Port to listen on
-IFACE = "192.168.5.115"     # Local IP
+# --- Load config --- #
+config:ConfigParser = ConfigParser()
+config.read('config/multicast-config.conf')
+
+MCAST_GRP = config['multicast-config']['MCAST_GROUP']       # Multicast group addr
+MCAST_PORT = int(config['multicast-config']['MCAST_PORT'])  # Port to listen on
+IFACE = config['multicast-config']['LOCAL_IP']              # Local IP
 
 # Create the socket
 sock = socket.socket(

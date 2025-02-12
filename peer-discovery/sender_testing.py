@@ -1,11 +1,16 @@
 import socket
 import struct
 import time
+from configparser import ConfigParser
 
-MCAST_GRP = "239.255.1.1"   # Multicast group addr
-MCAST_PORT = 5001           # Multicast port
-IFACE = "192.168.5.115"     # Sender's IP/inferface
 
+# --- Load config --- #
+config:ConfigParser = ConfigParser()
+config.read('config/multicast-config.conf')
+
+MCAST_GRP = config['multicast-config']['MCAST_GROUP']       # Multicast group addr
+MCAST_PORT = int(config['multicast-config']['MCAST_PORT'])  # Port to listen on
+IFACE = config['multicast-config']['LOCAL_IP']              # Local IP
 
 # Create the socket
 sock = socket.socket(
@@ -20,8 +25,6 @@ sock.setsockopt(
     socket.IP_MULTICAST_TTL,    # Setting the mcast TTL
     2                           # TTL
 )
-
-# Set the network interface for outgoing multicast traffic
 
 
 # Send messages 
