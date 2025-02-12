@@ -19,7 +19,7 @@ def join_multicast(mcast_group:str, mcast_port:int, local_ip:str) -> None:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # Bind to the multicast port
-    sock.bind((local_ip, mcast_port))
+    sock.bind(("", mcast_port))
 
     # Construct a message to send to the multicast group
     mcast_req:bytes = struct.pack(

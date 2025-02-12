@@ -9,3 +9,17 @@
 2025-02-11 10:35:56,383 - INFO - Starting multicast listener.
 2025-02-11 10:36:13,535 - INFO - Starting multicast listener.
 2025-02-11 10:39:22,697 - INFO - Starting multicast listener.
+2025-02-11 10:52:24,836 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.1.2"
+2025-02-11 11:15:40,974 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.1.2"
+2025-02-11 11:24:16,264 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "130.215.216.217"
+2025-02-11 11:25:11,676 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "130.215.216.217"
+2025-02-11 11:32:06,829 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.1.2"
+2025-02-11 19:22:04,372 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.1.2"
+2025-02-11 19:30:51,576 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.1.2"
+2025-02-11 19:48:53,830 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.0.15"
+2025-02-11 19:49:53,746 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.0.15"
+2025-02-11 20:13:12,716 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.0.15"
+2025-02-11 20:13:24,736 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.0.15"
+2025-02-11 20:13:40,605 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.0.15"
+2025-02-11 21:58:32,229 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.0.15"
+2025-02-11 21:59:09,515 - INFO - Starting multicast listener on MCAST_GROUP "239.255.1.1", MCAST_PORT "5001" and LOCAL_IP "192.168.5.115"
