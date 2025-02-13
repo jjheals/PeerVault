@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.itemCardTitleText {
+  font-family: "Poppins", serif;
+  font-weight: 500;
+  font-style: normal;
+  font-size: 20px;
+}
+
+.itemCardLeftContent {
+  margin-left: 20px;
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: small;
+}
+
+.itemCard {
+  display: flex;
+  flex-direction: row;
+  padding: 20px;
+  border-color: #d9d9d9;
+  border-width: 1px;
+  border-radius: 8px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  width: 400px;
+}
+
+.itemCardGridItem {
+  display: inline-table;
+  padding: 20px;
+}
+
+.itemGrid {
+  display: table;
+}
+
+.itemContainer {
+  justify-content: start;
+  margin-top: 20px;
+  margin-left: 40px;
+  margin-right: 20px;
+}
+
+.itemContainerContent {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+}
+
+.itemContainerTitleText {
+  font-family: "Poppins", serif;
+  font-weight: 600;
+  font-style: normal;
+  font-size: 28px;
+}
