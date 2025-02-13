@@ -1,4 +1,4 @@
 peer-discovery/logs
 peer-discovery/peer-data
-peer-discovery/config/
+peer-discovery/config/multicast-config.conf
 *__pycache__/
