@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives import serialization
 import os 
 
 
+# Helper func
 def gen_rsa_keypairs(size:int, exp:int) -> tuple[str, str]:
     """Generates a new private/public keypair using RSA."""
 
@@ -32,16 +33,15 @@ def gen_rsa_keypairs(size:int, exp:int) -> tuple[str, str]:
     # Return the two keys 
     return (private_pem, public_pem)
 
-
-
+# Init config
 config:ConfigParser = ConfigParser()
 config.read('../config/encryption-config.conf')
 
+# Call gen keys func
 priv_key_str, pub_key_str = gen_rsa_keypairs(
     int(config['keys']['SIZE']),
     int(config['keys']['EXP'])
 )
-
 
 # Save the keys 
 os.makedirs(os.path.join('../', os.path.dirname(config['paths']['PRIV_KEY_PATH'])), exist_ok=True)
