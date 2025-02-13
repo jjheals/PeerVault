@@ -1,0 +1,22 @@
+{
+    "<some-public-key-A>": {
+        "allowed_to_send": true,
+        "allowed_to_receive": false,
+        "most_recent_ip": "192.168.4.2",
+        "common_name": "quentin"
+    },
+
+    "<some-public-key-B>": {
+        "allowed_to_send": false,
+        "allowed_to_receive": true,
+        "most_recent_ip": "192.168.4.3",
+        "common_name": "lily"
+    },
+
+    "<some-public-key-C>": {
+        "allowed_to_send": false,
+        "allowed_to_receive": false,
+        "most_recent_ip": "192.168.4.4",
+        "common_name": "dan"
+    }
+}
