@@ -1,7 +1,8 @@
 import socket
-import struct
 import time
 from configparser import ConfigParser
+from utils import load_key
+import json 
 
 
 # --- Load config --- #
@@ -27,9 +28,25 @@ sock.setsockopt(
 )
 
 
-# Send messages 
+# Send a multicast message with this machine's common name, IP, and pub key
 while True:
-    message = "Hello, multicast world!"
-    sock.sendto(message.encode(), (MCAST_GRP, MCAST_PORT))
+    
+    # Get this user's common name
+    with open('config/local_config.json', 'r') as file: 
+        common_name:str = json.load(file)['common_name']
+    
+    # Load the public key
+    pub_key_str:str = load_key('keys/public.key', 'public') 
+    
+    message:dict = {
+        'public_key': pub_key_str,
+        'ip': IFACE,
+        'common_name': common_name
+    }
+    
+    # Send the message to the multicast group
+    sock.sendto(json.dumps(message).encode(), (MCAST_GRP, MCAST_PORT))
+    
+    
     print(f"Sent: {message}")
     time.sleep(2)
