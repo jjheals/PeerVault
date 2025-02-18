@@ -54,7 +54,7 @@ The flask API is structured like the following:
 ### CURL example
 
 ```bash
-curl -X GET "http://localhost:8000/get-peer-data?online=1&common_name=jjhealey"
+curl -X GET "http://localhost:8000/api/get-peer-list?online=1&common_name=jjhealey"
 ```
 
 # Usage & Examples
