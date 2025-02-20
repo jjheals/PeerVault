@@ -30,12 +30,13 @@ class Server(object):
         - Log all start up infomation 
         - Check if we have public and private keys and if we need to generate those keys 
         - Needs send multicast message for discovability 
+        - connect to the react server 
         - bind the socket conntion and the start listening for connections    
    '''
     def server_startup(self):
         self.logger.info("Server start up begining")
 
-        #check if the keys exist 
+        #check if the public and private keys exists
 
         #starts to build the network connections
         self.socket_connection.bind(self.IP_address, self.port)
@@ -44,6 +45,11 @@ class Server(object):
         self.socket_connection.listen(5)
         self.logger.info("Server start up complted")
         self.server_alive = True
+
+
+        #connect to the react server 
+        #send out hello message to multi-cast port 
+        
 
     '''
     Tasks: 
@@ -82,14 +88,14 @@ class Server(object):
     def handel_network_request(self, connection, cleint_addresss):
 
         work_to_be_done = self.client_server_handshake(self, connection, cleint_addresss)
-        while work_to_be_done: 
-            data = ""
-            while True: 
-                data =+ connection.recv(1024).decode()
-                if not data:
-                    break
+        while work_to_be_done:
+            message = connection.recv(1024).decode()# Buffer size is 1024 bytes
+            if not message:
+                break
+        client_handshake_data = decrypt_data(self, message)
+        self.logger.info("Staring Handshake received successfully.")
 
-            #read and do the stats code
+        #complete the request of the client 
 
         connection.close()
 
@@ -101,15 +107,62 @@ class Server(object):
     def client_server_handshake(self, connection, cleint_address):
         handshake_complete = False
 
-        while True: 
-            data = ""
-            while True: 
-                data =+ connection.recv(1024).decode()
-                if not data:
-                    break
-        #look at notes for the steps of the handshake 
+        while True:
+            message = connection.recv(1024).decode()# Buffer size is 1024 bytes
+            if not message:
+                break
+
+        client_handshake_data = decrypt_data(self, message)
+
+
+
+        self.logger.info("Staring Handshake received successfully.")                    
+        
+        #find if the user is in the json file
+        key_length = 256 #need to update with the key lenght of the algo we are using 
+        with open('all-peers.json', 'r') as file:
+            json_file = json.load(file)
+
+        client_public_key = client_handshake_data[0:key_length]
+        if client_public_key in json_file:
+            self.logger.info("Client public key is in data base") 
+
+            #if the user is in the json file then it will decide if it can approved, blocked or waiting for approvle. 
+            if client_public_key in json_file:
+                if(json_file[client_public_key]["allowed_to_receive"] == 1):
+                    self.logger.info("Client is allowed to send to this device")
+
+                    #start the handshake process to confirm who they are 
+                    
+
+
+
+                elif (json_file[client_public_key]["allowed_to_receive"] == -1):
+                    self.logger.info("Client is waiting approvel to send to this device")
+                    # send message stating they they are in a waiting state
+                else:
+                    self.logger.info("Client is not allowed to send to this device")
+                    # send a message stating they are blocked from this device 
+        else:
+            self.logger.info("Client public key is not in the data base")            
+
 
         return handshake_complete
+    
+    '''
+    This function will be used to decrypt all data sent to the device 
+    '''
+    def decrypt_data(self, message):
+        data = message 
+        return data 
+    
+    '''
+    This function will be used to encrypt all data sent to the device 
+    '''
+    def encrypt_data(self, client_public_key, data):
+        message = data 
+
+        return message 
 
     def store_file(self):
         pass
@@ -117,7 +170,12 @@ class Server(object):
     def shared_file(self):
         pass
 
-    
+    '''
+    Tasks: 
+        - close all of the threads on the server 
+        - close connection to the react server 
+        - Log all of data 
+    '''
     def server_shutdown(self):
         self.logger.info("Server shutdown started")
 

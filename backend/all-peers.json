@@ -1,19 +1,50 @@
 {
-    "<some-public-key-A>": {
+    "<some-public-key-Q>": {
+        "online": true,
         "allowed_to_receive": 0,
-        "most_recent_ip": "192.168.4.2",
-        "common_name": "quentin"
+        "most_recent_ip": "192.168.4.6",
+        "common_name": "quentin",
+        "mac_last_four": "12:45",
+        "have_shared_before": 12,
+        "currently_storing_with": 32,
+        "total_gb_storing_with": 3,
+        "currently_storing_for": 21,
+        "total_gb_storing_for": 2,
+        "files_stored_with": [
+            ["some-filename", "hash"],
+            ["some-filename", "hash"]
+        ]
     },
 
-    "<some-public-key-B>": {
+    "<some-public-key-L>": {
         "allowed_to_receive": 1,
         "most_recent_ip": "192.168.4.3",
-        "common_name": "lily"
+        "common_name": "lily",
+        "mac_last_four": "E5:Y6",
+        "have_shared_before": 12,
+        "currently_storing_with": 32,
+        "total_gb_storing_with": 3,
+        "currently_storing_for": 21,
+        "total_gb_storing_for": 2,
+        "files_stored_with": [
+            ["some-filename", "hash"],
+            ["some-filename", "hash"]
+        ]
     },
 
-    "<some-public-key-C>": {
+    "<some-public-key-D>": {
         "allowed_to_receive": -1,
         "most_recent_ip": "192.168.4.4",
-        "common_name": "dan"
+        "common_name": "dan",
+        "mac_last_four": "12:45",
+        "have_shared_before": 12,
+        "currently_storing_with": 1,
+        "total_gb_storing_with": 32,
+        "currently_storing_for": 4,
+        "total_gb_storing_for": 5,
+        "files_stored_with": [
+            ["some-filename", "hash"],
+            ["some-filename", "hash"]
+        ]
     }
 }
