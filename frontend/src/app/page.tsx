@@ -29,10 +29,10 @@ export default function Home() {
 
       return (
         <div>
-          <label>Total Storage needed for files: {model.getTotalStorage().toString()}</label>
+          <label>Total Size of Files: {model.getTotalStorage().toString()}</label>
           {props.files.map((file, index) => (
             <p key={index}>
-              <label>{file.name} - {file.size} - {file.lastModified.toLocaleString()}</label>
+              <label>{file.name} - {file.size}B</label>
             </p>
           ))}
         </div>
@@ -44,16 +44,53 @@ export default function Home() {
     }
 
     return (
-      <div className="itemCard">
-        <div className="itemCardLeftContent">
-          <div className="itemCardTitleText">Select Files to Share</div>
-          <p>
-            <input type="file" multiple onChange={handleFilesSelect}/>
-          </p>
-          <div>
-            <FilesList files={files}/>
+      <div className="header">
+        <div className="header-row">
+          <div className="titleText">PeerVault</div>
+          <div className="header-options-row">
+            <button>
+              <div className="header-button-text-option-one">Sign In</div>
+            </button>
+            <button >
+              <div className="header-button-text-option-two">Create Account</div>
+            </button>
           </div>
-        </div> 
+        </div>
+        <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+        <div className="ItemContainer">
+          <div className="itemContainerContent">
+            <div className="itemCard">
+              <div className="itemCardLeftContent">
+                <div className="itemCardTitleText">Select a Person to Share With</div>
+              </div> 
+            </div>
+            <div className="itemCard">
+              <div className="itemCardLeftContent">
+                <div className="itemCardTitleText">Select Files to Share</div>
+                <p>
+                  <input type="file" multiple onChange={handleFilesSelect}/>
+                </p>
+                <div>
+                  <FilesList files={files}/>
+                </div>
+              </div> 
+            </div>
+            <div className="itemCard">
+              <div className="itemCardLeftContent">
+                <div className="itemCardTitleText">Storage Type</div>
+                <form>
+                  <div>
+                    <button>Share</button>
+                  </div>
+                  <div>
+                    <button>Store</button>
+                  </div>
+                </form>
+              </div>
+            </div> 
+            <button className="itemCard">Upload</button>
+          </div>
+        </div>
       </div>
     )
 

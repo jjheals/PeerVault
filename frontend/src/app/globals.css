@@ -7,11 +7,52 @@
   --foreground: #171717;
 }
 
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+} */
+
+.header {
+  margin-top: 12px;
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.titleText {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 40px;
+}
+
+.header-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.header-options-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.header-button-text-option-one {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 20px;
+  padding-right: 20px;
+}
+
+.header-button-text-option-two {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 20px;
+  padding-right: 20px;
 }
 
 body {
@@ -74,4 +115,12 @@ body {
   font-weight: 600;
   font-style: normal;
   font-size: 28px;
+}
+
+.storageTypeDropdown {
+  border-width: 2px;
+  border-color: lightgray;
+  border-radius: 8px;
+  width: 300px;
+  padding: 7px;
 }
