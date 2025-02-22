@@ -1,21 +1,33 @@
-'use client';
+'use client'; //needed to handle site events (clicks / events / interactions)
 
 import React from "react";
 import { Model } from "@/model";
 import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
+
+const instance = axios.create({
+  baseURL:
+    "http://localhost:5000",
+});
 
 export default function Home() {
     const [model, setModel] = React.useState(new Model())
     const [redraw, forceRedraw] = React.useState(0);
     const [files, setFiles] = React.useState(undefined);
     const [recipeint, setRecipient] = React.useState("");
-    var availableUsers = []
-
+    const [users, setUsers] = React.useState(undefined);
 
     function refresh() {
         forceRedraw(redraw + 1);
     }
+
+    React.useEffect(() => {
+      if (!users) {
+        getUsers(setUsers);
+        console.log("users:", users);
+      }
+    }, [redraw]);
 
     React.useEffect(() => {
       if (!files) {
@@ -47,22 +59,23 @@ export default function Home() {
       setFiles(model.getFilesToUpload());
     }
 
-    function getUsers(): string[]{
-      // try {
-      //   const response = await fetch("http://localhost:5000/users", {
-      //     method: "GET",
-      //     headers: { "Content-Type": "application/json" }
-      //   });
-  
-      //   const data = await response.json();
-      //   alert(data.message);
-      // } 
-      // catch (error)
-      // {
-      //   console.error("Error:", error);
-      //   alert("Failed to get users.");
-      // }
-      return ["dan", "justin", "lily", "quentin"]
+    function getUsers(setUsers){
+      let ret: Array<String> = [];
+        instance
+        .get("/users")
+        .then(function (response){
+          // The response is the response of the get request
+          response = response.data;
+          console.log("got response")
+          setUsers(ret)
+      
+        })
+        .catch (function (error) {
+          console.log(error)
+          console.log("errored")
+        });
+        console.log()
+        // return ["dan", "justin", "lily", "quentin"]
     };
 
     // const getMe = async() =>{
@@ -93,7 +106,21 @@ export default function Home() {
     // var username = getMe();
     var username = "Guest"
 
-    availableUsers = getUsers();
+    // availableUsers = getUsers();
+
+    function DisplayUsers(props: any) {
+      if (!props.users) return <div>Loading</div>;
+
+      return (
+        <select id="users" value={recipeint} onChange={selectRecipient}>
+          <option value="" disabled>Select an option</option>
+
+          {props.users.map((users: any, index: any) => (
+            <option key={index} value={users}>{users}</option>
+          ))}
+        </select>
+      )
+    }
 
     return (
       <div className="header">
@@ -125,13 +152,7 @@ export default function Home() {
                   <div className="dropdown-content">
                   <div>
                     <label htmlFor="users">Choose a user: </label>
-                    <select id="users" value={recipeint} onChange={selectRecipient}>
-                      <option value="" disabled>Select an option</option>
-
-                      {availableUsers.map((users, index) => (
-                        <option key={index} value={users}>{users}</option>
-                      ))}
-                    </select>
+                    <DisplayUsers users={users}/>
                   </div>
                   </div>
                 </div>

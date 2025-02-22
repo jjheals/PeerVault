@@ -1,4 +1,5 @@
 import express from "express";
+import axios from "axios";
 import fs from "fs";
 import cors from "cors";
 
@@ -33,14 +34,19 @@ app.post("/signup", (req, res) => {
 });
 
 app.get("/users", (req, res) => {  
-    try {
-        //read saved usernames...
-        users = fs.readFileSync("usernames.txt")
-        res.json({ message: {users} });
-    } catch (error) {
-      console.error("Error reading saved usernames:", error);
-      res.status(500).json({ message: "Failed to read usernames" });
-    }
+    // try {
+    //     //read saved usernames...
+    //     // if (fs.existsSync("usernames.txt")){
+    //     //   users = fs.readFileSync("usernames.txt")
+    //     //   res.json({ message: {users} });
+    //     // }
+    //     return ["user 1", "user 2"]
+
+    // } catch (error) {
+    //   console.error("Error reading saved usernames:", error);
+    //   res.status(500).json({ message: "Failed to read usernames" });
+    // }
+    res.json({data: ["user 1", "user 2"]})
   });
 
 
