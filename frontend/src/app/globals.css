@@ -243,3 +243,8 @@ body {
 .dropdown:hover .dropbtn {
   background-color: #135caf;
 }
+
+.button:disabled {
+  background-color: #c0c0c0;
+  cursor: not-allowed;
+}

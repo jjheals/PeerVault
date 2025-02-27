@@ -1,5 +1,4 @@
 import express from "express";
-import axios from "axios";
 import fs from "fs";
 import cors from "cors";
 
@@ -25,7 +24,8 @@ app.post("/signup", (req, res) => {
   //check if the username + addy has been saved before --> error if yes///
 
   try {
-    fs.appendFileSync("usernames.txt", username + "\n"); // Save username
+    fs.appendFileSync("identity.txt", username + "\n"); // Save username
+
     res.json({ message: "Username saved successfully!" });
   } catch (error) {
     console.error("Error saving username:", error);
@@ -34,33 +34,39 @@ app.post("/signup", (req, res) => {
 });
 
 app.get("/users", (req, res) => {  
-    // try {
-    //     //read saved usernames...
-    //     // if (fs.existsSync("usernames.txt")){
-    //     //   users = fs.readFileSync("usernames.txt")
-    //     //   res.json({ message: {users} });
-    //     // }
-    //     return ["user 1", "user 2"]
-
-    // } catch (error) {
-    //   console.error("Error reading saved usernames:", error);
-    //   res.status(500).json({ message: "Failed to read usernames" });
-    // }
-    res.json({data: ["user 1", "user 2"]})
+  const users = fs.readFileSync("usernames.txt", { encoding: "utf-8", flag: "r" });
+  var user_array = users.split("\n");
+  user_array.pop();
+  res.json({users: user_array})
   });
 
 
 app.get("/whoAmI", (req, res) => {
-try {
-    //get my username:
-    username = fs.readFileSync("identity.txt");
-    if(username == ""){
-        username = "guest"
-    }
-} catch (error) {
-    console.error("Error retrieving username:", error);
-    res.status(500).json({ message: "Failed to save username" });
-}
+  try {
+      //get my username:
+      var username = "";
+
+      username = fs.readFileSync("identity.txt",
+        { encoding: 'utf-8', flag: 'r'},
+        function (err, username) {
+          if (err)
+              console.log(err);
+          });
+
+      if(username == ""){
+          res.json({ identity: "Guest" });
+      }
+      res.json({ identity: username });
+
+  } catch (error) {
+      res.json({ identity: "Guest" });
+  }
 });
+
+app.get("/uploadData", (req, res) => {
+  res.status(200);
+});
+
+
 // Start server
 app.listen(PORT, () => console.log(`\n\nServer running on http://localhost:${PORT}`));
