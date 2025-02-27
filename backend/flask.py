@@ -1,11 +1,13 @@
 
-from flask import Flask, g, request
+from flask import Flask, g, request, current_app
 from flask_compress import Compress
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from configparser import ConfigParser
 
 from blueprints import fi_bp
+
+from objects import Server
 
 
 # ---- Config ---- #
@@ -20,6 +22,12 @@ FRONTEND_URL:str = config['flask-config']['FRONTEND_URL']
 app = Flask(__name__)
 compress = Compress()
 compress.init_app(app)
+
+# Init a server obj
+tmp_server:Server = Server()
+
+# Tie the server obj to the flask app
+app.server = tmp_server
 
 # Add logging before & after requests
 @app.before_request
