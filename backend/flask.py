@@ -1,21 +1,54 @@
 
+# Third-party imports
 from flask import Flask, g, request, current_app
 from flask_compress import Compress
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from configparser import ConfigParser
+import os 
 
-from blueprints import fi_bp
+# Blueprints
+from blueprints import fi_bp, p2p_bp
 
+# Custom objs & util funcs
 from objects import Server
+from utils import generate_asymm_keys, now
 
 
-# ---- Config ---- #
-config:ConfigParser = ConfigParser()
-config.read('config/flask.conf')
+# ---- Load configs ---- #
+# Flask config
+flask_config:ConfigParser = ConfigParser()
+flask_config.read('config/flask.conf')
 
-PORT:int = int(config['flask-config']['PORT'])
-FRONTEND_URL:str = config['flask-config']['FRONTEND_URL']
+# Encryption config 
+enc_config:ConfigParser = ConfigParser()
+enc_config.read('config/encryption-config.conf')
+
+# Multicast config 
+mcast_config:ConfigParser = ConfigParser()
+mcast_config.read('config/multicast-config.conf')
+
+# Extract attrs from the flask config 
+PORT:int = int(flask_config['flask-config']['PORT'])
+FRONTEND_URL:str = flask_config['flask-config']['FRONTEND_URL']
+
+
+# ---- Setting up encryption ---- # 
+# Check if keys already exist
+if not (
+    os.path.exists(enc_config['paths']['PRIV_KEY_PATH']) and
+    os.path.exists(enc_config['paths']['PUB_KEY_PATH'])
+): 
+    # Generate new keypairs 
+    generate_asymm_keys(
+        enc_config['keys']['SIZE'],             # Keysize
+        enc_config['keys']['EXP'],              # Exponent
+        enc_config['paths']['PRIV_KEY_PATH'],   # Private key save path
+        enc_config['paths']['PUB_KEY_PATH']     # Public key save path
+    )
+# If the keys already exist, info print only and do not regenerate them
+else: 
+    print(f'\033[0m[{now()}] \033[92mFound asymm keys - skipping new key generation.\033[0m')
 
 
 # ---- Flask init ---- #
@@ -23,11 +56,9 @@ app = Flask(__name__)
 compress = Compress()
 compress.init_app(app)
 
-# Init a server obj
-tmp_server:Server = Server()
-
-# Tie the server obj to the flask app
-app.server = tmp_server
+# Init a server obj and tie it to the flask app
+server:Server = Server()
+app.server = server
 
 # Add logging before & after requests
 @app.before_request
@@ -42,12 +73,16 @@ def after_request(response):
 
 # ---- Add blueprints ---- #
 app.register_blueprint(fi_bp)
-
+app.register_blueprint(p2p_bp)
 
 
 # ---- Run ---- #
 if __name__ == '__main__': 
     
-    # NOTE: use loopback as the interface so the API is not exposed to the network 
-    http_server = WSGIServer(('127.0.0.1', PORT), app)
+    # TODO: Send a multicast peer discovery message on app startup
+    # DO SOMETHING ... 
+    # ... 
+
+    # Run on the interface specified in the multicast config
+    http_server = WSGIServer((mcast_config['multicast-config']['LOCAL_IP'], PORT), app)
     http_server.serve_forever()
