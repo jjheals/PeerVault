@@ -44,12 +44,13 @@ class Server(object):
     UPD_FILE_CODE:str = "104" 
 
 
-    def __init__(self, common_name, IP_address, port, multicast_ip):
+    def __init__(self, common_name, IP_address, port, multicast_ip, key_length):
         self.common_name = common_name
         self.IP_address = IP_address
         self.port = port
         self.multicast_ip = multicast_ip
         self.server_alive = False
+        self.key_length = key_length
 
         # Call initialization funcs
         self.server_startup(self)
@@ -82,30 +83,35 @@ class Server(object):
 
 
         #send out hello message to multi-cast port 
-        self.server_hello_message(self, self.multicast_ip)
+        self.discover_message(self, self.multicast_ip)
         self.logger.info("Server sent discover message")
 
         self.logger.info("Server start up completed")
 
-    '''
-    Tasks: 
-        - Set up the script to run so that we can allow multicast connections on the device 
-    '''
-    def server_hello_message(self, ip_address):
+
+    def discover_message(self, ip_address):
 
         '''
-                # need to send a packet with the code 010 maybe
+        Send a discover message to the ip_address
 
-                
-                issue is that for one block of public key encryption we only have 256 bytes which is the whole public key 
-                maybe this information does not need to be encypted 
+        When handshake is started it might try and send a message back to this method which would have closed already ... Will need to do testing
         '''
 
         #will need to pass this along to the multicast port when requested and send as a response to the multicast ip 
-        message = Server.DISC_CODE + self.get_mac_address + self.get_public_key + self.common_name
+        try:
 
+            message = Server.DISC_CODE + self.get_public_key() + self.get_mac_address() + self.common_name
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(ip_address)
+            s.sendall(message.encode())
+            self.logger.info("Sent discover message to IP: %s", str(ip_address))
 
-        pass
+        except socket.error as e:
+            self.logger.info("Failed to send discover message to IP: %s", str(ip_address))           
+
+        finally:
+            # Close the socket
+            s.close()
 
 
     def get_mac_address():
@@ -143,7 +149,7 @@ class Server(object):
         """
 
         # Get the message 
-        incoming_message:str = ''
+        incoming_message:str = ""
 
         while True:
             incoming_message = connection.recv(1024).decode()# Buffer size is 1024 bytes
@@ -151,7 +157,9 @@ class Server(object):
                 break
         
         # TODO: Get the message code from the incoming_message
-        message_code:str = ''
+        message_code:str = incoming_message[0:3]
+        client_public_key = incoming_message[3:3+self.key_length]
+        message = incoming_message[3+self.key_length:]
 
         # Handle the message code appropriately
         match message_code: 
@@ -160,22 +168,19 @@ class Server(object):
             case Server.DISC_CODE:
 
                 # Do identity check
-                id_check_result:bool = self.initiate_identity_check(connection, client_address)  
+                id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.DISC_CODE)  
 
                 # If ID check pass, handle the discovery request
-                if id_check_result: self.handle_discovery_code(
-                    connection,
-                    remote_peer_pub_key, 
-                    remote_peer_new_ip
-                )
-                
+                if id_check_result: 
+                    self.handle_discovery_code(connection, client_public_key, incoming_message, client_address)
                 # If ID check failed, do not respond
-                else: pass
+                else: 
+                    pass
             
             # Handle identity check code
             case Server.IDC_CODE: 
                 # Complete incoming req for an identity check
-                pass 
+                self.responde_identity_check(self, connection, client_address, message) 
             
             # Handle send request code
             case Server.SEND_REQ_CODE: 
@@ -220,27 +225,10 @@ class Server(object):
                 # Do not respond 
                 pass
 
-
-        '''
-        work_to_be_done = self.client_server_handshake(self, connection, cleint_addresss)
-        incoming_message = ""
-        client_handshake_data = ""
-        while work_to_be_done:
-            
-
-            client_handshake_data = self.decrypt_data(self, incoming_message)
-
-            #find the code and do the request 
-            self.logger.info("Client request completed ")
-
-        #complete the request of the client 
-        '''
-
-        connection.send('hello')
         connection.close()
 
 
-    def initiate_identity_check(self, connection, client_address) -> bool:
+    def initiate_identity_check(self, connection, client_public_key, client_address, code) -> bool:
         """Complete an identity check handshake with the given connection and client address.
         
         Tasks:
@@ -251,139 +239,97 @@ class Server(object):
             (bool) True if the remote peer passes the identity check, False otherwise.
         """
 
-        handshake_complete = False
-        incoming_message = "" 
-        client_handshake_data = ""
+        client_handshake_data = ""           
 
+        # Start the identity check handshake 
+        self.logger.info("Starting Handshake with client (%s)", client_address)                                                     # Log req
+        passcode:str = self.generate_passcode(self)                                                                                 # Generate a passcode
+        outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, passcode))    # Encrypt the outgoing passcode
+        connection.send(outgoing_message.encode())                                                                                  # Send the encrypted passcode
+        ciphertext_message:str = connection.recv(1024).decode()                                                                     # Wait for an incoming response
+                                            # ^ we should change the above to the expected size of the packet we are going to get
+        client_handshake_data = self.decrypt_data(self.get_private_key(), ciphertext_message)                                       # Decrypt the incoming response
 
-        # Decode the incoming message
-        # NOTE: most of these messages should be under 1024 bytes 
-        while True: 
-            incoming_message = connection.recv(1024).decode()# Buffer size is 1024 bytes
-            if not incoming_message:
-                break  
+        # Check that the client supplied the correct passcode
+        if(passcode == client_handshake_data):
+            # Client passed handshake
+            self.logger.info("Client (%s) returned the correct passcode", str(client_address))                          # Log result
 
-        #find if the user is in the json file
-        key_length = 256 #need to update with the key lenght of the algo we are using 
-
-        # Open the all peers json to update it or check incoming data
-        with open('all-peers.json', 'r+') as file:
-            all_peer_data = json.load(file)                
-        
-        # Check if the message is a discovery message
-        if(client_handshake_data[0:3] == Server.DISC_CODE): # this hannles any hello packets from a new client joining the nextwork 
-            client_mac_address = client_handshake_data[3:6]
-            client_public_key = client_handshake_data[6:key_length+6]
-            client_common_name = client_handshake_data[key_length+6:]
-
-            # Check if we've seen this pub key before
-            if client_public_key in all_peer_data:
-                
-                # TODO: identity check
-                # DO SOMETHING ... 
-
-                # If we have seen this user, update the IP of the user in the json file and set their status to "online"
-                if(client_address != all_peer_data[client_public_key]["most_recent_ip"]):
-                    all_peer_data[client_public_key]["most_recent_ip"] = client_address
-                    all_peer_data[client_public_key]["online"] = True
-
-            # If we haven't seen this user before, create a new entry for this user
-            else:
-                new_data = {
-                    client_public_key:{
-                        "online": True,
-                        "session_start_time": datetime.now().time(),
-                        "allowed_to_receive": -1,
-                        "most_recent_ip": client_address,
-                        "common_name": client_common_name,
-                        "mac_address": client_mac_address,
-                        "have_shared_before": 0,
-                        "currently_storing_with": 0,
-                        "total_gb_storing_with": 0,
-                        "currently_storing_for": 0,
-                        "total_gb_storing_for": 0,
-                        "files_stored_with": []
-                    }
-                }
-
-                # Add the new entry to the json data and update the file
-                with open('all-peers.json', 'w+') as file:     
-                    all_peer_data[client_public_key] = new_data
-                    json.dump(all_peer_data, file, indent=4)
-
-                # Log update
-                self.logger.info("Client %s just joined the list of know users", client_public_key)
-
-            # Log that a new client was found
-            self.logger.info("Client %s just joined the network", client_public_key)
-
-            # Send a message back to the client 
-            self.server_hello_message(self, client_address)
-
-        # If not a discovery message, then is a handshake req
-        else:
+            # Open the all peers json to read the incoming data 
+            with open('all-peers.json', 'r') as file:
+                all_peer_data = json.load(file)  
             
-            # Decrypt the message 
-            client_handshake_data = self.decrypt_data(self, incoming_message)
-            self.logger.info("Staring Handshake received successfully.")  
+            '''
+            Checks if we have the public key in the "database" (checking to see if we are looking at an old user)
 
-            # Extract the pub key from the message
-            client_public_key = client_handshake_data[0:key_length]
-
-            # Check if we have this pub key
+            if not in the database going to assume that it is a new user 
+            
+            '''
             if client_public_key in all_peer_data:
-
-                # Log 
-                self.logger.info("Client public key is in data base") 
-
-                # Check if this user is allowed to send to us
-                if(all_peer_data[client_public_key]["allowed_to_receive"] == 1):                    
-
-                    # Start the identity check handshake 
-                    self.logger.info("Client is allowed to send to this device")            # Log req
-                    passcode = self.generate_passcode(self)                                 # Generate a passcode
-                    outgoing_message = self.encrypt_data(self, client_public_key, passcode) # Encrypt the outgoing passcode
-                    connection.send(outgoing_message.encode())                              # Send the encrypted passcode
-                    incoming_message = connection.recv(1024).decode()                       # Wait for an incoming response
-                    client_handshake_data = self.decrypt_data(self, incoming_message)       # Decrypt the incoming response
-
-                    # Check that the client supplied the correct passcode
-                    if(passcode == client_handshake_data):
-                        
-                        # Client passed handshake
-                        self.logger.info("Client passed the handshake")     # Log result
-                        return True                                         # Return that peer passed
-
-                    else:
-                        # Client failed handshake 
-                        self.logger.info("Client failed the handshake")
-
-                # Check if allowed to receive is in a waiting state 
+                if(all_peer_data[client_public_key]["allowed_to_receive"] == 1):   
+                    self.logger.info("Client (%s) is allowed to send to this device", str(client_address))              # Log result
+                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "passed"))    # Encrypt the outgoing passcode
+                    connection.send(outgoing_message.encode())
+                    return True                                                                                         # Return that peer passed       
+    
                 elif (all_peer_data[client_public_key]["allowed_to_receive"] == -1):
-
                     # TODO: send notif to react app that we are waiting for approval or disapproval for the peer to send us something
                     # DO SOMETHING ...
 
-                    self.logger.info("Client is waiting approvel to send to this device")
-
                     # Send message back to peer stating they they are in a waiting state
-                    outgoing_message = self.encrypt_data(self, client_public_key, "waiting")    # Encrypt message
-                    connection.send(outgoing_message.encode())                                  # Send message
-                    self.logger.info("Client is in a waiting state")                            # Log
+                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, passcode))    # Encrypt the outgoing passcode
+                    connection.send(outgoing_message.encode())                                                          # Send message
+                    self.logger.info("Client (%s) is waiting approvel to send to this device", str(client_address))     # Log
 
-                # Peer is not allowed to send us a message, so ignore them
+                # Peer is not allowed to send us a message
                 else:
-                    self.logger.info("Client is not allowed to send to this device")
+                    self.logger.info("Client (%s) is not approved to send to this device", str(client_address))         # Log
 
-            # If we do not have the pub key, then do not respond 
-            else:
-                self.logger.info("Client public key is not in the data base")   
+            elif (code == self.DISC_CODE): 
+                # TODO: send notif to react app that we are waiting for approval or disapproval for the peer to send us something
+                # DO SOMETHING ...
 
-        # False if we make it here
-        return False    
+                # Send message back to peer stating they they are in a waiting state
+                outgoing_message = self.encrypt_data(self, client_public_key, "waiting")                                # Encrypt message
+                connection.send(outgoing_message.encode())                                                              # Send message
+                self.logger.info("New client (%s) is sending discovery message", str(client_address))                   # Log
+                return True                                                                                             # Return that peer passed       
+            ''' Do not like how we have mutiple diffrent return statements here'''
 
+        # Client failed handshake 
+        self.logger.info("Client (%s) failed the handshake", str(client_address))     # Log result
+        outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "failed"))    # Encrypt the outgoing passcode
+        connection.send(outgoing_message.encode())
+        
+        return False  
+    
+    def generate_passcode(self):
+        pass
 
-    def handle_discovery_code(self, connection, remote_peer_pub_key:str, remote_peer_new_ip:str) -> dict: 
+    def get_private_key():
+        pass 
+    def get_public_key():
+        pass 
+
+    def responde_identity_check(self, connection, client_address, client_public_key, ciphertext_message) -> bool:
+
+        self.logger.info("Reviced passcode from client (%s)", str(client_address))                   # Log
+        passcode_recived = self.decrypt_data(self.get_private_key, ciphertext_message)
+        outgoing_message:str = str(self.get_public_key() + self.encrypt_data(self, client_public_key, passcode_recived))
+        connection.send(outgoing_message.encode())                                                                                 # Send the encrypted passcode
+
+        check_passed:str = connection.recv(1024).decode()                                                                     # Wait for an incoming response
+        if(check_passed == "passed"):
+            self.logger.info("Passed identity check with client (%s)", str(client_address))                   # Log
+            return True
+        else:
+            '''
+            send a message to the user that they are not approved to send to this user
+            '''
+            self.logger.info("Failed identity check with client (%s)", str(client_address))                   # Log
+            return False
+
+    def handle_discovery_code(self, connection, client_public_key:str, client_handshake_data:str, client_address:str) -> dict: 
         """Handles a discovery request.
         
         Tasks: 
@@ -397,13 +343,54 @@ class Server(object):
                     "message": "Remote peer identified successfully."
                 }
         """
+        # Open the all peers json to read and write the incoming data 
+        with open('all-peers.json', 'r+') as file:
+            all_peer_data = json.load(file) 
 
-        # Check the JSON file and update the peer's IP if necessary
-        # Set the peer's status to "online" 
+        client_public_key   = client_handshake_data[3:self.key_length+3]
+        client_mac_address  = client_handshake_data[self.key_length+3:self.key_length+9]
+        client_common_name  = client_handshake_data[self.key_length+9:]            
 
-        # DO SOMETHING ...
+        # Check if we've seen this pub key before
+        if client_public_key in all_peer_data:
 
-        raise NotImplementedError
+            # If we have seen this user, update the IP of the user in the json file and set their status to "online"
+            if(client_address != all_peer_data[client_public_key]["most_recent_ip"]):
+                all_peer_data[client_public_key]["most_recent_ip"] = client_address
+                self.logger.info("Client %s changed there IP", client_public_key)
+
+            all_peer_data[client_public_key]["session_start_time"] = datetime.now().time()
+            all_peer_data[client_public_key]["online"] = True
+
+        # If we haven't seen this user before, create a new entry for this user
+        else:
+            new_data = {
+                client_public_key:{
+                    "online": True,
+                    "session_start_time": datetime.now().time(),
+                    "allowed_to_receive": -1,
+                    "most_recent_ip": client_address,
+                    "common_name": client_common_name,
+                    "mac_address": client_mac_address,
+                    "have_shared_before": 0,
+                    "currently_storing_with": 0,
+                    "total_gb_storing_with": 0,
+                    "currently_storing_for": 0,
+                    "total_gb_storing_for": 0,
+                    "files_stored_with": []
+                }
+            }
+
+            # Add the new entry to the json data and update the file
+            all_peer_data[client_public_key] = new_data
+            # Log update
+            self.logger.info("Client %s just joined the list of know users", client_public_key)
+
+        # Log that a new client was found
+        self.logger.info("Client %s just joined the network", client_public_key)
+
+        # Send a message back to the client 
+        self.discover_message(self, client_address)
     
 
     def handle_send_request(self, new_data:dict) -> None: 
