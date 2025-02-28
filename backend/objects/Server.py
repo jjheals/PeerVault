@@ -83,7 +83,7 @@ class Server(object):
 
 
         #send out hello message to multi-cast port 
-        self.server_hello_message(self, self.multicast_ip)
+        self.discover_message(self, self.multicast_ip)
         self.logger.info("Server sent discover message")
 
         self.logger.info("Server start up completed")
@@ -92,21 +92,26 @@ class Server(object):
     Tasks: 
         - Set up the script to run so that we can allow multicast connections on the device 
     '''
-    def server_hello_message(self, ip_address):
+    def discover_message(self, ip_address):
 
         '''
-                # need to send a packet with the code 010 maybe
-
-                
-                issue is that for one block of public key encryption we only have 256 bytes which is the whole public key 
-                maybe this information does not need to be encypted 
+        Send a discover message to the ip_address
         '''
 
         #will need to pass this along to the multicast port when requested and send as a response to the multicast ip 
-        message = Server.DISC_CODE + self.get_mac_address + self.get_public_key + self.common_name
+        try:
 
+            message = Server.DISC_CODE + self.get_public_key() + self.get_mac_address() + self.common_name
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(ip_address)
+            s.sendall(message.encode())
+            
+        except socket.error as e:
+            print(f"Socket error: {e}")
 
-        pass
+        finally:
+            # Close the socket
+            s.close()
 
 
     def get_mac_address():
@@ -362,12 +367,12 @@ class Server(object):
             all_peer_data[client_public_key] = new_data
             # Log update
             self.logger.info("Client %s just joined the list of know users", client_public_key)
-            
+
         # Log that a new client was found
         self.logger.info("Client %s just joined the network", client_public_key)
 
         # Send a message back to the client 
-        self.server_hello_message(self, client_address)
+        self.discover_message(self, client_address)
     
 
     def handle_send_request(self, new_data:dict) -> None: 
