@@ -48,13 +48,22 @@ if not (
     )
 # If the keys already exist, info print only and do not regenerate them
 else: 
-    print(f'\033[0m[{now()}] \033[92mFound asymm keys - skipping new key generation.\033[0m')
+    print(f'\033[0m[{now()}] \033[94mFound asymm keys - skipping new key generation.\033[0m')
 
 
 # ---- Flask init ---- #
 app = Flask(__name__)
 compress = Compress()
 compress.init_app(app)
+
+# Init CORS 
+print(f'\033[0m[{now()}] \033[94mConfiguring CORS\033[0m')
+CORS(
+    app, 
+    origins=['http://localhost:3000'],
+    allow_headers=['Content-Type'],
+    supports_credentials=True
+)  
 
 # Init a server obj and tie it to the flask app
 server:Server = Server()
@@ -72,8 +81,8 @@ def after_request(response):
 
 
 # ---- Add blueprints ---- #
-app.register_blueprint(fi_bp)
-app.register_blueprint(p2p_bp)
+app.register_blueprint(fi_bp)       # Frontend interaction
+app.register_blueprint(p2p_bp)      # Peer-to-Peer interaction
 
 
 # ---- Run ---- #
