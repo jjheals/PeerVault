@@ -165,14 +165,11 @@ class Server(object):
                 id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.DISC_CODE)  
 
                 # If ID check pass, handle the discovery request
-                if id_check_result: self.handle_discovery_code(
-                    connection,
-                    remote_peer_pub_key, 
-                    remote_peer_new_ip
-                )
-                
+                if id_check_result: 
+                    self.handle_discovery_code(connection, client_public_key, incoming_message, client_address)
                 # If ID check failed, do not respond
-                else: pass
+                else: 
+                    pass
             
             # Handle identity check code
             case Server.IDC_CODE: 
@@ -309,7 +306,7 @@ class Server(object):
         pass 
 
 
-    def handle_discovery_code(self, connection, remote_peer_pub_key:str, remote_peer_new_ip:str) -> dict: 
+    def handle_discovery_code(self, connection, client_public_key:str, client_handshake_data:str, client_address:str) -> dict: 
         """Handles a discovery request.
         
         Tasks: 
@@ -323,66 +320,54 @@ class Server(object):
                     "message": "Remote peer identified successfully."
                 }
         """
+        # Open the all peers json to read and write the incoming data 
+        with open('all-peers.json', 'r+') as file:
+            all_peer_data = json.load(file) 
 
-        # Check the JSON file and update the peer's IP if necessary
-        # Set the peer's status to "online" 
+        client_public_key   = client_handshake_data[3:self.key_length+3]
+        client_mac_address  = client_handshake_data[self.key_length+3:self.key_length+9]
+        client_common_name  = client_handshake_data[self.key_length+9:]            
 
-        # DO SOMETHING ...
+        # Check if we've seen this pub key before
+        if client_public_key in all_peer_data:
 
-        # Check if the message is a discovery message
-        if(client_handshake_data[0:3] == Server.DISC_CODE): # this hannles any hello packets from a new client joining the nextwork 
-            client_mac_address = client_handshake_data[3:6]
-            client_public_key = client_handshake_data[6:key_length+6]
-            client_common_name = client_handshake_data[key_length+6:]
+            # If we have seen this user, update the IP of the user in the json file and set their status to "online"
+            if(client_address != all_peer_data[client_public_key]["most_recent_ip"]):
+                all_peer_data[client_public_key]["most_recent_ip"] = client_address
+                self.logger.info("Client %s changed there IP", client_public_key)
 
-            # Check if we've seen this pub key before
-            if client_public_key in all_peer_data:
-                
-                # TODO: identity check
-                # DO SOMETHING ... 
+            all_peer_data[client_public_key]["session_start_time"] = datetime.now().time()
+            all_peer_data[client_public_key]["online"] = True
 
-                # If we have seen this user, update the IP of the user in the json file and set their status to "online"
-                if(client_address != all_peer_data[client_public_key]["most_recent_ip"]):
-                    all_peer_data[client_public_key]["most_recent_ip"] = client_address
-                    all_peer_data[client_public_key]["online"] = True
-
-            # If we haven't seen this user before, create a new entry for this user
-            else:
-                new_data = {
-                    client_public_key:{
-                        "online": True,
-                        "session_start_time": datetime.now().time(),
-                        "allowed_to_receive": -1,
-                        "most_recent_ip": client_address,
-                        "common_name": client_common_name,
-                        "mac_address": client_mac_address,
-                        "have_shared_before": 0,
-                        "currently_storing_with": 0,
-                        "total_gb_storing_with": 0,
-                        "currently_storing_for": 0,
-                        "total_gb_storing_for": 0,
-                        "files_stored_with": []
-                    }
+        # If we haven't seen this user before, create a new entry for this user
+        else:
+            new_data = {
+                client_public_key:{
+                    "online": True,
+                    "session_start_time": datetime.now().time(),
+                    "allowed_to_receive": -1,
+                    "most_recent_ip": client_address,
+                    "common_name": client_common_name,
+                    "mac_address": client_mac_address,
+                    "have_shared_before": 0,
+                    "currently_storing_with": 0,
+                    "total_gb_storing_with": 0,
+                    "currently_storing_for": 0,
+                    "total_gb_storing_for": 0,
+                    "files_stored_with": []
                 }
+            }
 
-                # Add the new entry to the json data and update the file
-                with open('all-peers.json', 'w+') as file:     
-                    all_peer_data[client_public_key] = new_data
-                    json.dump(all_peer_data, file, indent=4)
+            # Add the new entry to the json data and update the file
+            all_peer_data[client_public_key] = new_data
+            # Log update
+            self.logger.info("Client %s just joined the list of know users", client_public_key)
+            
+        # Log that a new client was found
+        self.logger.info("Client %s just joined the network", client_public_key)
 
-                # Log update
-                self.logger.info("Client %s just joined the list of know users", client_public_key)
-
-            # Log that a new client was found
-            self.logger.info("Client %s just joined the network", client_public_key)
-
-            # Send a message back to the client 
-            self.server_hello_message(self, client_address)
-
-        # If not a discovery message, then is a handshake req
-        
-
-        raise NotImplementedError
+        # Send a message back to the client 
+        self.server_hello_message(self, client_address)
     
 
     def handle_send_request(self, new_data:dict) -> None: 
