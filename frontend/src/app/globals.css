@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* @media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+} */
+
+.header {
+  margin-top: 12px;
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.titleText {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 40px;
+}
+.subtitleText {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 30px;
+}
+
+.header-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.header-options-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.header-button-text-option-one {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 20px;
+  padding-right: 20px;
+}
+
+.header-button-text-option-two {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 20px;
+  padding-right: 20px;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.itemCardTitleText {
+  font-family: "Poppins", serif;
+  font-weight: 500;
+  font-style: normal;
+  font-size: 20px;
+}
+
+.itemCardLeftContent {
+  margin-left: 20px;
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: small;
+}
+
+.itemCard {
+  display: flex;
+  flex-direction: row;
+  padding: 20px;
+  border-color: #d9d9d9;
+  border-width: 1px;
+  border-radius: 8px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  width: 400px;
+  text-align: center;
+}
+
+.itemCardGridItem {
+  display: inline-table;
+  padding: 20px;
+}
+
+.itemGrid {
+  display: table;
+}
+
+.itemContainer {
+  justify-content: start;
+  margin-top: 20px;
+  margin-left: 40px;
+  margin-right: 20px;
+}
+
+.itemContainerContent {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+}
+
+.itemContainerTitleText {
+  font-family: "Poppins", serif;
+  font-weight: 600;
+  font-style: normal;
+  font-size: 28px;
+}
+
+.storageTypeDropdown {
+  border-width: 2px;
+  border-color: lightgray;
+  border-radius: 8px;
+  width: 300px;
+  padding: 7px;
+}
+
+.button {
+  background-color: #1289d8; /* Blue */
+  color: white;
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-size:larger;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  text-align: center;
+
+}
+
+.button:hover {
+  background-color: #1154b8; /* Darker Blue */
+}
+
+.littleButton {
+  background-color: #eeeeee; /* Blue */
+  color: black;
+  padding: 5px 10px;
+  border: solid thin;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.littleButton:hover {
+  background-color: #e0e0e0; /* Blue */
+}
+
+/*
+.dropdown {
+  position: relative;
+  display: inline-block;
+  background-color: #1289d8; 
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  color: black;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  padding: 12px 16px;
+  z-index: 1;
+}
+  
+.dropdown:hover .dropdown-content {
+  display: block;
+}'
+
+.dropdown-content:hover  {
+  display: block;
+  background-color: #eeeeee;
+}
+*/
+
+
+.dropbtn {
+  position: relative;
+  display: inline-block;
+  background-color: #1289d8; 
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+}
+
+/* Change color of dropdown links on hover */
+.dropdown-content a:hover {background-color: #eeeeee}
+
+/* Show the dropdown menu on hover */
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+/* Change the background color of the dropdown button when the dropdown content is shown */
+.dropdown:hover .dropbtn {
+  background-color: #135caf;
+}
+
+.button:disabled {
+  background-color: #c0c0c0;
+  cursor: not-allowed;
+}
