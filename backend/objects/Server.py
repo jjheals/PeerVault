@@ -22,7 +22,7 @@ in client_server_handshake we will have both unencrityed and encripted packets a
 
 Need to deciced if when we want to send keep alive packets for online clients 
 
-Need to finish the server_hello_message, decrypt_data, encrypt_data  funcality 
+Need to finish the server_hello_message, functionality 
 
 need to finish handle_network_request by adding the client requests 
     add the codes that will be needed for the clients 
@@ -63,6 +63,122 @@ class Server(object):
         self.server_on(self)
         self.server_shutdown(self)
         
+
+    
+# ____________________________________--encryption methods--___________________________________________
+    
+    def save_keys(private_key, public_key):
+        
+        with open("private.pem", "wb") as pem:
+            pem.write(private_key)
+
+        with open("public.pem", "wb") as pempub:
+            pempub.write(public_key)
+
+    def generate_keys(password):
+        key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=4096)
+
+        
+        private_key = key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            encryption_algorithm= serialization.BestAvailableEncryption(password)
+        )
+
+        public_key = key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        # generates a random 256 bit key... 
+        key = os.urandom(32)
+        iv = os.urandom(16)
+        AES_doer = Cipher(algorithms.AES(key), modes.CBC(iv))
+
+        save_keys(private_key, public_key)
+        
+        return AES_doer
+
+    def get_private_key(password):
+        try:
+            with open("private.pem", "rb") as key_file:
+                private_key = serialization.load_pem_private_key(
+                    data=key_file.read(),
+                    password=password, 
+                    backend=default_backend
+                )
+            return private_key
+        
+        except Exception as e:
+            print(f"Error opening PEM file: {e}")
+            return None
+        
+    def get_public_key():
+        try:
+            with open("public.pem", "rb") as key_file:
+                public_key = serialization.load_pem_public_key(
+                    data=key_file.read(),
+                    backend=default_backend
+                )
+            return public_key
+        
+        except Exception as e:
+            print(f"Error opening PEM file: {e}")
+            return None
+
+    def parse_data(file):
+        with open(file, "rb") as data:
+            parsed_data = data.read()  
+
+        return parsed_data
+
+    def RSA_encrypt(data, key):
+        cipher = key.encrypt(data,
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None
+                    )
+                )
+        return cipher
+
+    def RSA_decrypt(data, key):
+        message = key.decrypt(data,
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None  
+                    )
+                )
+
+        return message
+
+    def AES_encrypt(data, doer):
+        padder = c.hazmat.primitives.padding.PKCS7(128).padder()
+        padded_data = padder.update(data)
+        padded_data += padder.finalize()
+
+        encryptor = doer.encryptor()
+        cipher = encryptor.update(padded_data) + encryptor.finalize()
+        return cipher
+
+    def AES_decrypt(data, doer):
+        decryptor = doer.decryptor()
+        text = decryptor.update(data) + decryptor.finalize() 
+
+        unpadder = c.hazmat.primitives.padding.PKCS7(128).unpadder()
+        unpadded_data = unpadder.update(text)
+        unpadded_data += unpadder.finalize()
+        return  unpadded_data
+
+    # TODO -- this is untested...
+    def hashMessage(data):
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(data)
+        digest.finalize()
+        return digest
 
     '''
     Tasks: 
@@ -248,13 +364,16 @@ class Server(object):
         client_handshake_data = ""           
 
         # Start the identity check handshake 
-        self.logger.info("Starting Handshake with client (%s)", client_address)                                                     # Log req
-        passcode:str = self.generate_passcode(self)                                                                                 # Generate a passcode
-        outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, passcode))    # Encrypt the outgoing passcode
+        self.logger.info("Starting Handshake with client (%s)", client_address) 
+        # TODO --> change password mechanism
+        password = "CHANGEME"  
+        AESdoer = self.generate_keys(password)  
+        # TODO --> what is the message?
+        outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.AES_encrypt(data, AESdoer))    # Encrypt the outgoing passcode
         connection.send(outgoing_message.encode())                                                                                  # Send the encrypted passcode
         ciphertext_message:str = connection.recv(1024).decode()                                                                     # Wait for an incoming response
                                             # ^ we should change the above to the expected size of the packet we are going to get
-        client_handshake_data = self.decrypt_data(self.get_private_key(), ciphertext_message)                                       # Decrypt the incoming response
+        client_handshake_data = self.AES_decrypt( ciphertext_message, AESdoer)                                       # Decrypt the incoming response
 
         # Check that the client supplied the correct passcode
         if(passcode == client_handshake_data):
@@ -274,7 +393,8 @@ class Server(object):
             if client_public_key in all_peer_data:
                 if(all_peer_data[client_public_key]["allowed_to_receive"] == 1):   
                     self.logger.info("Client (%s) is allowed to send to this device", str(client_address))              # Log result
-                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "passed"))    # Encrypt the outgoing passcode
+                    # TODO --> what is the message?
+                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.AES_encrypt(data, AESdoer))    # Encrypt the outgoing passcode
                     connection.send(outgoing_message.encode())
                     return True                                                                                         # Return that peer passed       
     
@@ -283,7 +403,7 @@ class Server(object):
                     # DO SOMETHING ...
 
                     # Send message back to peer stating they they are in a waiting state
-                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, passcode))    # Encrypt the outgoing passcode
+                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.AES_encrypt(data, AESdoer))    # Encrypt the outgoing passcode
                     connection.send(outgoing_message.encode())                                                          # Send message
                     self.logger.info("Client (%s) is waiting approvel to send to this device", str(client_address))     # Log
 
@@ -296,7 +416,7 @@ class Server(object):
                 # DO SOMETHING ...
 
                 # Send message back to peer stating they they are in a waiting state
-                outgoing_message = self.encrypt_data(self, client_public_key, "waiting")                                # Encrypt message
+                outgoing_message = self.AES_encrypt(data, AESdoer)                                # Encrypt message
                 connection.send(outgoing_message.encode())                                                              # Send message
                 self.logger.info("New client (%s) is sending discovery message", str(client_address))                   # Log
                 return True                                                                                             # Return that peer passed       
@@ -304,24 +424,18 @@ class Server(object):
 
         # Client failed handshake 
         self.logger.info("Client (%s) failed the handshake", str(client_address))     # Log result
-        outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "failed"))    # Encrypt the outgoing passcode
+        outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.AES_encrypt(data, AESdoer))    # Encrypt the outgoing passcode
         connection.send(outgoing_message.encode())
         
         return False  
-    
-    def generate_passcode(self):
-        pass
 
-    def get_private_key():
-        pass 
-    def get_public_key():
-        pass 
 
-    def responde_identity_check(self, connection, client_address, client_public_key, ciphertext_message) -> bool:
+    def responde_identity_check(self, connection, client_address, client_public_key, ciphertext_message, AESdoer) -> bool:
 
         self.logger.info("Reviced passcode from client (%s)", str(client_address))                   # Log
         passcode_recived = self.decrypt_data(self.get_private_key, ciphertext_message)
-        outgoing_message:str = str(self.get_public_key() + self.encrypt_data(self, client_public_key, passcode_recived))
+        # TODO --> what is the message?
+        outgoing_message:str = str(self.get_public_key() + self.AES_encrypt(data, AESdoer))
         connection.send(outgoing_message.encode())                                                                                 # Send the encrypted passcode
 
         check_passed:str = connection.recv(1024).decode()                                                                     # Wait for an incoming response
@@ -444,136 +558,3 @@ class Server(object):
         self.thread_pool.shutdown(wait=True)
         
         self.logger.info("Server shutdown completed")
-
-
-
-# ____________________________________--encryption methods--___________________________________________
-    
-
-    @staticmethod
-    def generate_keys(password):
-        key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=4096)
-
-        
-        private_key = key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            encryption_algorithm= serialization.BestAvailableEncryption(password)
-        )
-
-        public_key = key.public_key().public_bytes(
-            serialization.Encoding.PEM,
-            serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-
-        # generates a random 256 bit key... 
-        key = os.urandom(32)
-        iv = os.urandom(16)
-        AES_doer = Cipher(algorithms.AES(key), modes.CBC(iv))
-        
-        return(public_key, private_key, AES_doer)
-
-
-    @staticmethod
-    def save_key(private_key, public_key):
-        
-        with open("private.pem", "wb") as pem:
-            pem.write(private_key)
-
-        with open("public.pem", "wb") as pempub:
-            pempub.write(public_key)
-
-
-    @staticmethod
-    def recover_private_key(password):
-        try:
-            with open("private.pem", "rb") as key_file:
-                private_key = serialization.load_pem_private_key(
-                    data=key_file.read(),
-                    password=password, 
-                    backend=default_backend
-                )
-            return private_key
-        
-        except Exception as e:
-            print(f"Error opening PEM file: {e}")
-            return None
-        
-
-    @staticmethod
-    def recover_public_key():
-        try:
-            with open("public.pem", "rb") as key_file:
-                public_key = serialization.load_pem_public_key(
-                    data=key_file.read(),
-                    backend=default_backend
-                )
-            return public_key
-        
-        except Exception as e:
-            print(f"Error opening PEM file: {e}")
-            return None
-
-
-    @staticmethod
-    def parse_data(file):
-        with open(file, "rb") as data:
-            parsed_data = data.read()  
-
-        return parsed_data
-
-
-
-    @staticmethod
-    def RSA_encrypt(data, key):
-        cipher = key.encrypt(data,
-                    padding.OAEP(
-                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                        algorithm=hashes.SHA256(),
-                        label=None
-                    )
-                )
-        return cipher
-
-
-    @staticmethod
-    def RSA_decrypt(data, key):
-        message = key.decrypt(data,
-                    padding.OAEP(
-                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                        algorithm=hashes.SHA256(),
-                        label=None  
-                    )
-                )
-
-        return message
-
-    @staticmethod
-    def AES_encrypt(data, doer):
-        padder = c.hazmat.primitives.padding.PKCS7(128).padder()
-        padded_data = padder.update(data)
-        padded_data += padder.finalize()
-
-        encryptor = doer.encryptor()
-        cipher = encryptor.update(padded_data) + encryptor.finalize()
-        return cipher
-
-    @staticmethod
-    def AES_decrypt(data, doer):
-        decryptor = doer.decryptor()
-        text = decryptor.update(data) + decryptor.finalize() 
-
-        unpadder = c.hazmat.primitives.padding.PKCS7(128).unpadder()
-        unpadded_data = unpadder.update(text)
-        unpadded_data += unpadder.finalize()
-        return  unpadded_data
-
-    # TODO -- this is untested...
-    def hashMessage(data):
-        digest = hashes.Hash(hashes.SHA256())
-        digest.update(data)
-        digest.finalize()
-        return digest
-
