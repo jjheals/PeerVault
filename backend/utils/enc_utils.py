@@ -103,11 +103,11 @@ def generate_asymm_keys(keysize:int, exp:int, prv_save_path:str, pub_save_path:s
     )
 
     # Save the keys 
-    os.makedirs(os.path.join('../', os.path.dirname(prv_save_path)), exist_ok=True)
-    os.makedirs(os.path.join('../', os.path.dirname(pub_save_path)), exist_ok=True)
+    os.makedirs(os.path.dirname(prv_save_path), exist_ok=True)
+    os.makedirs(os.path.dirname(pub_save_path), exist_ok=True)
 
-    with open(os.path.join('../', prv_save_path), 'w+') as file:
+    with open(prv_save_path, 'w+') as file:
         file.write(priv_key_str)
 
-    with open(os.path.join('../', pub_save_path), 'w+') as file: 
+    with open(pub_save_path, 'w+') as file: 
         file.write(pub_key_str)
