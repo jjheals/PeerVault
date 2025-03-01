@@ -1,9 +1,59 @@
 # Backend Documentation
 
-This is the documentation for the backend program. There are two main sections: 
+This is the documentation for the backend program. There are three main sections: 
 
+* [Setup](#setup): how to set up the backend program and install the required python packages.
 * [Flask app](#flask-app): handles the specific endpoints for communication between the react & flask apps via localhost AND the network communication between multiple peers on the network.
 * [Server Class](#server-class): contains the functions that execute specific requests on behalf of the flask app. 
+
+# Setup 
+
+*The following setup is required to run the backend program.*
+
+### Optional: create and activate a virtual environment
+
+*Linux/Unix/MacOS*
+
+*Create venv*
+```bash 
+# Create venv
+python -m venv venv
+
+# Activate venv
+source venv/bin/activate
+```
+
+*Windows*
+
+```bash 
+# Create venv
+python -m venv venv
+
+# Activate venv (cmd prompt)
+venv\Scripts\activate
+
+# Activate venv (PowerShell)
+venv\Scripts\Activate.ps1
+```
+
+If you receive a security error, first run:
+```bash
+# (PowerShell)
+Set-ExecutionPolicy Unrestricted -Scope Process
+```
+
+Then re-run:
+```bash
+# (PowerShell)
+venv\Scripts\Activate.ps1
+```
+
+### Required: install the required packages
+
+*Linux/Unix/MacOS/Windows*
+```bash 
+python -m pip install -r refs/requirements.txt
+```
 
 # Flask App
 
