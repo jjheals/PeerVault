@@ -1,6 +1,7 @@
 import logging 
 import socket
 import json
+import os
 import concurrent.futures 
 import uuid #mac address 
 from datetime import datetime #to get the current time 
@@ -38,7 +39,7 @@ class Server(object):
     
     DISC_CODE:str = "000"
     IDC_CODE:str = "001"
-    SEND_REQ_CODE:str = "101"
+    SHARE_REQ_CODE:str = "101"
     STORE_REQ_CODE:str = "102"
     DEL_FILE_CODE:str = "103"
     UPD_FILE_CODE:str = "104" 
@@ -171,10 +172,9 @@ class Server(object):
             if not incoming_message:
                 break
         
-        # TODO: Get the message code from the incoming_message
         message_code:str = incoming_message[0:3]
         client_public_key = incoming_message[3:3+self.key_length]
-        message = incoming_message[3+self.key_length:]
+        message = incoming_message[3+self.key_length:]  #might need to add 1 here to not get the last btye of the key 
 
         # Handle the message code appropriately
         match message_code: 
@@ -187,7 +187,7 @@ class Server(object):
  
                 # If ID check pass, handle the discovery request
                 if id_check_result: 
-                    self.handle_discovery_code(connection, client_public_key, incoming_message, client_address)
+                    self.handle_discovery_code(connection, client_public_key, message, client_address)
                 # If ID check failed, do not respond
                 else: 
                     pass
@@ -198,13 +198,13 @@ class Server(object):
                 self.responde_identity_check(self, connection, client_address, message) 
             
             # Handle send request code
-            case Server.SEND_REQ_CODE: 
+            case Server.SHARE_REQ_CODE: 
 
                 # Do identity check
-                id_check_result:bool = self.initiate_identity_check(connection, client_address)  
+                id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.SHARE_REQ_CODE)  
 
                 # If ID check pass, handle the discovery request
-                if id_check_result: self.handle_send_request( '''SOME ARGUMENTS ''' )
+                if id_check_result: self.handle_share_request(self, message)
                 
                 # If ID check failed, do not respond
                 else: pass
@@ -212,13 +212,10 @@ class Server(object):
             # Handle store request code
             case Server.STORE_REQ_CODE: 
                 # Do identity check
-                id_check_result:bool = self.initiate_identity_check(connection, client_address)  
+                id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.STORE_REQ_CODE)  
 
                 # If ID check pass, handle the discovery request
-                if id_check_result: self.handle_store_request(
-                    connection,
-                    remote_peer_pub_key
-                )
+                if id_check_result: self.handle_store_request(connection, client_public_key, message)
                 
                 # If ID check failed, do not respond
                 else: pass
@@ -226,14 +223,24 @@ class Server(object):
             # Handle delete file code
             case Server.DEL_FILE_CODE: 
                 # Do handshake
+                id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.DEL_FILE_CODE)  
+
                 # Delete the file from the system
-                pass
+                if id_check_result: self.handle_delete_request(connection, client_public_key, message)
+                # If ID check failed, do not respond
+                else: pass
+
             
             # Handle update file code
             case Server.UPD_FILE_CODE: 
                 # Do handshake
+                id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.UPD_FILE_CODE)  
+
                 # Update the file 
-                pass
+                if id_check_result: self.handle_store_request(connection, client_public_key, message)
+                # If ID check failed, do not respond
+                else: pass
+
             
             # Handle other (invalid) code
             case _: 
@@ -301,8 +308,8 @@ class Server(object):
                     self.logger.info("Client (%s) is not approved to send to this device", str(client_address))         # Log
 
             elif (code == self.DISC_CODE): 
-                # TODO: send notif to react app that we are waiting for approval or disapproval for the peer to send us something
-                # DO SOMETHING ...
+                # TODO: send notif to react app that we are waiting for approval or disapproval for the peer to send us something if approved then we need to make a folder for them in Stored_Files 
+                # DO SOMETHING ... 
 
                 # Send message back to peer stating they they are in a waiting state
                 outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "waiting"))    # Encrypt the outgoing passcode
@@ -362,9 +369,8 @@ class Server(object):
         with open('all-peers.json', 'r+') as file:
             all_peer_data = json.load(file) 
 
-        client_public_key   = client_handshake_data[3:self.key_length+3]
-        client_mac_address  = client_handshake_data[self.key_length+3:self.key_length+9]
-        client_common_name  = client_handshake_data[self.key_length+9:]            
+        client_mac_address  = client_handshake_data[0:6]
+        client_common_name  = client_handshake_data[6:]            
 
         # Check if we've seen this pub key before
         if client_public_key in all_peer_data:
@@ -408,22 +414,26 @@ class Server(object):
         self.discover_message(self, client_address)
     
 
-    def handle_send_request(self, new_data:dict) -> None: 
+    def handle_share_request(self, message) -> None: 
         """Handles a request from a remote peer to send a file to this peer.
         
         Tasks: 
-            - Check that the remote peer is allowed to send to this peer
-                - Send an "allowed" message to the remote peer (if allowed)
-                    - Send a "denied" message to the remote peer (if not allowed)
-                - If allowed, handle the next response from the remote peer with the file data 
-                    - Store the file appropriately
-                    - Update JSON with new metadata
-                    - Show the file to the react app/make available to react app ?? (not sure how this will happen yet)
+            - If allowed, handle the next response from the remote peer with the file data 
+                - Store the file appropriately
+                - Update JSON with new metadata
+                - Show the file to the react app/make available to react app ?? (not sure how this will happen yet)
         """
-        raise NotImplementedError
+
+        os.chdir("../../Stored_Files/Shared") # Moves the current directory back to the main peervault files and then moves forward to the stored files section
+        file_size = len(message)
+        file_name = message[0:100]
+
+        with open(file_name, "w") as file:
+            # Write text to the file
+            file.write(message[100:])
 
 
-    def handle_store_request(self, connection, remote_peer_pub_key:str) -> None: 
+    def handle_store_request(self, connection, client_public_key:str, message) -> None: 
         """Handles a request from a remote peer to store a file on this peer.
         
             Tasks: 
@@ -435,7 +445,89 @@ class Server(object):
                     - Update JSON with new metadata
         """
 
-        raise NotImplementedError
+        #dont know if the way that I am chaning the directory will work will need some testing 
+        try:
+            # Try to change the directory
+            os.chdir("../../Stored_Files/", client_public_key)
+            print(f"Changed to directory: {os.getcwd()}")
+        except FileNotFoundError:
+            # Create the directory if it doesn't exist
+            os.makedirs("../../Stored_Files/", client_public_key)
+            os.chdir("../../Stored_Files/", client_public_key)
+            print(f"Directory created and changed to: {os.getcwd()}")
+        except Exception as e:
+            # Handle other possible exceptions
+            print(f"An error occurred: {e}")
+
+
+
+        with open('all-peers.json', 'r') as file:
+            all_peer_data = json.load(file)
+
+        
+        file_name = message[0:100]
+        file_size = len(message) - 100
+
+        if(all_peer_data[client_public_key]["total_gb_storing_with"] + file_size 
+           < all_peer_data[client_public_key]["max_GB_allowed"]):
+            with open(file_name, "w") as file:
+                # Write text to the file
+                file.write(message[100:])
+            
+            # New entry to add
+            new_entry = {
+                "filename": file_name,
+                "hash": "newfilehash",
+                "size_gb": file_size,
+                "date_sent": datetime.date()
+            }
+
+            # Append the new entry to files_stored_with
+            all_peer_data[client_public_key]["files_stored_with"].append(new_entry)
+            connection.send("Stored")
+        else:
+            connection.send("File is to large: \n\tremaing storage: ", (all_peer_data[client_public_key]["max_GB_allowed"] - all_peer_data[client_public_key]["total_gb_storing_with"]))
+                    
+    def handle_delete_request(connection, client_public_key, message) -> None:
+        #dont know if the way that I am chaning the directory will work will need some testing 
+        try:
+            # Try to change the directory
+            os.chdir("../../Stored_Files/", client_public_key)
+            print(f"Changed to directory: {os.getcwd()}")
+        except FileNotFoundError:
+            # Create the directory if it doesn't exist
+            os.makedirs("../../Stored_Files/", client_public_key)
+            os.chdir("../../Stored_Files/", client_public_key)
+            print(f"Directory created and changed to: {os.getcwd()}")
+        except Exception as e:
+            # Handle other possible exceptions
+            print(f"An error occurred: {e}")
+
+
+
+        with open('all-peers.json', 'r') as file:
+            all_peer_data = json.load(file)
+
+        
+        file_name = message[0:100]
+        file_size = len(message) - 100
+
+        if(all_peer_data[client_public_key]["total_gb_storing_with"] + file_size 
+           < all_peer_data[client_public_key]["max_GB_allowed"]):
+            os.remove(file_name)
+            
+            all_peer_data[client_public_key]["files_stored_with"] = [entry for entry in all_peer_data["<some-public-key-Q>"]["files_stored_with"] if entry["filename"] != file_name]
+            connection.send("Deleted")
+        else:
+            connection.send("File failed to be deleted")
+        
+        
+
+    def handle_update_request(connection, client_public_key, message):
+        '''
+        This is going to be the same as store file as we are just overwriting the files
+        '''
+        pass
 
 
     def server_shutdown(self):
