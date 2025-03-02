@@ -7,20 +7,22 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { send } from "process";
 
+const PORT = 4303;
+
 const instance = axios.create({
   baseURL:
-    "http://localhost:5000",
+    "http://localhost:" + PORT.toString(),
 });
 
 export default function Home() {
     const [model, setModel] = React.useState(new Model())
     const [redraw, forceRedraw] = React.useState(0);
-    const [files, setFiles] = React.useState(undefined);
-    const [recipeint, setRecipient] = React.useState("");
+    const [files, setFiles] = React.useState([]);
+    const [recipient, setRecipient] = React.useState("");
     const [users, setUsers] = React.useState(undefined);
     const [identity, setIdentity] = React.useState();
     const [verfifiedUser, setVerifiedUser] = React.useState(false)
-    const [sendType, setSendType] = React.useState(undefined);
+    const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
 
 
@@ -61,20 +63,13 @@ export default function Home() {
 
 
     React.useEffect(() => {
-      if (!files) {
-        retreiveFilesToUpload(setFiles);
-        console.log("files:", files);
-      }
+      retreiveFilesToUpload(setFiles);
+      console.log("files:", files);
     }, [redraw]);
 
     React.useEffect(() => {
-      if (!formValid) {
         CheckFormValid();
-      }
-      else {
-        refresh();
-      }
-    }, [redraw]);
+    }, [recipient, sendType, files]);
 
     function FilesList(props: any) {
       if(!props.files) return;
@@ -101,8 +96,7 @@ export default function Home() {
 
     const selectRecipient = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setRecipient(event.target.value);
-      console.log(recipeint);
-      CheckFormValid();
+      console.log(recipient);
     };
     const router = useRouter();
 
@@ -110,7 +104,7 @@ export default function Home() {
       if (!props.users) return <div>Loading</div>;
       console.log("props:", props.users);
       return (
-        <select id="users" value={recipeint} onChange={selectRecipient}>
+        <select id="users" value={recipient} onChange={selectRecipient}>
           <option value="" disabled>Select an option</option>
 
           {props.users.map((users: any, index: any) => (
@@ -122,22 +116,18 @@ export default function Home() {
 
     const selectSendType = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setSendType(event.target.value);
-      CheckFormValid();
     };
 
     function CheckFormValid() {
-      var x = sendType;
-      var y = recipeint;
-      var z = files;
-      if ((sendType !== undefined) && (recipeint !== undefined) && (files !== undefined)) {
+      if (sendType !== "" && recipient !== "" && files.length > 0) {
         setFormValid(true);
-      }else{
+      } else {
         setFormValid(false);
       }
     };
 
     function uploadData() {  
-      var toUser = recipeint; 
+      var toUser = recipient; 
       var files:any = files;
       var sendMethod = sendType;
          
@@ -160,8 +150,8 @@ export default function Home() {
 
       //remove all of the data??
       setRecipient("")
-      setFiles(undefined)
-      setSendType(undefined)
+      setFiles([])
+      setSendType("")
     }
 
     return (
@@ -199,7 +189,7 @@ export default function Home() {
                       </div>
                       </div>
                     </div>
-                    {recipeint && <p>You selected: {recipeint}</p>}
+                    {recipient && <p>You selected: {recipient}</p>}
                   </div> 
                 </div>
 
@@ -220,7 +210,7 @@ export default function Home() {
                 <div className="itemCard">
                   <div className="itemCardLeftContent">
                     <div className="itemCardTitleText">Storage Type</div>
-                      <select value={sendType} onChange={selectSendType}>
+                      <select id="sendType" value={sendType} onChange={selectSendType}>
                         <option value="" disabled>Select an type</option>
                         <option value="share">Share</option>
                         <option value="store">Store</option>
