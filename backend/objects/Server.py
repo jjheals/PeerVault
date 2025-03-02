@@ -70,6 +70,13 @@ class Server(object):
         self.logger.info("Server start up begining")
 
         #check if the public and private keys exists
+        if(self.get_public_key() == "No Keys Found"):
+            self.logger.info("No public key found")
+            self.generate_keys(self)
+        elif (self.get_private_key() == "No Keys Found"):
+            self.logger.info("No private key found")
+            self.generate_keys(self)
+        
 
         #starts to build the network connections
         self.socket_connection.bind(self.IP_address, self.port)
@@ -87,6 +94,14 @@ class Server(object):
         self.logger.info("Server sent discover message")
 
         self.logger.info("Server start up completed")
+
+    def generate_keys(self):
+        '''
+        This is the function that is going to generate the public and priavte keys for the program
+        it will also remove a public or private key if the other pair is missing and make a new one
+
+        this could be a problem if someone was able to remove one
+        '''
 
 
     def discover_message(self, ip_address):
@@ -277,7 +292,7 @@ class Server(object):
                     # DO SOMETHING ...
 
                     # Send message back to peer stating they they are in a waiting state
-                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, passcode))    # Encrypt the outgoing passcode
+                    outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "waiting"))    # Encrypt the outgoing passcode
                     connection.send(outgoing_message.encode())                                                          # Send message
                     self.logger.info("Client (%s) is waiting approvel to send to this device", str(client_address))     # Log
 
@@ -290,7 +305,7 @@ class Server(object):
                 # DO SOMETHING ...
 
                 # Send message back to peer stating they they are in a waiting state
-                outgoing_message = self.encrypt_data(self, client_public_key, "waiting")                                # Encrypt message
+                outgoing_message:str = str(self.IDC_Code + self.get_public_key() + self.encrypt_data(self, client_public_key, "waiting"))    # Encrypt the outgoing passcode
                 connection.send(outgoing_message.encode())                                                              # Send message
                 self.logger.info("New client (%s) is sending discovery message", str(client_address))                   # Log
                 return True                                                                                             # Return that peer passed       
@@ -313,20 +328,20 @@ class Server(object):
 
     def responde_identity_check(self, connection, client_address, client_public_key, ciphertext_message) -> bool:
 
-        self.logger.info("Reviced passcode from client (%s)", str(client_address))                   # Log
+        self.logger.info("Reviced passcode from client (%s)", str(client_address))                           
         passcode_recived = self.decrypt_data(self.get_private_key, ciphertext_message)
         outgoing_message:str = str(self.get_public_key() + self.encrypt_data(self, client_public_key, passcode_recived))
         connection.send(outgoing_message.encode())                                                                                 # Send the encrypted passcode
 
         check_passed:str = connection.recv(1024).decode()                                                                     # Wait for an incoming response
         if(check_passed == "passed"):
-            self.logger.info("Passed identity check with client (%s)", str(client_address))                   # Log
+            self.logger.info("Passed identity check with client (%s)", str(client_address))                   
             return True
         else:
             '''
             send a message to the user that they are not approved to send to this user
             '''
-            self.logger.info("Failed identity check with client (%s)", str(client_address))                   # Log
+            self.logger.info("Failed identity check with client (%s)", str(client_address))
             return False
 
     def handle_discovery_code(self, connection, client_public_key:str, client_handshake_data:str, client_address:str) -> dict: 
