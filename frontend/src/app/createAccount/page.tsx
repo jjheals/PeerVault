@@ -4,6 +4,14 @@ import React from "react";
 import { Model } from "@/model";
 import { useRouter} from "next/navigation";
 import fs from "fs";
+import axios from "axios";
+
+const PORT = 4303;
+
+const instance = axios.create({
+  baseURL:
+    "http://localhost:" + PORT.toString(),
+});
 
 export default function Home() {
     const [model, setModel] = React.useState(new Model())
@@ -25,7 +33,20 @@ export default function Home() {
     
         try 
         {
-          const response = await fetch("http://localhost:5000/signup", {
+          // instance
+          // .post("/signup", {
+          //   username: username
+          // })
+          // .then(function(response) {
+          //   const data = response.data;
+          //   alert(data.message);
+          //   setUsername("");
+          // })
+          // .catch(function (error) {
+          //   console.log(error);
+          // });
+          
+          const response = await fetch("http://localhost:4303/signup", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username }),

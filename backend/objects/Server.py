@@ -88,14 +88,13 @@ class Server(object):
 
         self.logger.info("Server start up completed")
 
-    '''
-    Tasks: 
-        - Set up the script to run so that we can allow multicast connections on the device 
-    '''
+
     def discover_message(self, ip_address):
 
         '''
         Send a discover message to the ip_address
+
+        When handshake is started it might try and send a message back to this method which would have closed already ... Will need to do testing
         '''
 
         #will need to pass this along to the multicast port when requested and send as a response to the multicast ip 
@@ -105,9 +104,10 @@ class Server(object):
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect(ip_address)
             s.sendall(message.encode())
-            
+            self.logger.info("Sent discover message to IP: %s", str(ip_address))
+
         except socket.error as e:
-            print(f"Socket error: {e}")
+            self.logger.info("Failed to send discover message to IP: %s", str(ip_address))           
 
         finally:
             # Close the socket
@@ -159,6 +159,7 @@ class Server(object):
         # TODO: Get the message code from the incoming_message
         message_code:str = incoming_message[0:3]
         client_public_key = incoming_message[3:3+self.key_length]
+        message = incoming_message[3+self.key_length:]
 
         # Handle the message code appropriately
         match message_code: 
@@ -179,7 +180,7 @@ class Server(object):
             # Handle identity check code
             case Server.IDC_CODE: 
                 # Complete incoming req for an identity check
-                pass 
+                self.responde_identity_check(self, connection, client_address, message) 
             
             # Handle send request code
             case Server.SEND_REQ_CODE: 
@@ -310,6 +311,23 @@ class Server(object):
     def get_public_key():
         pass 
 
+    def responde_identity_check(self, connection, client_address, client_public_key, ciphertext_message) -> bool:
+
+        self.logger.info("Reviced passcode from client (%s)", str(client_address))                   # Log
+        passcode_recived = self.decrypt_data(self.get_private_key, ciphertext_message)
+        outgoing_message:str = str(self.get_public_key() + self.encrypt_data(self, client_public_key, passcode_recived))
+        connection.send(outgoing_message.encode())                                                                                 # Send the encrypted passcode
+
+        check_passed:str = connection.recv(1024).decode()                                                                     # Wait for an incoming response
+        if(check_passed == "passed"):
+            self.logger.info("Passed identity check with client (%s)", str(client_address))                   # Log
+            return True
+        else:
+            '''
+            send a message to the user that they are not approved to send to this user
+            '''
+            self.logger.info("Failed identity check with client (%s)", str(client_address))                   # Log
+            return False
 
     def handle_discovery_code(self, connection, client_public_key:str, client_handshake_data:str, client_address:str) -> dict: 
         """Handles a discovery request.
