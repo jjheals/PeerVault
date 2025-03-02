@@ -1,0 +1,76 @@
+{
+    "<some-public-key-Q>": {
+        "online": true,
+        "allowed_to_receive": 0,
+        "most_recent_ip": "192.168.4.6",
+        "common_name": "quentin",
+        "mac_last_four": "12:45",
+        "have_shared_before": 12,
+        "currently_storing_with": 32,
+        "total_gb_storing_with": 3,
+        "currently_storing_for": 21,
+        "total_gb_storing_for": 2,
+        "files_stored_with": [
+            {
+                "filename": "somefilename.txt",
+                "hash": "somefilehash",
+                "size_gb": 5,
+                "date_sent": "2025-01-25"
+            },
+            {
+                "filename": "somefilename-2.csv",
+                "hash": "somefilehash2",
+                "size_gb": 1,
+                "date_sent": "2025-02-26"
+            }
+        ]
+    },
+
+    "<some-public-key-L>": {
+        "online": true,
+        "allowed_to_receive": 1,
+        "most_recent_ip": "192.168.4.3",
+        "common_name": "lily",
+        "mac_last_four": "E5:Y6",
+        "have_shared_before": 12,
+        "currently_storing_with": 32,
+        "total_gb_storing_with": 3,
+        "currently_storing_for": 21,
+        "total_gb_storing_for": 2,
+        "files_stored_with": [
+            {
+                "filename": "somefilename.xlsx",
+                "hash": "somefilehash",
+                "size_gb": 5,
+                "date_sent": "2025-01-25"
+            }
+        ]
+    },
+
+    "<some-public-key-D>": {
+        "online": false,
+        "allowed_to_receive": -1,
+        "most_recent_ip": "192.168.4.4",
+        "common_name": "dan",
+        "mac_last_four": "12:45",
+        "have_shared_before": 12,
+        "currently_storing_with": 1,
+        "total_gb_storing_with": 32,
+        "currently_storing_for": 4,
+        "total_gb_storing_for": 5,
+        "files_stored_with": [
+            {
+                "filename": "somefilename.txt",
+                "hash": "somefilehash",
+                "size_gb": 5,
+                "date_sent": "2025-01-25"
+            },
+            {
+                "filename": "somefilename-2.db",
+                "hash": "somefilehash2",
+                "size_gb": 1,
+                "date_sent": "2025-02-26"
+            }
+        ]
+    }
+}
