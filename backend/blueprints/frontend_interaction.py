@@ -4,7 +4,7 @@ import json
 import pandas as pd
 
 from utils import filter_args
-
+from .funcs import require_localhost
 
 # ---- Config & init ---- #
 # Create blueprint
@@ -12,7 +12,8 @@ fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
 
 
 # ---- Add endpoints ---- #
-@fi_bp.route('/api/get-peer-list', methods=['GET'])
+@fi_bp.route('/ui/get-peer-list', methods=['GET'])
+@require_localhost
 def get_peer_list(): 
     ''' 
         DESC: endpoint to get the current state of the peer list JSON file.
@@ -53,9 +54,9 @@ def get_peer_list():
 
     # Filter the request's args to just those that match the formats in expected_args
     given_args:dict = filter_args(expected_args, request)
-    
+
     # Read the current all-peers.json file
-    with open('peer-data/all-peers.json', 'r') as file: 
+    with open('peer_storage/all-peers.json', 'r') as file: 
         all_peers:dict[str, dict[str, any]] = json.load(file)
 
         # Convert to df for easier filtering and returning 
@@ -72,7 +73,8 @@ def get_peer_list():
     return jsonify(filtered_peers_df.to_dict(orient='records'))
 
 
-@fi_bp.route('/api/get-stored-files', methods=['GET'])
+@fi_bp.route('/ui/get-stored-files', methods=['GET'])
+@require_localhost
 def get_all_stored_files(): 
     '''
         DESC: returns the info for all files that the user is currently storing on other peers that 
