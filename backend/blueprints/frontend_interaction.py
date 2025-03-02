@@ -54,9 +54,9 @@ def get_peer_list():
 
     # Filter the request's args to just those that match the formats in expected_args
     given_args:dict = filter_args(expected_args, request)
-    
+
     # Read the current all-peers.json file
-    with open('peer-data/all-peers.json', 'r') as file: 
+    with open('peer_storage/all-peers.json', 'r') as file: 
         all_peers:dict[str, dict[str, any]] = json.load(file)
 
         # Convert to df for easier filtering and returning 

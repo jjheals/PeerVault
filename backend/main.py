@@ -76,7 +76,7 @@ CORS(
 # Add logging before & after requests
 @app.before_request
 def before_request(): 
-    print(f'\n\033[92mINCOMING REQUEST: \033[0m\n\n\tMETHOD: {request.method}\n\tPATH: {request.path}\n\tARGS: {request.args}')
+    print(f'\n\033[92mINCOMING REQUEST: \033[0m\n\n\tADDRESS: {request.remote_addr}\033[0m\n\tMETHOD: {request.method}\n\tPATH: {request.path}\n\tARGS: {request.args}')
     
 @app.after_request
 def after_request(response):    
