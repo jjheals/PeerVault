@@ -1,9 +1,9 @@
 
-from flask import Blueprint, jsonify, g, request, abort
+from flask import Blueprint, jsonify, g, current_app, request, abort
 import json 
 import pandas as pd
 
-from utils import filter_args
+from utils import filter_args, load_key
 from .funcs import require_localhost
 
 # ---- Config & init ---- #
@@ -143,3 +143,33 @@ def get_all_stored_files():
         
     # Return the filtered entries
     return jsonify(filtered_entries)
+
+
+@fi_bp.route('/ui/whoami', methods=['GET'])
+@require_localhost
+def whoami(): 
+    """
+        DESC: returns all info about this user account (i.e. info stored in the config/identity.json file
+        plus the user's public key).
+        
+        RETURNS: 
+            (dict) a JSON object with all the information about this user account.
+    """
+    
+    # Load the identity JSON 
+    with open('config/identity.json', 'r') as file: 
+        identity_dict:dict = json.load(file)
+                
+    # Load this user's public key
+    pub_key:str = load_key(
+        current_app.enc_config['paths']['PUB_KEY_PATH'],
+        'public'
+    )
+        
+    # Add the public key to the identity dict
+    identity_dict['pub-key'] = pub_key
+    
+    # Jsonify and return
+    return jsonify(identity_dict)
+
+    
