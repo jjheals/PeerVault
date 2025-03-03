@@ -22,7 +22,7 @@ def get_peer_list():
             
             online (int<0|1>) - filter by if the peers are active or not
             allowed_to_receive (int<-1|0|1) - filter by the status of allowed_to_receive from peers 
-            public_key (str) - filter by public key
+            peer_pub_key (str) - filter by public key
             most_recent_ip (str) - filter by the most recently known IP for peers
             common_name (str) - filter by common name 
             mac_last_four (str) - filter by the last four of the MAC for peers
@@ -47,7 +47,7 @@ def get_peer_list():
     expected_args:dict = {
         'online': int,
         'common_name': str,
-        'public_key': str,
+        'peer_pub_key': str,
         'allowed_to_receive': int,
         'most_recent_ip': str,
         'mac_last_four': str
@@ -56,12 +56,8 @@ def get_peer_list():
     # Filter the request's args to just those that match the formats in expected_args
     given_args:dict = filter_args(expected_args, request)
 
-    # Read the current all-peers.json file
-    with open('peer_storage/all-peers.json', 'r') as file: 
-        all_peers:dict[str, dict[str, any]] = json.load(file)
-
-        # Convert to df for easier filtering and returning 
-        all_peers_df:pd.DataFrame = pd.DataFrame.from_dict(all_peers, orient='index').reset_index().rename(columns={'index': 'public_key'})
+    # Read the current all-peers.csv file as a df
+    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
         
     # Filter the df using AND logic
     filtered_peers_df:pd.DataFrame = all_peers_df.copy()
@@ -74,14 +70,14 @@ def get_peer_list():
     return jsonify(filtered_peers_df.to_dict(orient='records'))
 
 
-@fi_bp.route('/ui/get-stored-files', methods=['GET'])
+@fi_bp.route('/ui/get-stored-with-info', methods=['GET'])
 @require_localhost
-def get_all_stored_files(): 
+def get_stored_with_info(): 
     '''
-        DESC: returns the info for all files that the user is currently storing on other peers that 
-        match the provided filters. 
-        
+        DESC: returns the info for all files that the user is currently storing with other peers (i.e. that other peers are storing for this user).
+
         ARGS: 
+            
             online (int<0|1>) - filter by if the peers are active or not
             allowed_to_receive (int<-1|0|1) - filter by the status of allowed_to_receive from peers 
             public_key (str) - filter by public key
@@ -105,7 +101,7 @@ def get_all_stored_files():
     expected_args:dict = {
         'online': int,
         'common_name': str,
-        'public_key': str,
+        'peer_public_key': str,
         'allowed_to_receive': int,
         'most_recent_ip': str,
         'mac_last_four': str
@@ -114,36 +110,32 @@ def get_all_stored_files():
     # Filter the request's args to just those that match the formats in expected_args
     given_args:dict = filter_args(expected_args, request)
     
-    # Read the current all-peers.json file
-    with open('peer-data/all-peers.json', 'r') as file: 
-        all_peers:dict[str, dict[str, any]] = json.load(file)
+    # Read the current all-peers.csv file as a df
+    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
 
-        # Convert to df for easier filtering and returning 
-        all_peers_df:pd.DataFrame = pd.DataFrame.from_dict(all_peers, orient='index').reset_index().rename(columns={'index': 'public_key'})
-        
-    # Filter the df using AND logic
+    # Filter the all_peers_df using AND logic
     filtered_peers_df:pd.DataFrame = all_peers_df.copy()
     
     for arg,val in given_args.items(): 
         if val != '' and val != None: 
             filtered_peers_df = filtered_peers_df[filtered_peers_df[arg] == val]
+    
+    # Read the current "currently-storing-with.csv" file as a df
+    curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
 
-    print(filtered_peers_df.head())
+    # Join the filtered_peers_df with the curr_storing_with_df on "peer_pub_key"
+    joined_filtered_df:pd.DataFrame = pd.merge(
+        filtered_peers_df[['peer_pub_key', 'common_name']],
+        curr_storing_with_df,
+        how='right',
+        on='peer_pub_key'
+    )
     
-    # Extract the "files_stored_with" col from the filtered df and reorient to include the pub key and common name
-    filtered_entries:dict = {}
-    
-    for _, row in filtered_peers_df.iterrows(): 
-        
-        # Create a new entry for this row
-        filtered_entries[row['public_key']] = {
-            'common_name': row['common_name'],
-            'mac_last_four': row['mac_last_four'],
-            'files_stored_with': row['files_stored_with']
-        }
-        
     # Return the filtered entries
-    return jsonify(filtered_entries)
+    return jsonify({
+        'matched-peers': filtered_peers_df.to_dict(orient='records'),
+        'matched-files': joined_filtered_df.to_dict(orient='records')
+    })
 
 
 @fi_bp.route('/ui/whoami', methods=['GET'])
@@ -198,9 +190,7 @@ def signup():
     # Load the current identity json file
     with open('config/identity.json', 'r') as file: 
         identity_dict:dict = json.load(file)
-        
-    print('curr identity dict: ', identity_dict)
-    
+            
     # Check if there is already a common name for this user (i.e. they already have an account)
     if identity_dict['common-name']: 
         
@@ -223,11 +213,8 @@ def signup():
     identity_dict['common-name'] = new_common_name
     
     # Get the device's MAC anad store in the identity dict
-    print('getting mac')
     identity_dict['mac'] = get_mac_address() 
-    
-    print('new identity dict: ', identity_dict)
-    
+        
     # Save the updated identity dict
     with open('config/identity.json', 'w+') as file: 
         json.dump(identity_dict, file, indent=4)
