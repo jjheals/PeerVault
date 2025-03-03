@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, g, current_app, request, abort
 import json 
 import pandas as pd
 
-from utils import filter_args, load_key
+from utils import filter_args, load_key, get_mac_address
 from .funcs import require_localhost
 
 # ---- Config & init ---- #
@@ -39,6 +39,7 @@ def get_peer_list():
             - 200 | successful: (dict) an array JSON object where each value is a dictionary containing the information for a single
             peer, and where the returned values match the given criteria.
             - 400 | bad request: if the client supplies an unsupported method or some other error in the client's request.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | server error: if some unexpected error occurs during server-side processing of the request.
     '''
     
@@ -153,7 +154,9 @@ def whoami():
         plus the user's public key).
         
         RETURNS: 
-            (dict) a JSON object with all the information about this user account.
+            - 200 | successful: (dict) a JSON object with all the information about this user account.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
     """
     
     # Load the identity JSON 
@@ -172,4 +175,64 @@ def whoami():
     # Jsonify and return
     return jsonify(identity_dict)
 
+
+@fi_bp.route('/ui/signup', methods=['POST']) 
+@require_localhost
+def signup(): 
+    """
+        DESC: endpoint to create a new account.
+        
+        REQ BODY: 
+            The request body should look like: 
+                {
+                    "common-name": "<new common name>"
+                }
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object that contains the info for the newly submitted request.
+            - 400 | bad request: if the user fails to supply the required data.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 409 | conflict: if the user already has an account created.
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+
+    # Load the current identity json file
+    with open('config/identity.json', 'r') as file: 
+        identity_dict:dict = json.load(file)
+        
+    print('curr identity dict: ', identity_dict)
+    
+    # Check if there is already a common name for this user (i.e. they already have an account)
+    if identity_dict['common-name']: 
+        
+        # User already has an account
+        abort(409)
+    
+    # Extract the body from the request     
+    request_body:dict = request.get_json()
+        
+    # Extract the required keys
+    new_common_name:str = request_body.get('common-name', None)
+    
+    # Check that the required keys were given
+    if not new_common_name: 
+        
+        # Bad request (missing info) 
+        abort(400) 
+        
+    # Update the identity dict with the new common name
+    identity_dict['common-name'] = new_common_name
+    
+    # Get the device's MAC anad store in the identity dict
+    print('getting mac')
+    identity_dict['mac'] = get_mac_address() 
+    
+    print('new identity dict: ', identity_dict)
+    
+    # Save the updated identity dict
+    with open('config/identity.json', 'w+') as file: 
+        json.dump(identity_dict, file, indent=4)
+        
+    # Return the newly stored info
+    return jsonify(identity_dict)
+    
     

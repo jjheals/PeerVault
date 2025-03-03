@@ -1,10 +1,18 @@
 from flask import Request
 import datetime as dt
+import uuid
 
 
 def now() -> str: 
     """Returns the current time as a string for debugging."""
     return dt.datetime.now().strftime('%H:%M:%S')
+
+
+
+def get_mac_address() -> str:
+    """Returns the device's MAC address in the format "AB:CD:EF:GH:00"."""
+    mac = uuid.getnode()
+    return ':'.join(f'{(mac >> i) & 0xff:02x}' for i in range(0, 48, 8))
 
 
 def filter_args(expected_args:dict[str,type], request:Request) -> dict: 
