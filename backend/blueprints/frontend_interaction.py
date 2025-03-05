@@ -42,7 +42,6 @@ def get_peer_list():
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | server error: if some unexpected error occurs during server-side processing of the request.
     '''
-    
     # Define expected args for easy checks of given args and their types
     expected_args:dict = {
         'online': int,
@@ -65,6 +64,8 @@ def get_peer_list():
     for arg,val in given_args.items(): 
         if val != '' and val != None: 
             filtered_peers_df = filtered_peers_df[filtered_peers_df[arg] == val]
+
+    print(filtered_peers_df.to_dict(orient='records'))
         
     # Return the filtered list of peers
     return jsonify(filtered_peers_df.to_dict(orient='records'))
@@ -163,7 +164,7 @@ def whoami():
         
     # Add the public key to the identity dict
     identity_dict['pub-key'] = pub_key
-    
+
     # Jsonify and return
     return jsonify(identity_dict)
 

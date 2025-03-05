@@ -32,7 +32,7 @@ export default function Home() {
         }        
           React.useEffect(() =>{
             instance
-            .post("/signup", { data: username})
+            .post("/ui/signup", { data: username})
             .then(function (response){
                 console.log(response);
                 alert(response.data.message);

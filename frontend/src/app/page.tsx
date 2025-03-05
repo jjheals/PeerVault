@@ -17,9 +17,9 @@ const instance = axios.create({
 export default function Home() {
     const [model, setModel] = React.useState(new Model())
     const [redraw, forceRedraw] = React.useState(0);
-    const [files, setFiles] = React.useState([]);
+    const [files, setFiles] = React.useState<any[]>([]);
     const [recipient, setRecipient] = React.useState("");
-    const [users, setUsers] = React.useState(undefined);
+    const [users, setUsers] = React.useState<any[]>([]);
     const [identity, setIdentity] = React.useState();
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
@@ -33,11 +33,9 @@ export default function Home() {
 
     React.useEffect(() =>{
       instance
-      .get("/users")
+      .get("/ui/get-peer-list'")
       .then(function (response){
-        // The response is the response of the get request
-        console.log("ret: ", response.data.users);
-        setUsers(response.data.users);
+        setUsers(response["data"]);
       })
       .catch (function (error) {
         console.log("errored:", error)
@@ -46,13 +44,14 @@ export default function Home() {
 
 
 
+    // Get the identity of the User on this device...
     React.useEffect(() =>{
       instance
-      .get("/whoAmI")
+      .get("/ui/whoami")
       .then(function (response){
-        console.log("me: ", response.data.identity);
-        setIdentity(response.data.identity);
-        if (response.data.identity != "Guest") {
+        console.log("me: ", response["data"]["common-name"]);
+        setIdentity(response["data"]["common-name"]);
+        if (response["data"]["common-name"] != "Guest") {
           setVerifiedUser(true);
         }
       })
@@ -62,15 +61,21 @@ export default function Home() {
     }, [redraw]);
 
 
+    // store the uploaded files
     React.useEffect(() => {
       retreiveFilesToUpload(setFiles);
       console.log("files:", files);
     }, [redraw]);
 
+
+    // check if th upload functionality should be enabled
     React.useEffect(() => {
         CheckFormValid();
     }, [recipient, sendType, files]);
 
+
+    // allow the user to REMOVE a file that has been selected from the list
+    // TODO -- implementation does NOT work
     const removeFile = (removed:any) =>{
       console.log("button Clicked");
 
@@ -90,6 +95,8 @@ export default function Home() {
       setFiles(fileList)
     }
 
+
+    // display the list of files selected to be shared or sent
     function FilesList(props: any) {
       if(!props.files) return;
 
@@ -106,20 +113,28 @@ export default function Home() {
       )
     }
 
+
+    // stores the value for the files that have been selected
     function handleFilesSelect(event: any) {
       filesSelectController(model, event.target.files, refresh);
     }
 
+
+    // get files & info from device 
     function retreiveFilesToUpload(setFiles: any) {
       setFiles(model.getFilesToUpload());
     }
 
+    // stores the value for the recipient of the share
     const selectRecipient = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setRecipient(event.target.value);
       console.log(recipient);
     };
     const router = useRouter();
 
+
+    // display the users that we are available to share/store with
+    // TODO -- does NOT work... --> not interfaced with the new flask backend correctly... -->
     function DisplayUsers(props: any) {      
       if (!props.users) return <div>Loading</div>;
       console.log("props:", props.users);
@@ -134,10 +149,14 @@ export default function Home() {
       )
     }
 
+
+    // stores the value for the type of file upload (share/store)
     const selectSendType = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setSendType(event.target.value);
     };
 
+
+    // checks if there is data selected for recipient, files selected AND a send type
     function CheckFormValid() {
       if (sendType !== "" && recipient !== "" && files.length > 0) {
         setFormValid(true);
@@ -146,6 +165,9 @@ export default function Home() {
       }
     };
 
+
+    // send the request to store 
+    // TODO --> not implemented...
     function uploadData() {  
       var toUser = recipient; 
       var files:any = files;
@@ -174,19 +196,38 @@ export default function Home() {
       setSendType("")
     }
 
+
+    // explicitely call user list
+    function getUsers() { 
+      instance
+      .get("/ui/get-peer-list")
+      .then(function (response){
+        var peer_array = response["data"]
+        var peer_names = []
+        for(var i = 0; i < peer_array.length; i++){
+          peer_names[i] = peer_array[i]["common_name"]
+        }
+        setUsers(peer_names);
+      })
+      .catch (function (error) {
+        console.log("errored:", error)
+      });
+    }
+
+    // The application front end code to render
     return (
       <div>
       <div className="header">
         <div className="header-row">
           <div className="titleText">PeerVault</div>
-          {!verifiedUser && (
-            <div className="subtitleText">Please Log In!</div>
-          )}
+
           {verifiedUser && (
             <div className="subtitleText">Welcome, {identity}!</div>
           )}
-          {!verifiedUser && (
-            <div className="header-options-row">
+
+          {!verifiedUser && (            
+            <div className="header-options-row">            
+              <div className="subtitleText">Please Log In!</div>
               <button onClick={()=> router.push("/createAccount/")}>
                 <div className="header-button-text-option-two">Create Account</div>
               </button>
@@ -194,65 +235,65 @@ export default function Home() {
           )}
           
         </div>
-      </div>
-        {verifiedUser && (
-          <div>
-          <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
-          
-            <div className="ItemContainer">
-              <div className="itemContainerContent">
-                <div className="itemCard">
+        </div>
+          {verifiedUser && (
+            <div>
+              <button className="button" onClick={() => getUsers()}>refresh user list</button>
+            <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+            
+              <div className="ItemContainer">
+                <div className="itemContainerContent">
+                  <div className="itemCard">
 
-                  <div className="itemCardLeftContent">
-                    <div className="itemCardTitleText">Select a Person to Share With</div>
-                    <div className="dropdown">
-                      <button className="dropbtn">Possible Recipients</button>
-                      <div className="dropdown-content">
-                      <div>
-                        <label htmlFor="users">Choose a user: </label>
-                        <DisplayUsers users={users}/>
+                    <div className="itemCardLeftContent">
+                      <div className="itemCardTitleText">Select a Person to Share With</div>
+                      <div className="dropdown">
+                        <button className="dropbtn">Possible Recipients</button>
+                        <div className="dropdown-content">
+                        <div>
+                          <label htmlFor="users">Choose a user: </label>
+                          <DisplayUsers users={users}/>
+                        </div>
+                        </div>
                       </div>
-                      </div>
-                    </div>
-                    {recipient && <p>You selected: {recipient}</p>}
-                  </div> 
-                </div>
-
-
-                <div className="itemCard">
-                  <div className="itemCardLeftContent">
-                    <div className="itemCardTitleText">Select Files to Share</div>
-                    <p>
-                      <input type="file" multiple onChange={handleFilesSelect}/>
-                    </p>
-                    <div>
-                      <FilesList files={files}/>
-                    </div>
-                  </div> 
-                </div>
-
-
-                <div className="itemCard">
-                  <div className="itemCardLeftContent">
-                    <div className="itemCardTitleText">Storage Type</div>
-                      <select id="sendType" value={sendType} onChange={selectSendType}>
-                        <option value="" disabled>Select an type</option>
-                        <option value="share">Share</option>
-                        <option value="store">Store</option>
-                      </select>
-                      
-                      {sendType && <p>You selected: {sendType}</p>}
+                      {recipient && <p>You selected: {recipient}</p>}
+                    </div> 
                   </div>
-                </div> 
 
-                <div className="itemCard">
-                  <button className="button" onClick={()=> uploadData()} disabled={!formValid}>Upload</button>
+
+                  <div className="itemCard">
+                    <div className="itemCardLeftContent">
+                      <div className="itemCardTitleText">Select Files to Share</div>
+                      <p>
+                        <input type="file" multiple onChange={handleFilesSelect}/>
+                      </p>
+                      <div>
+                        <FilesList files={files}/>
+                      </div>
+                    </div> 
+                  </div>
+
+
+                  <div className="itemCard">
+                    <div className="itemCardLeftContent">
+                      <div className="itemCardTitleText">Storage Type</div>
+                        <select id="sendType" value={sendType} onChange={selectSendType}>
+                          <option value="" disabled>Select an type</option>
+                          <option value="share">Share</option>
+                          <option value="store">Store</option>
+                        </select>
+                        {sendType && <p>You selected: {sendType}</p>}
+                    </div>
+                  </div> 
+
+                  <div className="itemCard">
+                    <button className="button" onClick={()=> uploadData()} disabled={!formValid}>Upload</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    )
+          )}
+        </div>
+      )
 
-}
+  }
