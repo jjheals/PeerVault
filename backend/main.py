@@ -1,4 +1,3 @@
-
 # Third-party imports
 from flask import Flask, g, request, current_app
 from flask_compress import Compress

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { send } from "process";
 
-const PORT = 4303;
+const PORT = 8000;
 
 const instance = axios.create({
   baseURL:
@@ -21,7 +21,7 @@ export default function Home() {
     const [recipient, setRecipient] = React.useState("");
     const [users, setUsers] = React.useState(undefined);
     const [identity, setIdentity] = React.useState();
-    const [verfifiedUser, setVerifiedUser] = React.useState(false)
+    const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
 
@@ -71,6 +71,25 @@ export default function Home() {
         CheckFormValid();
     }, [recipient, sendType, files]);
 
+    const removeFile = (removed:any) =>{
+      console.log("button Clicked");
+
+      var fileList = files;
+      var fileToRemove = 0;
+
+      removed = removed.name;
+
+      for(let i = 0; i < fileList.length; i++){
+        if (fileList[i].name == removed){
+          fileToRemove = i;
+        }
+      }
+      console.log("file to remove:", fileToRemove);
+
+      fileList[fileToRemove] = fileList[fileList.length]
+      setFiles(fileList)
+    }
+
     function FilesList(props: any) {
       if(!props.files) return;
 
@@ -79,7 +98,8 @@ export default function Home() {
           <label>Total Size of Files: {model.getTotalStorage().toString()}</label>
           {props.files.map((file: any, index: any) => (
             <p key={index}>
-              <label>{file.name} - {file.size}B</label>
+              <label>{file.name} - {file.size}B </label>
+              <button className= "redButton" onClick={() =>removeFile(file)} >X</button>
             </p>
           ))}
         </div>
@@ -159,8 +179,13 @@ export default function Home() {
       <div className="header">
         <div className="header-row">
           <div className="titleText">PeerVault</div>
-          <div className="subtitleText">Welcome, {identity}!</div>
-          {!verfifiedUser && (
+          {!verifiedUser && (
+            <div className="subtitleText">Please Log In!</div>
+          )}
+          {verifiedUser && (
+            <div className="subtitleText">Welcome, {identity}!</div>
+          )}
+          {!verifiedUser && (
             <div className="header-options-row">
               <button onClick={()=> router.push("/createAccount/")}>
                 <div className="header-button-text-option-two">Create Account</div>
@@ -170,7 +195,7 @@ export default function Home() {
           
         </div>
       </div>
-        {verfifiedUser && (
+        {verifiedUser && (
           <div>
           <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
           

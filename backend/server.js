@@ -52,7 +52,6 @@ app.get("/whoAmI", (req, res) => {
           if (err)
               console.log(err);
           });
-
       if(username == ""){
           res.json({ identity: "Guest" });
       }
@@ -64,6 +63,7 @@ app.get("/whoAmI", (req, res) => {
 });
 
 app.get("/uploadData", (req, res) => {
+  concole.log({"incoming message" : req});
   res.status(200);
 });
 
