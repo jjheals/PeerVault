@@ -68,6 +68,11 @@ CORS(
     supports_credentials=True
 )  
 
+# Add all the configs to the app so they are accessible in the blueprints
+app.flask_config = flask_config
+app.enc_config = enc_config
+app.mcast_config = mcast_config
+
 # Init a server obj and tie it to the flask app
 #server:Server = Server()
 #app.server = server

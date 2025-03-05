@@ -1,0 +1,51 @@
+{
+    "matched-peers": [
+        {
+            "peer_pub_key": "<some-public-key-Q>",
+            "online": true,
+            "allowed_to_receive": 0,
+            "most_recent_ip": "192.168.4.6",
+            "common_name": "quentin",
+            "mac_last_four": "12:45"
+        },
+        {
+            "peer_pub_key": "<some-public-key-L>",
+            "online": true,
+            "allowed_to_receive": 1,
+            "most_recent_ip": "192.168.4.3",
+            "common_name": "lily",
+            "mac_last_four": "E5:Y6"
+        },
+        {
+            "peer_pub_key": "<some-public-key-D>",
+            "online": false,
+            "allowed_to_receive": -1,
+            "most_recent_ip": "192.168.4.5",
+            "common_name": "dan",
+            "mac_last_four": "GH:03"
+        }
+    ],
+    "matched-files": [
+        {
+            "peer_pub_key": "<some-public-key-L>",
+            "common_name": "lily",
+            "filename": "myfileL1",
+            "size_gb": 1.0,
+            "sha256": "<some-hash-mL1>"
+        },
+        {
+            "peer_pub_key": "<some-public-key-L>",
+            "common_name": "lily",
+            "filename": "myfileL2",
+            "size_gb": 0.5,
+            "sha256": "<some-hash-mL2>"
+        },
+        {
+            "peer_pub_key": "<some-public-key-Q>",
+            "common_name": "quentin",
+            "filename": "myfileQ1",
+            "size_gb": 0.7,
+            "sha256": "<some-hash-mQ1>"
+        }
+    ]
+}
