@@ -1,0 +1,4 @@
+peer_pub_key,filename,size_gb,sha256
+<some-public-key-Q>,Q-file1,1,<some-hash-Q1>
+<some-public-key-Q>,Q-file2,2,<some-hash-Q2>
+<some-public-key-L>,L-file1,0.3,<some-hash-L1>

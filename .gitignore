@@ -1,3 +1,8 @@
+backend/keys/
+backend/__pycache__
+backend/*/__pycache__
+*.log
+*.vscode/
 "Quentin Notes"
 node_modules/
 .next/
