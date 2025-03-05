@@ -1,0 +1,5 @@
+peer_pub_key,direction,filename,size_gb,sha256
+<some-public-key-Q>,INBOUND,q-shared-with-me-1.txt,0.5,<some-hash-QS1>
+<some-public-key-Q>,OUTBOUND,i-shared-with-q-1.txt,2,<some-hash-IQ1>
+<some-public-key-D>,INBOUND,d-shared-with-me-1.pdf,0.84,<some-hash-DS1>
+<some-public-key-D>,INBOUND,d-shared-with-me-2.csv,4,<some-hash-DS2>
