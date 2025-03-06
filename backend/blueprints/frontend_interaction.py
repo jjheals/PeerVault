@@ -1,6 +1,5 @@
 
 from flask import Blueprint, jsonify, g, current_app, request, abort
-import json 
 import os 
 import pandas as pd
 from configparser import ConfigParser

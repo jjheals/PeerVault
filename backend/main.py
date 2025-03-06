@@ -1,6 +1,6 @@
 
 # Third-party imports
-from flask import Flask, g, request, current_app
+from flask import Flask, g, request
 from flask_compress import Compress
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
