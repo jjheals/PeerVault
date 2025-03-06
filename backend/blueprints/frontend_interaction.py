@@ -64,8 +64,6 @@ def get_peer_list():
     for arg,val in given_args.items(): 
         if val != '' and val != None: 
             filtered_peers_df = filtered_peers_df[filtered_peers_df[arg] == val]
-
-    print(filtered_peers_df.to_dict(orient='records'))
         
     # Return the filtered list of peers
     return jsonify(filtered_peers_df.to_dict(orient='records'))

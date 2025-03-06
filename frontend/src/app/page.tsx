@@ -5,7 +5,8 @@ import { Model } from "@/model";
 import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { send } from "process";
+
+
 
 const PORT = 8000;
 
@@ -13,6 +14,7 @@ const instance = axios.create({
   baseURL:
     "http://localhost:" + PORT.toString(),
 });
+
 
 export default function Home() {
     const [model, setModel] = React.useState(new Model())
@@ -25,6 +27,7 @@ export default function Home() {
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
 
+    const router = useRouter();
 
 
     function refresh() {
@@ -130,8 +133,6 @@ export default function Home() {
       setRecipient(event.target.value);
       console.log(recipient);
     };
-    const router = useRouter();
-
 
     // display the users that we are available to share/store with
     // TODO -- does NOT work... --> not interfaced with the new flask backend correctly... -->
@@ -222,7 +223,18 @@ export default function Home() {
           <div className="titleText">PeerVault</div>
 
           {verifiedUser && (
-            <div className="subtitleText">Welcome, {identity}!</div>
+            <div className = "header-options-row">
+              <div className="subtitleText">Welcome, {identity}!</div>
+              
+              <a href={`/accountInfo/${identity}`} className="header-button-text-option-two">
+                Account Info
+              </a>
+              <a className="header-button-text-option-two" onClick={() => router(`/accountInfo/${identity}`)}>
+                Account Info 2
+              </a>
+
+            </div>
+
           )}
 
           {!verifiedUser && (            
