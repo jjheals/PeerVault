@@ -90,9 +90,9 @@ The flask API is structured like the following:
 
 ## Endpoints
 
-### /ui/get-peer-data 
+### /ui/get-peer-list 
 
-**Endpoint:** /ui/get-peer-data
+**Endpoint:** /ui/get-peer-list
 
 **Methods:** GET
 

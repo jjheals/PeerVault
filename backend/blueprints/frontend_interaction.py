@@ -1,7 +1,8 @@
 
 from flask import Blueprint, jsonify, g, current_app, request, abort
-import json 
+import os 
 import pandas as pd
+from configparser import ConfigParser
 
 from utils import filter_args, load_key, get_mac_address
 from .funcs import require_localhost
@@ -16,12 +17,12 @@ fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
 @require_localhost
 def get_peer_list(): 
     ''' 
-        DESC: endpoint to get the current state of the peer list JSON file.
+        DESC: endpoint to get the current state of the peer list CSV file.
         
         ARGS: 
             
             online (int<0|1>) - filter by if the peers are active or not
-            allowed_to_receive (int<-1|0|1) - filter by the status of allowed_to_receive from peers 
+            friended (str<Y,N,W>) - filter by the status of friended from peers 
             peer_pub_key (str) - filter by public key
             most_recent_ip (str) - filter by the most recently known IP for peers
             common_name (str) - filter by common name 
@@ -47,7 +48,7 @@ def get_peer_list():
         'online': int,
         'common_name': str,
         'peer_pub_key': str,
-        'allowed_to_receive': int,
+        'friended': str,
         'most_recent_ip': str,
         'mac_last_four': str
     }        
@@ -93,6 +94,12 @@ def get_stored_with_info():
         
         RETURNS: 
         
+            - 200 | successful: (dict) a dict with two keys ['matched_peers', 'matched_files'] where 'matched_peers' is a list of dicts containing the
+            info for each individual peer that matched at least one file, and 'matched_files' is a list of dicts containing the metadata for each of  
+            the individual matched files. 
+            - 400 | bad request: if the client supplies an unsupported method or some other error in the client's request.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | server error: if some unexpected error occurs during server-side processing of the request.
         
     '''
     
@@ -142,17 +149,18 @@ def get_stored_with_info():
 def whoami(): 
     """
         DESC: returns all info about this user account (i.e. info stored in the config/identity.json file
-        plus the user's public key).
+        plus the user's public key and peer storage path).
         
         RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account.
+            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
+            ['pub_key', 'allocated_storage', 'common_name', 'mac'].
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
-    
-    # Load the identity JSON 
-    with open('config/identity.json', 'r') as file: 
-        identity_dict:dict = json.load(file)
+
+    # Load the identity config file 
+    identity_config:ConfigParser = ConfigParser()
+    identity_config.read('config/identity.conf')
                 
     # Load this user's public key
     pub_key:str = load_key(
@@ -160,11 +168,13 @@ def whoami():
         'public'
     )
         
-    # Add the public key to the identity dict
-    identity_dict['pub-key'] = pub_key
-
-    # Jsonify and return
-    return jsonify(identity_dict)
+    # Create a dict, jsonify and return 
+    return jsonify({
+        'pub_key': pub_key,
+        'allocated_storage': int(identity_config['SETTINGS']['ALLOCATED_STORAGE']),
+        'common_name': identity_config['IDENTITY']['COMMON_NAME'],
+        'mac': identity_config['IDENTITY']['MAC']
+    })
 
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
@@ -176,49 +186,68 @@ def signup():
         REQ BODY: 
             The request body should look like: 
                 {
-                    "common-name": "<new common name>"
+                    "common_name": "<new common name>",
+                    "peer_storage_path": "<some filepath>",
+                    "allocated_storage": <size in gb>
                 }
         RETURNS: 
-            - 200 | successful: (dict) a JSON object that contains the info for the newly submitted request.
+            - 200 | successful: (dict) a JSON object that contains the info for the newly submitted and accepted request.
             - 400 | bad request: if the user fails to supply the required data.
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 409 | conflict: if the user already has an account created.
             - 500 | internal server error: if there is some error in processing the request.
     """
 
-    # Load the current identity json file
-    with open('config/identity.json', 'r') as file: 
-        identity_dict:dict = json.load(file)
+    # --- Request validation --- #
+    # Load the current identity config file
+    identity_config:ConfigParser = ConfigParser()
+    identity_config.read('config/identity.conf')
             
     # Check if there is already a common name for this user (i.e. they already have an account)
-    if identity_dict['common-name']: 
-        
-        # User already has an account
-        abort(409)
+    if identity_config['IDENTITY']['COMMON_NAME']: abort(409)
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
         
     # Extract the required keys
-    new_common_name:str = request_body.get('common-name', None)
+    new_common_name:str = request_body.get('common_name', None)
+    new_allocated_storage:int = request_body.get('allocated_storage', None)
+    new_peer_storage_path:str = request_body.get('peer_storage_path', None)
     
-    # Check that the required keys were given
-    if not new_common_name: 
+    # Check that the required keys were given, and return bad request if wrong
+    try:
         
-        # Bad request (missing info) 
+        # Check that keys are given 
+        if not (new_common_name and new_allocated_storage and new_peer_storage_path): raise AttributeError
+        
+        # Make sure allocated_storage is an integer
+        new_allocated_storage = int(new_allocated_storage)
+    
+    except: 
+        # Bad request (missing/invalid info) 
         abort(400) 
-        
-    # Update the identity dict with the new common name
-    identity_dict['common-name'] = new_common_name
     
-    # Get the device's MAC anad store in the identity dict
-    identity_dict['mac'] = get_mac_address() 
-        
+    # --- Updating identity --- #
+    # Update the identity config with the new common name, mac, allocated storage, and peer storage path
+    identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
+    identity_config['IDENTITY']['MAC'] = get_mac_address() 
+    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = new_allocated_storage
+    identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
+    
+    # --- Saving new info --- #
+    # Create the [new_peer_storage_path] if it does not exist
+    os.makedirs(new_peer_storage_path, exist_ok=True)
+    
     # Save the updated identity dict
-    with open('config/identity.json', 'w+') as file: 
-        json.dump(identity_dict, file, indent=4)
-        
-    # Return the newly stored info
-    return jsonify(identity_dict)
+    with open('config/identity.conf', 'w') as file: 
+        identity_config.write(file)
     
+    # --- Return --- #
+    # Return the newly stored info
+    return jsonify({
+        'common_name': new_common_name,
+        'mac': identity_config['IDENTITY']['MAC'],
+        'allocated_storage': new_allocated_storage,
+        'peer_storage_path': new_peer_storage_path
+    })
     
