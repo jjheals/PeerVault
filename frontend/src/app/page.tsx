@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { send } from "process";
 import router from "next/router";
+import { motion } from "framer-motion";
 
 const PORT = 8000;
 
@@ -26,8 +27,11 @@ export default function Home() {
     const [verfifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
-
-
+    const [showStartSharing, setShowStartSharing] = React.useState(true);
+    const [showSelectRecipient, setShowSelectRecipient] = React.useState(false);
+    const [showFileSelect, setShowFileSelect] = React.useState(false);
+    const [showStorageType, setShowStorageType] = React.useState(false);
+    const [showConfirmation, setShowConfirmation] = React.useState(false);
 
     function refresh() {
         forceRedraw(redraw + 1);
@@ -156,6 +160,49 @@ export default function Home() {
       setSendType("")
     }
 
+    const handleContinue = (value:number) => {
+      if (value == 1) {
+        setShowStartSharing(false);
+        setShowSelectRecipient(true);
+      }
+      else if (value == 2) {
+        setShowSelectRecipient(false);
+        setShowFileSelect(true);
+      }
+      else if (value == 3) {
+        setShowFileSelect(false);
+        setShowStorageType(true);
+      }
+      else if (value == 4) {
+        setShowStorageType(false);
+        setShowConfirmation(true);
+      }
+      else if (value == 5) {
+        uploadData();
+        returnHome();
+      }
+      refresh();
+    };
+
+    function resetShow() {
+      setShowSelectRecipient(false);
+      setShowFileSelect(false);
+      setShowStorageType(false);
+      setShowConfirmation(false);
+    }
+
+    function handleCancel(event:any) {
+      setShowStartSharing(true);
+      resetShow();
+      refresh();
+    }
+
+    function returnHome() {
+      setShowStartSharing(true);
+      resetShow();
+      refresh();
+    }
+
     return (
       <div>
       <div className="header">
@@ -219,11 +266,24 @@ export default function Home() {
             </div>
           )}
         </div>
+      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
       </div>
-        {verfifiedUser && (
+        {showStartSharing && (
           <div>
-          <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
-          
+            <div className="flex items-center justify-center">
+              <motion.button
+                className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg"
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                onClick={() => handleContinue(1)}
+              >
+                Start Sharing
+              </motion.button>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showSelectRecipient && (
+          <div>
             <div className="ItemContainer">
               <div className="itemContainerContent">
                 <div className="itemCard">
@@ -242,6 +302,26 @@ export default function Home() {
                     {recipient && <p>You selected: {recipient}</p>}
                   </div> 
                 </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(2)}>
+                  Continue
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showFileSelect && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
                 <div className="itemCard">
                   <div className="itemCardLeftContent">
                     <div className="itemCardTitleText">Select Files to Share</div>
@@ -253,8 +333,26 @@ export default function Home() {
                     </div>
                   </div> 
                 </div>
-
-
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(3)}>
+                  Continue
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showStorageType && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
                 <div className="itemCard">
                   <div className="itemCardLeftContent">
                     <div className="itemCardTitleText">Storage Type</div>
@@ -267,10 +365,46 @@ export default function Home() {
                       {sendType && <p>You selected: {sendType}</p>}
                   </div>
                 </div> 
-
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(4)}>
+                  Continue
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showConfirmation && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
                 <div className="itemCard">
-                  <button className="button" onClick={()=> uploadData()} disabled={!formValid}>Upload</button>
-                </div>
+                  <div className="itemCardLeftContent">
+                    <div className="itemCardTitleText">Storage Type</div>
+                      <div>
+                        <FilesList files={files}/>
+                      </div>
+                  </div>
+                </div> 
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(5)}>
+                  Upload
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
