@@ -172,9 +172,9 @@ def whoami():
     # Create a dict, jsonify and return 
     return jsonify({
         'pub_key': pub_key,
-        'allocated_storage': int(identity_config['SETTINGS']['ALLOCATED_STORAGE']),
         'common_name': identity_config['IDENTITY']['COMMON_NAME'],
-        'mac': identity_config['IDENTITY']['MAC']
+        'mac': identity_config['IDENTITY']['MAC'],
+        'ip': identity_config['IDENTITY']['IP'],
     })
 
 

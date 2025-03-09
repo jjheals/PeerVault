@@ -1,13 +1,15 @@
 'use client'; //needed to handle site events (clicks / events / interactions)
 
 import React from "react";
+import Image from "next/image";
 import { Model } from "@/model";
 import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { send } from "process";
+import router from "next/router";
 
-const PORT = 4303;
+const PORT = 8000;
 
 const instance = axios.create({
   baseURL:
@@ -15,7 +17,7 @@ const instance = axios.create({
 });
 
 export default function Home() {
-    const [model, setModel] = React.useState(new Model())
+    const [model, setModel] = React.useState(new Model());
     const [redraw, forceRedraw] = React.useState(0);
     const [files, setFiles] = React.useState([]);
     const [recipient, setRecipient] = React.useState("");
@@ -48,10 +50,10 @@ export default function Home() {
 
     React.useEffect(() =>{
       instance
-      .get("/whoAmI")
+      .get("/ui/whoami")
       .then(function (response){
         console.log("me: ", response.data.identity);
-        setIdentity(response.data.identity);
+        setIdentity(response.data.common_name);
         if (response.data.identity != "Guest") {
           setVerifiedUser(true);
         }
@@ -159,7 +161,6 @@ export default function Home() {
       <div className="header">
         <div className="header-row">
           <div className="titleText">PeerVault</div>
-          <div className="subtitleText">Welcome, {identity}!</div>
           {!verfifiedUser && (
             <div className="header-options-row">
               <button onClick={()=> router.push("/createAccount/")}>
@@ -167,7 +168,56 @@ export default function Home() {
               </button>
             </div>
           )}
-          
+          {verfifiedUser && (
+            <div className="header-options-row">
+              <div className="relative inline-block">
+                <button onClick={() => router.push("/pendingRequests")}>
+                  <div className="hover" title="Direct Requests">
+                    <Image
+                      className="dark"
+                      src="/inbox-alt-1-svgrepo-com.svg"
+                      alt="direct request icon"
+                      width={50}
+                      height={50}
+                    />
+                  </div>
+                </button>
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {30}
+                </span>
+              </div>
+              <div className="icon-padding"></div>
+              <div className="relative inline-block">
+                <button onClick={() => router.push("/pendingRequests")}>
+                  <div className="hover" title="Universal Requests">
+                    <Image
+                      className="dark"
+                      src="/globe.svg"
+                      alt="universal request icon"
+                      width={50}
+                      height={50}
+                    />
+                  </div>
+                </button>
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {30}
+                </span>
+              </div>
+              <div className="icon-padding"></div>
+              <button onClick={() => router.push("/accountSettings")}>
+                <div className="hover" title="Account Settings">
+                  <Image
+                    className="dark"
+                    src="/settings-2-svgrepo-com.svg"
+                    alt="account settings icon"
+                    width={50}
+                    height={50}
+                  />
+                </div>
+              </button>
+              <div className="icon-padding"></div>
+            </div>
+          )}
         </div>
       </div>
         {verfifiedUser && (
@@ -192,8 +242,6 @@ export default function Home() {
                     {recipient && <p>You selected: {recipient}</p>}
                   </div> 
                 </div>
-
-
                 <div className="itemCard">
                   <div className="itemCardLeftContent">
                     <div className="itemCardTitleText">Select Files to Share</div>

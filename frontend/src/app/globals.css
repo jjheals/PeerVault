@@ -14,10 +14,15 @@
   }
 } */
 
-.header {
-  margin-top: 12px;
-  margin-left: 24px;
-  margin-right: 24px;
+.label-header {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 30px;
+}
+
+.icon-padding {
+  padding-right: 20px;
 }
 
 .titleText {
@@ -31,6 +36,12 @@
   font-weight: 400;
   font-style: normal;
   font-size: 30px;
+}
+
+.header {
+  margin-top: 12px;
+  margin-left: 24px;
+  margin-right: 24px;
 }
 
 .header-row {
