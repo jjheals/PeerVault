@@ -1,12 +1,14 @@
 'use client'; //needed to handle site events (clicks / events / interactions)
 
 import React from "react";
+import Image from "next/image";
 import { Model } from "@/model";
 import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-
-
+import { send } from "process";
+import router from "next/router";
+import { motion } from "framer-motion";
 
 const PORT = 8000;
 
@@ -17,7 +19,7 @@ const instance = axios.create({
 
 
 export default function Home() {
-    const [model, setModel] = React.useState(new Model())
+    const [model, setModel] = React.useState(new Model());
     const [redraw, forceRedraw] = React.useState(0);
     const [files, setFiles] = React.useState<any[]>([]);
     const [recipient, setRecipient] = React.useState("");
@@ -26,6 +28,11 @@ export default function Home() {
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
+    const [showStartSharing, setShowStartSharing] = React.useState(true);
+    const [showSelectRecipient, setShowSelectRecipient] = React.useState(false);
+    const [showFileSelect, setShowFileSelect] = React.useState(false);
+    const [showStorageType, setShowStorageType] = React.useState(false);
+    const [showConfirmation, setShowConfirmation] = React.useState(false);
 
     const router = useRouter();
 
@@ -197,25 +204,6 @@ export default function Home() {
       setSendType("")
     }
 
-
-    // explicitely call user list
-    function getUsers() { 
-      instance
-      .get("/ui/get-peer-list")
-      .then(function (response){
-        var peer_array = response["data"]
-        var peer_names = []
-        for(var i = 0; i < peer_array.length; i++){
-          peer_names[i] = peer_array[i]["common_name"]
-        }
-        setUsers(peer_names);
-      })
-      .catch (function (error) {
-        console.log("errored:", error)
-      });
-    }
-
-    // The application front end code to render
     return (
       <div>
       <div className="header">
@@ -245,67 +233,201 @@ export default function Home() {
               </button>
             </div>
           )}
-          
-        </div>
-        </div>
           {verifiedUser && (
-            <div>
-              <button className="button" onClick={() => getUsers()}>refresh user list</button>
-            <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
-            
-              <div className="ItemContainer">
-                <div className="itemContainerContent">
-                  <div className="itemCard">
-
-                    <div className="itemCardLeftContent">
-                      <div className="itemCardTitleText">Select a Person to Share With</div>
-                      <div className="dropdown">
-                        <button className="dropbtn">Possible Recipients</button>
-                        <div className="dropdown-content">
-                        <div>
-                          <label htmlFor="users">Choose a user: </label>
-                          <DisplayUsers users={users}/>
-                        </div>
-                        </div>
-                      </div>
-                      {recipient && <p>You selected: {recipient}</p>}
-                    </div> 
+            <div className="header-options-row">
+              <div className="relative inline-block">
+                <button onClick={() => router.push("/pendingRequests")}>
+                  <div className="hover" title="Direct Requests">
+                    <Image
+                      className="dark"
+                      src="/inbox-alt-1-svgrepo-com.svg"
+                      alt="direct request icon"
+                      width={50}
+                      height={50}
+                    />
                   </div>
-
-
-                  <div className="itemCard">
-                    <div className="itemCardLeftContent">
-                      <div className="itemCardTitleText">Select Files to Share</div>
-                      <p>
-                        <input type="file" multiple onChange={handleFilesSelect}/>
-                      </p>
-                      <div>
-                        <FilesList files={files}/>
-                      </div>
-                    </div> 
-                  </div>
-
-
-                  <div className="itemCard">
-                    <div className="itemCardLeftContent">
-                      <div className="itemCardTitleText">Storage Type</div>
-                        <select id="sendType" value={sendType} onChange={selectSendType}>
-                          <option value="" disabled>Select an type</option>
-                          <option value="share">Share</option>
-                          <option value="store">Store</option>
-                        </select>
-                        {sendType && <p>You selected: {sendType}</p>}
-                    </div>
-                  </div> 
-
-                  <div className="itemCard">
-                    <button className="button" onClick={()=> uploadData()} disabled={!formValid}>Upload</button>
-                  </div>
-                </div>
+                </button>
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {30}
+                </span>
               </div>
+              <div className="icon-padding"></div>
+              <div className="relative inline-block">
+                <button onClick={() => router.push("/pendingRequests")}>
+                  <div className="hover" title="Universal Requests">
+                    <Image
+                      className="dark"
+                      src="/globe.svg"
+                      alt="universal request icon"
+                      width={50}
+                      height={50}
+                    />
+                  </div>
+                </button>
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {30}
+                </span>
+              </div>
+              <div className="icon-padding"></div>
+              <button onClick={() => router.push("/accountSettings")}>
+                <div className="hover" title="Account Settings">
+                  <Image
+                    className="dark"
+                    src="/settings-2-svgrepo-com.svg"
+                    alt="account settings icon"
+                    width={50}
+                    height={50}
+                  />
+                </div>
+              </button>
+              <div className="icon-padding"></div>
             </div>
           )}
         </div>
-      )
+      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+      </div>
+        {showStartSharing && (
+          <div>
+            <div className="flex items-center justify-center">
+              <motion.button
+                className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg"
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                onClick={() => handleContinue(1)}
+              >
+                Start Sharing
+              </motion.button>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showSelectRecipient && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
+                <div className="itemCard">
+
+                  <div className="itemCardLeftContent">
+                    <div className="itemCardTitleText">Select a Person to Share With</div>
+                    <div className="dropdown">
+                      <button className="dropbtn">Possible Recipients</button>
+                      <div className="dropdown-content">
+                      <div>
+                        <label htmlFor="users">Choose a user: </label>
+                        <DisplayUsers users={users}/>
+                      </div>
+                      </div>
+                    </div>
+                    {recipient && <p>You selected: {recipient}</p>}
+                  </div> 
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(2)}>
+                  Continue
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showFileSelect && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
+                <div className="itemCard">
+                  <div className="itemCardLeftContent">
+                    <div className="itemCardTitleText">Select Files to Share</div>
+                    <p>
+                      <input type="file" multiple onChange={handleFilesSelect}/>
+                    </p>
+                    <div>
+                      <FilesList files={files}/>
+                    </div>
+                  </div> 
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(3)}>
+                  Continue
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showStorageType && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
+                <div className="itemCard">
+                  <div className="itemCardLeftContent">
+                    <div className="itemCardTitleText">Storage Type</div>
+                      <select id="sendType" value={sendType} onChange={selectSendType}>
+                        <option value="" disabled>Select an type</option>
+                        <option value="share">Share</option>
+                        <option value="store">Store</option>
+                      </select>
+                      
+                      {sendType && <p>You selected: {sendType}</p>}
+                  </div>
+                </div> 
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(4)}>
+                  Continue
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {verfifiedUser && showConfirmation && (
+          <div>
+            <div className="ItemContainer">
+              <div className="itemContainerContent">
+                <div className="itemCard">
+                  <div className="itemCardLeftContent">
+                    <div className="itemCardTitleText">Storage Type</div>
+                      <div>
+                        <FilesList files={files}/>
+                      </div>
+                  </div>
+                </div> 
+              </div>
+            </div>
+            <div className="flex items-center justify-center flex-col space-y-4">
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(5)}>
+                  Upload
+                </button>
+              </div>
+              <div>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={handleCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
 
   }
