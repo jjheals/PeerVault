@@ -25,22 +25,20 @@ export default function Home() {
     const router = useRouter();
 
     const handleSignup = async () => {
-        if (!username.trim()) 
-        {
+      if (!username.trim()) {
           alert("Username cannot be empty!");
           return;
-        }        
-          React.useEffect(() =>{
-            instance
-            .post("/ui/signup", { data: username})
-            .then(function (response){
-                console.log(response);
-                alert(response.data.message);
-                setUsername(username);
-              });
-        router.push('/');
-      });
-    }
+      }
+      try {
+          const response = await instance.post("/ui/signup", { data: username });
+          console.log(response);
+          alert(response.data.message);
+      } catch (error) {
+          console.error("Signup failed:", error);
+          alert("Signup failed. Please try again.");
+      }
+      router.push('/');
+  };
 
     return (
       <div className="header">
