@@ -219,6 +219,23 @@ export default function Home() {
             <div className="header-options-row">
               <div className="relative inline-block">
                 <button onClick={() => router.push("/pendingRequests")}>
+                  <div className="hover" title="Pending Sent Requests">
+                    <Image
+                      className="dark"
+                      src="/send-svgrepo-com.svg"
+                      alt="pending sent icon"
+                      width={50}
+                      height={50}
+                    />
+                  </div>
+                </button>
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {30}
+                </span>
+              </div>
+              <div className="icon-padding"></div>
+              <div className="relative inline-block">
+                <button onClick={() => router.push("/pendingRequests")}>
                   <div className="hover" title="Direct Requests">
                     <Image
                       className="dark"
