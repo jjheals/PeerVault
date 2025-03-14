@@ -1,9 +1,12 @@
+'use client'; //needed to handle site events (clicks / events / interactions)
+
 import React, {Suspense} from "react";
-import { useParams } from "next/navigation";
 import axios from "axios";
 import Table from "@/app/table"
 import { TableSkeleton } from "@/app/skeletons";
-
+import { useParams } from "next/navigation";
+import { Model, User } from "@/model";
+import { useRouter } from 'next/navigation';
 
 const PORT = 8000;
 
@@ -12,73 +15,127 @@ const instance = axios.create({
     "http://localhost:" + PORT.toString(),
 });
 
+export default function Home() {  
+  const router = useRouter();
+  const { id } = useParams(); // Get the dynamic `id` from the URL
+  const [model, setModel] = React.useState(new Model());
+  const [redraw, forceRedraw] = React.useState(0);
+  // new User("","","","")
+  const [identity, setIdentity] = React.useState();
+
+  var user_list: any[] = [];
+  var total_stored_remote_list: any[] = [];
+  var total_stored_local_list: any[] = [];
+  var total_shared_list: any[] = [];
 
 
-export default function Home({ params }: { params: { id: string; }; }) {  
-  var user_list = [];
-  // TODO --> get this to return and display SOMETHING
-  function getSharedWithInfo() { 
-    instance
-    .get("ui/get-stored-with-info")
-    .then(function (response){
-      var peer_array = response["data"]
-      var peer_names = []
-      for(var i = 0; i < peer_array.length; i++){
-        peer_names[i] = peer_array[i]["common_name"]
-      }
-      user_list= peer_names;
-    })
-    .catch (function (error) {
-      console.log("errored:", error)
-    });
+  
+  function refresh() {
+      forceRedraw(redraw + 1);
   }
+  
+  function retreiveIdentity(setIdentity:any) {
+      instance
+      .get("/ui/whoami")
+      .then(function (response) {
+          let data = response.data;
+          console.log(data);
+          setIdentity(new User(data.pub_key, data.common_name, data.mac, data.ip));
+      })
+      .catch (function (error) {
+          console.log("errored:", error)
+      });
+  }
+  
+  React.useEffect(() => {
+      if (!identity) {
+          retreiveIdentity(setIdentity);
+      }
+    }, [redraw]);
+  
+// TODO 
+    // This needs to get the info from all-peers to connect pub_key with common_name
+    // needs to get pub_key and connect that with the number of bytes for each type of file shown!!!
+    // needs to be handled on the backend 
 
-
-  // TODO -->
-  /*
-    - CREATE A DISPLAY TABLE FOR THE USER INFORMATION
-      - Common-name, amount shared (bytes), amount stored remotely (bytes), amount stored locally (bytes), View more information button?
-
-    - CREATE A FULL FLESHED OUT DISPLAY PAGE FOR THE LIST OF ALL ITEMS 
-
-
-    -TABS:
-
-    -
-       */
-
-
-  const common_name = params.id;
+  const UserTable: React.FC = () => {
     return (
-      <div>
-        <div className="header">
-          <div className="header-row">
-            <div className="titleText">Account Info:{common_name}</div>
-          </div>
-        </div>
+      <table className="w-full border-collapse border border-gray-300">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border p-2">Recipient</th>
+            <th className="border p-2">Total Stored Remotely</th>
+            <th className="border p-2">Total Stored Locally</th>
+            <th className="border p-2">Total Shared</th>
+            <th className="border p-2">View</th>
+          </tr>
+        </thead>
+        <tbody>
+          {user_list.map((user) => (
+            <tr key={user.id} className="hover:bg-gray-100">
+              <td className="border p-2">{user.id}</td>
+              <td className="border p-2">{user.id}</td>
+              <td className="border p-2">{user.id}</td>
+              <td className="border p-2">{user.id}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
-
-        <div>
-          <div className = "subtitleText">Quick Facts</div>
-          <div className = "table">
-            <div className= "tr">
-                <div className = "th">Total Amount Stored Locally:{}</div>
-                <div className = "th">Total Amount Stored Remotely:{}</div>
-                <div className = "th">Total Amount Shared:{}</div>
-                <div className = "th">My MAC addr:{}</div>
-                <div className = "th">My Current IP addr:{}</div>
+    return (
+  <div>
+    <div className="header">
+      <div className="header-row">
+        <div className="titleText">PeerVault</div>
+        <div className="header-options-row">
+          <div className="icon-padding"></div>
+          <button onClick={()=> router.push("/")}>
+            <div className="hover" title="Return Home">
+              Home
             </div>
-          </div>
-        </div>
-
-
-        <div>
-          <div className = "subtitleText">History Summary:</div>
-          <Suspense fallback={<TableSkeleton />}>
-            <Table/>
-          </Suspense>
-        </div>
-
+          </button>
+          <div className="icon-padding"></div>
+        </div> 
       </div>
-    )
-}
+
+
+      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+      <div className="subtitleText">Account Summary</div>
+      <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
+        <div className="font-semibold">Name: </div>
+        <div>{identity?.common_name}</div>
+
+        <div className="font-semibold">Public Key: </div>
+        <div>{identity?.pub_key}</div>
+
+        <div className="font-semibold">MAC Address: </div>
+        <div>{identity?.mac}</div>
+
+        <div className="font-semibold">IP Address: </div>
+        <div>{identity?.ip}</div>
+      </div>
+
+      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+      <div className="subtitleText">Quick Facts</div>
+      <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
+        <div className="font-semibold">Total Amount Stored Locally: </div>
+        <div>{0}</div>
+
+        <div className="font-semibold">Total Amount Stored Remotely: </div>
+        <div>{0}</div>
+
+        <div className="font-semibold">Total Amount Shared: </div>
+        <div>{0}</div>
+      </div>
+      <div>
+        
+      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+      <div className = "subtitleText">History Summary:</div>
+      <div>
+        <UserTable />
+      </div>
+    </div>
+    </div>
+  </div>)}

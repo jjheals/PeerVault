@@ -1,5 +1,3 @@
-import React from "react";
-
 export class Model {
     user: User;
     filesToUpload: File[];
@@ -18,6 +16,10 @@ export class Model {
                 this.filesToUpload.push(newFile);
                 console.log("Added new file:\n" + newFile.printFileStats());            
         }
+    }
+
+    removeFile(index: number) {
+        this.filesToUpload.splice(index, 1);
     }
 
     getFilesToUpload(): File[] {
