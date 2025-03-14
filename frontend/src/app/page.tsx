@@ -134,7 +134,6 @@ export default function Home() {
       event.target.value = ""
     }
 
-
     // get files & info from device 
     function retreiveFilesToUpload(setFiles: any) {
       setFiles(model.getFilesToUpload());
@@ -162,12 +161,10 @@ export default function Home() {
       )
     }
 
-
     // stores the value for the type of file upload (share/store)
     const selectSendType = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setSendType(event.target.value);
     };
-
 
     // checks if there is data selected for recipient, files selected AND a send type
     function CheckFormValid() {
@@ -177,7 +174,6 @@ export default function Home() {
         setFormValid(false);
       }
     };
-
 
     // send the request to store 
     // TODO --> not implemented...
@@ -204,7 +200,10 @@ export default function Home() {
       //remove all of the data??
       setRecipient("")
       setFiles([])
+      model.filesToUpload = []
       setSendType("")
+
+      alert("Uploaded Data!")
     }
 
     const handleContinue = (value:number) => {
@@ -383,7 +382,7 @@ export default function Home() {
             </div>
             <div className="flex items-center justify-center flex-col space-y-4">
               <div>
-                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(2)} disabled={recipient === ""}>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed" onClick={() => handleContinue(2)} disabled={recipient === ""}>
                   Continue
                 </button>
               </div>
@@ -402,7 +401,21 @@ export default function Home() {
                 <div className="itemCard">
                   <div className="itemCardTitleText">Select Files to Share</div>
                   <p>
-                    <input type="file" multiple onChange={handleFilesSelect} className="display:flex file:bg-blue-500 file:text-white file:border-none file:px-4 file:py-2 file:rounded file:cursor-pointer file:font-medium"/>
+                    
+                  <input
+                    type="file"
+                    id="fileInput"
+                    onChange={handleFilesSelect}
+                    className="hidden"
+                  />
+
+                  {/* Custom Upload Button */}
+                  <label 
+                    htmlFor="fileInput" 
+                    className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer"
+                  >
+                    Select File
+                  </label>
                   </p>
                   <div>
                     <FilesList files={files}/>
@@ -412,7 +425,7 @@ export default function Home() {
             </div>
             <div className="flex items-center justify-center flex-col space-y-4">
               <div>
-                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(3)} disabled={files.length == 0}>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed" onClick={() => handleContinue(3)} disabled={files.length == 0}>
                   Continue
                 </button>
               </div>
@@ -432,8 +445,8 @@ export default function Home() {
                   <div className="itemCardTitleText">Storage Type</div>
                     <select id="sendType" value={sendType} onChange={selectSendType}>
                       <option value="" disabled>Select an type</option>
-                      <option value="share">Share</option>
-                      <option value="store">Store</option>
+                      <option value="Share">Share</option>
+                      <option value="Store">Store</option>
                     </select>
                     
                     {sendType && <p>You selected: {sendType}</p>}
@@ -442,7 +455,7 @@ export default function Home() {
             </div>
             <div className="flex items-center justify-center flex-col space-y-4">
               <div>
-                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg" onClick={() => handleContinue(4)} disabled={sendType === ""}>
+                <button className="px-6 py-3 text-xl font-bold text-white bg-blue-500 rounded-lg shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed" onClick={() => handleContinue(4)} disabled={sendType === ""}>
                   Continue
                 </button>
               </div>

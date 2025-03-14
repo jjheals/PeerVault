@@ -1,7 +1,6 @@
 'use client'; //needed to handle site events (clicks / events / interactions)
 
 import React from "react";
-import Image from "next/image";
 import { Model } from "@/model";
 import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
@@ -9,6 +8,7 @@ import axios from 'axios';
 import { send } from "process";
 import router from "next/router";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 
 const PORT = 8000;

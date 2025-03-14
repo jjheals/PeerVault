@@ -7,6 +7,8 @@ import { TableSkeleton } from "@/app/skeletons";
 import { useParams } from "next/navigation";
 import { Model, User } from "@/model";
 import { useRouter } from 'next/navigation';
+import Image from "next/image";
+
 
 const PORT = 8000;
 
@@ -93,7 +95,13 @@ export default function Home() {
           <div className="icon-padding"></div>
           <button onClick={()=> router.push("/")}>
             <div className="hover" title="Return Home">
-              Home
+              <Image
+                  className="dark"
+                  src="/home-1-svgrepo-com.svg"
+                  alt="home icon"
+                  width={50}
+                  height={50}
+              />
             </div>
           </button>
           <div className="icon-padding"></div>
