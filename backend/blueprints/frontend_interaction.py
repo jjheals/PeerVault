@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
 from configparser import ConfigParser
+from hashlib import sha256
 
 from utils import filter_args, load_key, get_mac_address
 from .funcs import require_localhost
@@ -43,7 +44,6 @@ def get_peer_list():
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | server error: if some unexpected error occurs during server-side processing of the request.
     '''
-    
     # Define expected args for easy checks of given args and their types
     expected_args:dict = {
         'online': int,
@@ -172,9 +172,9 @@ def whoami():
     # Create a dict, jsonify and return 
     return jsonify({
         'pub_key': pub_key,
-        'allocated_storage': int(identity_config['SETTINGS']['ALLOCATED_STORAGE']),
         'common_name': identity_config['IDENTITY']['COMMON_NAME'],
-        'mac': identity_config['IDENTITY']['MAC']
+        'mac': identity_config['IDENTITY']['MAC'],
+        'ip': identity_config['IDENTITY']['IP'],
     })
 
 
@@ -183,13 +183,18 @@ def whoami():
 def signup(): 
     """
         DESC: endpoint to create a new account.
+            1. Checks if an account already exists.
+            2. Updates the identity config file w/ the allocated storage, common name, and peer storage path.
+            3. Hashes the passphrase (SHA256) and stores the hash in the enc config file.
+            4. Returns the given common name, peer storage path, and allocated storage (not passphrase hash).
         
         REQ BODY: 
             The request body should look like: 
                 {
                     "common_name": "<new common name>",
                     "peer_storage_path": "<some filepath>",
-                    "allocated_storage": <size in gb>
+                    "allocated_storage": <size in gb>,
+                    "passphrase": "<some super secure passphrase>"
                 }
         RETURNS: 
             - 200 | successful: (dict) a JSON object that contains the info for the newly submitted and accepted request.
@@ -214,12 +219,13 @@ def signup():
     new_common_name:str = request_body.get('common_name', None)
     new_allocated_storage:int = request_body.get('allocated_storage', None)
     new_peer_storage_path:str = request_body.get('peer_storage_path', None)
-    
+    new_passphrase:str = request_body.get('passphrase', None) 
+
     # Check that the required keys were given, and return bad request if wrong
     try:
         
         # Check that keys are given 
-        if not (new_common_name and new_allocated_storage and new_peer_storage_path): raise AttributeError
+        if not (new_common_name and new_allocated_storage and new_peer_storage_path and new_passphrase): raise AttributeError
         
         # Make sure allocated_storage is an integer
         new_allocated_storage = int(new_allocated_storage)
@@ -235,6 +241,9 @@ def signup():
     identity_config['SETTINGS']['ALLOCATED_STORAGE'] = new_allocated_storage
     identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
     
+    # Encrypt the passphrase in the enc config file
+    current_app.enc_config['misc']['PASS_HASH'] = sha256(str(new_passphrase)).hexdigest()
+
     # --- Saving new info --- #
     # Create the [new_peer_storage_path] if it does not exist
     os.makedirs(new_peer_storage_path, exist_ok=True)
@@ -243,6 +252,10 @@ def signup():
     with open('config/identity.conf', 'w') as file: 
         identity_config.write(file)
     
+    # Resave the enc config with the new passphrase 
+    with open('config/encryption-config.conf', 'w') as file: 
+        current_app.enc_config.write(file)
+
     # --- Return --- #
     # Return the newly stored info
     return jsonify({
@@ -252,3 +265,74 @@ def signup():
         'peer_storage_path': new_peer_storage_path
     })
     
+
+@fi_bp.route('/ui/init-application', methods=['POST'])
+@require_localhost
+def init_application(): 
+    """ 
+        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
+
+        REQ BODY: 
+            The request body should look like: 
+                {
+                    "passphrase": "<super secure passphrase>"
+                }
+
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
+            - 400 | bad request: if the user fails to supply the required data.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+
+    # Extract the required info from the request 
+    request_body:dict = request.get_json()
+    given_passphrase:str = request_body.get('passphrase', None)
+
+    # Check that the required info is given
+    if not given_passphrase: abort(400)
+
+    # Check the given passphrase with the stored hash
+    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
+        abort(403)
+
+    # Return success 
+    return jsonify({
+        'status': 'success'
+    })
+    
+
+@fi_bp.route("ui/get-all-info", methods=['POST'])
+@require_localhost
+def init_application(): 
+    """ 
+        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
+
+        REQ BODY: 
+            The request body should look like: 
+                {
+                    "passphrase": "<super secure passphrase>"
+                }
+
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
+            - 400 | bad request: if the user fails to supply the required data.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+
+    # Extract the required info from the request 
+    request_body:dict = request.get_json()
+    given_passphrase:str = request_body.get('passphrase', None)
+
+    # Check that the required info is given
+    if not given_passphrase: abort(400)
+
+    # Check the given passphrase with the stored hash
+    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
+        abort(403)
+
+    # Return success 
+    return jsonify({
+        'status': 'success'
+    })  

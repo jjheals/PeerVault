@@ -169,7 +169,7 @@ class Server(object):
 
                 # Do identity check
                 id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.DISC_CODE)  
-
+ 
                 # If ID check pass, handle the discovery request
                 if id_check_result: 
                     self.handle_discovery_code(connection, client_public_key, incoming_message, client_address)
