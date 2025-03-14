@@ -59,9 +59,9 @@ export default function Home() {
       instance
       .get("/ui/whoami")
       .then(function (response){
-        console.log("me: ", response["data"]["common-name"]);
-        setIdentity(response["data"]["common-name"]);
-        if (response["data"]["common-name"] != "Guest") {
+        console.log("me: ", response["data"]["common_name"]);
+        setIdentity(response["data"]["common_name"]);
+        if (response["data"]["common_name"] != "Guest") {
           setVerifiedUser(true);
         }
       })
@@ -211,14 +211,9 @@ export default function Home() {
           <div className="titleText">PeerVault</div>
 
           {verifiedUser && (
-            <div className = "header-options-row">
-              <div className="subtitleText">Welcome, {identity}!</div>
-              
-              <a href={`/accountInfo/${identity}`} className="header-button-text-option-two">
-                Account Info
-              </a>
-              <a className="header-button-text-option-two" onClick={() => router(`/accountInfo/${identity}`)}>
-                Account Info 2
+            <div className = "header-options-row">              
+              <a href={`/accountInfo/${identity}`} className="subtitleText">
+                Account Info: {identity}
               </a>
 
             </div>
@@ -300,7 +295,7 @@ export default function Home() {
             </div>
           </div>
         )}
-        {verfifiedUser && showSelectRecipient && (
+        {verifiedUser && showSelectRecipient && (
           <div>
             <div className="ItemContainer">
               <div className="itemContainerContent">
@@ -336,7 +331,7 @@ export default function Home() {
             </div>
           </div>
         )}
-        {verfifiedUser && showFileSelect && (
+        {verifiedUser && showFileSelect && (
           <div>
             <div className="ItemContainer">
               <div className="itemContainerContent">
@@ -367,7 +362,7 @@ export default function Home() {
             </div>
           </div>
         )}
-        {verfifiedUser && showStorageType && (
+        {verifiedUser && showStorageType && (
           <div>
             <div className="ItemContainer">
               <div className="itemContainerContent">
@@ -399,7 +394,7 @@ export default function Home() {
             </div>
           </div>
         )}
-        {verfifiedUser && showConfirmation && (
+        {verifiedUser && showConfirmation && (
           <div>
             <div className="ItemContainer">
               <div className="itemContainerContent">
@@ -429,5 +424,4 @@ export default function Home() {
         )}
       </div>
     )
-
   }
