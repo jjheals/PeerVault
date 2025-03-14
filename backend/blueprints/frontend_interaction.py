@@ -4,6 +4,7 @@ import os
 import pandas as pd
 from configparser import ConfigParser
 from hashlib import sha256
+import csv
 
 from utils import filter_args, load_key, get_mac_address
 from .funcs import require_localhost
@@ -302,37 +303,206 @@ def init_application():
     })
     
 
-@fi_bp.route("ui/get-all-info", methods=['POST'])
+@fi_bp.route("/ui/get-all-info", methods=['GET'])
 @require_localhost
-def init_application(): 
-    """ 
-        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
-
-        REQ BODY: 
-            The request body should look like: 
-                {
-                    "passphrase": "<super secure passphrase>"
-                }
-
+def get_all_sharing_info_application(): 
+    """
+        DESC: returns all info about this storage of this user. Extracts information from the
+        peer-info folder (i.e. all-peers.csv, currently-storing-for.csv, currently-storing-with.csv, and previously-shared-with.csv)
+        
         RETURNS: 
-            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
-            - 400 | bad request: if the user fails to supply the required data.
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
-            - 500 | internal server error: if there is some error in processing the request.
+            - 200 | successful: (dict) a JSON object with all the information about this user sharing history with the following keys: 
+            {userID: ...,
+              stored-for:  [{filename: ..., filesize:..., filehash:...},...], 
+              stored-with: [{filename: ..., filesize:..., filehash:...},...],
+              shared-with: [{filename: ..., filesize:..., filehash:...},...]
+            }
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    # Extract the required info from the request 
-    request_body:dict = request.get_json()
-    given_passphrase:str = request_body.get('passphrase', None)
+    # open all-peers.csv
+    all_peers = [];
 
-    # Check that the required info is given
-    if not given_passphrase: abort(400)
+    with open('peer-info/all-peers.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
 
-    # Check the given passphrase with the stored hash
-    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
-        abort(403)
+                try:
+                    all_peers.push(row)
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
 
-    # Return success 
+        
+
+
+    # # open currently-storing-for.csv
+    storing_for = [];
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+            reader = csv.reader(f2)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                try:
+                    storing_for.push(row)
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
+
+        
+
+    # # open currently-storing-with.csv
+    storing_with = [];
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+            reader = csv.reader(f3)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                try:
+                    storing_with.push(row)
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
+
+        
+
+    # # open currently-sharing-with.csv
+    sharing_with = [];
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+            reader = csv.reader(f4)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                try:
+                    sharing_with.push(row[0])
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
+
+
+# We have a list of peers that we have interacted with
+    # group the file lists BY user? and send a list of user 
+        
+    # Return the filtered entries
     return jsonify({
-        'status': 'success'
-    })  
+        'peer-list': all_peers,
+        'shared-with': sharing_with,
+        'stored-with': storing_with,
+        'stored-for': storing_for
+    })
+
+
+@fi_bp.route('/ui/get-shared-storage', methods=['GET'])
+@require_localhost
+def get_shared_storage(): 
+    """
+        DESC: returns AMOUNT of shared storage
+        
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    numBytes = 0;
+
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                try:
+                    numBytes += int(row[2])
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
+
+        
+    # Create a dict, jsonify and return 
+    return jsonify({
+        'storage': numBytes,
+    })
+
+
+
+@fi_bp.route('/ui/get-local-storage', methods=['GET'])
+@require_localhost
+def get_local_storage(): 
+    """
+        DESC: returns amount of local storage
+        
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    numBytes = 0;
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                try:
+                    numBytes += int(row[2])
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
+
+        
+    # Create a dict, jsonify and return 
+    return jsonify({
+        'storage': numBytes,
+    })
+
+
+
+@fi_bp.route('/ui/get-remote-storage', methods=['GET'])
+@require_localhost
+def get_remote_storage(): 
+    """
+        DESC: returns amount of remote storage
+        
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    numBytes = 0;
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                try:
+                    numBytes += int(row[2])
+                except ValueError:
+                    print(f"Skipping invalid row: {row}")  # Debugging info
+        
+    # Create a dict, jsonify and return 
+    return jsonify({
+        'storage': numBytes,
+    })

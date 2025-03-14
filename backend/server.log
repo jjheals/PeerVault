@@ -1,0 +1,718 @@
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 335, in get_all_sharing_info_application
+    sharing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-sharing-with.csv')
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+             ^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'peer-info/currently-sharing-with.csv'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 335, in get_all_sharing_info_application
+    sharing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-sharing-with.csv')
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+             ^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'peer-info/currently-sharing-with.csv'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 335, in get_all_sharing_info_application
+    sharing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-sharing-with.csv')
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+             ^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'peer-info/currently-sharing-with.csv'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 920, in full_dispatch_request
+    return self.finalize_request(rv)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 939, in finalize_request
+    response = self.make_response(rv)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1249, in make_response
+    raise TypeError(
+TypeError: The view function did not return a valid response. The return type must be a string, dict, list, tuple with headers or status, Response instance, or WSGI callable, but it was a int.
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    sharing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-sharing-with.csv')
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+             ^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'peer-info/currently-sharing-with.csv'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 346, in get_all_sharing_info_application
+    return  jsonify({"message": joined_filtered_df}), 200
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\json\__init__.py", line 170, in jsonify
+    return current_app.json.response(*args, **kwargs)  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\json\provider.py", line 214, in response
+    f"{self.dumps(obj, **dump_args)}\n", mimetype=self.mimetype
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\json\provider.py", line 179, in dumps
+    return json.dumps(obj, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\json\__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\json\provider.py", line 121, in _default
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+TypeError: Object of type DataFrame is not JSON serializable
+ERROR:main:Exception on /ui/get-shared-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 370, in get_shared_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-remote-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 426, in get_remote_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-local-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 398, in get_local_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-shared-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 370, in get_shared_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-remote-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 426, in get_remote_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-local-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 398, in get_local_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-shared-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 370, in get_shared_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-remote-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 426, in get_remote_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-local-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 398, in get_local_storage
+    data = row.split(",")
+           ^^^^^^^^^
+AttributeError: 'list' object has no attribute 'split'
+ERROR:main:Exception on /ui/get-shared-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 368, in get_shared_storage
+    for row_num, row in enumerate(csv.readlines()):
+                                  ^^^^^^^^^^^^^
+AttributeError: module 'csv' has no attribute 'readlines'
+ERROR:main:Exception on /ui/get-remote-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 433, in get_remote_storage
+    numBytes += int(data[2])
+                ^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: '0.5'
+ERROR:main:Exception on /ui/get-local-storage [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 398, in get_local_storage
+    for row_num, row in enumerate(csv.readlines()):
+                                  ^^^^^^^^^^^^^
+AttributeError: module 'csv' has no attribute 'readlines'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
+ERROR:main:Exception on /ui/get-all-info [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 336, in get_all_sharing_info_application
+    all_peers.push(row)
+    ^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'push'
