@@ -302,9 +302,9 @@ def init_application():
     })
     
 
-@fi_bp.route("ui/get-all-info", methods=['POST'])
+@fi_bp.route("/ui/get-all-info", methods=['POST'])
 @require_localhost
-def init_application(): 
+def get_all_info(): 
     """ 
         DESC: endpoint to initialize the application (mainly provide and check the passphrase).
 
