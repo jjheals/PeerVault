@@ -6,7 +6,7 @@ import { useRouter} from "next/navigation";
 import fs from "fs";
 import axios from "axios";
 
-const PORT = 4303;
+const PORT = 8000;
 
 const instance = axios.create({
   baseURL:
@@ -25,48 +25,20 @@ export default function Home() {
     const router = useRouter();
 
     const handleSignup = async () => {
-        if (!username.trim()) 
-        {
+      if (!username.trim()) {
           alert("Username cannot be empty!");
           return;
-        }
-    
-        try 
-        {
-          // instance
-          // .post("/signup", {
-          //   username: username
-          // })
-          // .then(function(response) {
-          //   const data = response.data;
-          //   alert(data.message);
-          //   setUsername("");
-          // })
-          // .catch(function (error) {
-          //   console.log(error);
-          // });
-          
-          const response = await fetch("http://localhost:4303/signup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username }),
-          });
-    
-          console.log("sent message");
-          const data = await response.json();
-          console.log("recvd. response: ", data);
-
-          alert(data.message);
-          setUsername("");
-        } 
-        catch (error)
-        {
-          console.error("Error:", error);
-          alert("Failed to save username.");
-        }
-
-        router.push('/');
-      };
+      }
+      try {
+          const response = await instance.post("/ui/signup", { data: username });
+          console.log(response);
+          alert(response.data.message);
+      } catch (error) {
+          console.error("Signup failed:", error);
+          alert("Signup failed. Please try again.");
+      }
+      router.push('/');
+  };
 
     return (
       <div className="header">

@@ -1,5 +1,3 @@
-import React from "react";
-
 export class Model {
     user: User;
     filesToUpload: File[];
@@ -18,6 +16,10 @@ export class Model {
                 this.filesToUpload.push(newFile);
                 console.log("Added new file:\n" + newFile.printFileStats());            
         }
+    }
+
+    removeFile(index: number) {
+        this.filesToUpload.splice(index, 1);
     }
 
     getFilesToUpload(): File[] {
@@ -58,19 +60,19 @@ export class File {
 }
 
 export class User {
-    allowed_to_receive: number;
-    most_recent_ip: string;
+    pub_key: string;
     common_name: string;
-    mac_last_four: string;
-    total_storage_allocated: number;
+    mac: string;
+    ip: string;
 
-    constructor(allowed_to_receive: number, most_recent_ip: string, common_name: string, 
-        mac_last_four: string, total_storage_allocated: number) 
+    // allowed_to_receive: number;
+    // total_storage_allocated: number;
+
+    constructor(pub_key: string, common_name: string, mac: string, ip: string) 
     {
-        this.allowed_to_receive = allowed_to_receive;
-        this.most_recent_ip = most_recent_ip;
+        this.pub_key = pub_key;
         this.common_name = common_name;
-        this.mac_last_four = mac_last_four;
-        this.total_storage_allocated = total_storage_allocated;
+        this.mac = mac;
+        this.ip = ip;
     }
 }

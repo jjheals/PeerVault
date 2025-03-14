@@ -14,10 +14,15 @@
   }
 } */
 
-.header {
-  margin-top: 12px;
-  margin-left: 24px;
-  margin-right: 24px;
+.label-header {
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 30px;
+}
+
+.icon-padding {
+  padding-right: 20px;
 }
 
 .titleText {
@@ -31,6 +36,12 @@
   font-weight: 400;
   font-style: normal;
   font-size: 30px;
+}
+
+.header {
+  margin-top: 12px;
+  margin-left: 24px;
+  margin-right: 24px;
 }
 
 .header-row {
@@ -83,7 +94,7 @@ body {
 }
 
 .itemCard {
-  display: flex;
+  /* display: flex; */
   flex-direction: row;
   padding: 20px;
   border-color: #d9d9d9;
@@ -144,7 +155,6 @@ body {
   font-size: 16px;
   transition: background-color 0.3s ease;
   text-align: center;
-
 }
 
 .button:hover {
@@ -166,37 +176,9 @@ body {
   background-color: #e0e0e0; /* Blue */
 }
 
-/*
-.dropdown {
-  position: relative;
-  display: inline-block;
-  background-color: #1289d8; 
-  color: white;
-  padding: 5px 10px;
-  border-radius: 5px;
+.redButton {
+  color:  red;
 }
-
-.dropdown-content {
-  display: none;
-  position: absolute;
-  background-color: #f9f9f9;
-  color: black;
-  min-width: 160px;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-  padding: 12px 16px;
-  z-index: 1;
-}
-  
-.dropdown:hover .dropdown-content {
-  display: block;
-}'
-
-.dropdown-content:hover  {
-  display: block;
-  background-color: #eeeeee;
-}
-*/
-
 
 .dropbtn {
   position: relative;
@@ -247,4 +229,18 @@ body {
 .button:disabled {
   background-color: #c0c0c0;
   cursor: not-allowed;
+}
+
+.table{
+  width: 50%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+
+.th, .td {
+    border: 1px solid black;
+    padding: 8px;
+    text-align: left;
+    background-color: #f2f2f2;
 }
