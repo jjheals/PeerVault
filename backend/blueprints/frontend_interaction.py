@@ -5,7 +5,7 @@ import pandas as pd
 from configparser import ConfigParser
 from hashlib import sha256
 
-from utils import filter_args, load_key, get_mac_address
+from utils import filter_args, load_key_pem, get_mac_address
 from .funcs import require_localhost
 
 # ---- Config & init ---- #
@@ -164,7 +164,7 @@ def whoami():
     identity_config.read('config/identity.conf')
                 
     # Load this user's public key
-    pub_key:str = load_key(
+    pub_key:str = load_key_pem(
         current_app.enc_config['paths']['PUB_KEY_PATH'],
         'public'
     )
