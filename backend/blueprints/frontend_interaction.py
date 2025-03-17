@@ -13,6 +13,59 @@ from .funcs import require_localhost
 # Create blueprint
 fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
 
+# ---- Make function to get local users ---- #
+def get_local_users():
+    all_peers= []
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+        reader = csv.reader(f2)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+        reader = csv.reader(f3)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+        reader = csv.reader(f4)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+        
+
+    unique_peers = list(set(all_peers))
+
+
+    return jsonify({
+        'peer-list': unique_peers
+    })
+
 
 # ---- Add endpoints ---- #
 @fi_bp.route('/ui/get-peer-list', methods=['GET'])
@@ -403,6 +456,193 @@ def get_all_sharing_info_application():
         'stored-with': storing_with,
         'stored-for': storing_for
     })
+
+
+@fi_bp.route("/ui/get-sharing-peers", methods=['GET'])
+@require_localhost
+def get_sharing_name(): 
+    """
+        DESC: returns all info about this storage of this user. Extracts information from the
+        peer-info folder (i.e. all-peers.csv, currently-storing-for.csv, currently-storing-with.csv, and previously-shared-with.csv)
+        
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with all the information about this user sharing history with the following keys: 
+            {userID: ...,
+              stored-for:  [{filename: ..., filesize:..., filehash:...},...], 
+              stored-with: [{filename: ..., filesize:..., filehash:...},...],
+              shared-with: [{filename: ..., filesize:..., filehash:...},...]
+            }
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+    all_peers= []
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+        reader = csv.reader(f2)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+        reader = csv.reader(f3)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+        reader = csv.reader(f4)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+        
+
+    unique_peers = list(set(all_peers))
+
+
+    return jsonify({
+        'peer-list': unique_peers
+    })
+
+@fi_bp.route("/ui/get-total-shared-per-peer", methods=['GET'])
+@require_localhost
+def get_total_shared_by_user():
+ 
+    all_peers= []
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+        reader = csv.reader(f2)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+        reader = csv.reader(f3)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+        reader = csv.reader(f4)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+        
+
+    unique_peers = list(set(all_peers))
+
+    stored_locally = 0
+    stored_remotely = 0
+    shared = 0
+
+    peer_data = []
+
+    for user in unique_peers:
+
+        with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+            reader = csv.reader(f2)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                if row[0] == user:      
+                    try:
+                        stored_locally += float(row[2])
+                    except Exception as e:
+                        print("Error: ", {e})
+
+
+        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+            reader = csv.reader(f3)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                if row[0] == user: 
+                    try:
+                        stored_remotely += float(row[2])
+                    except Exception as e:
+                        print("Error: ", {e})
+
+
+        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+            reader = csv.reader(f4)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if len(row) < 3:
+                    continue  # Skip rows with missing data
+
+                if row[0] == user: 
+                    try:
+                        shared += float(row[3])
+                    except Exception as e:
+                        print("Error: ", {e})
+       
+        peer_data.append(
+            {"user": user,
+                    "storage_data" : 
+                    {
+                        'stored_remotely': stored_remotely,
+                        'stored_locally': stored_locally,
+                        'shared': shared
+                    }
+            }
+        )
+
+    return jsonify({
+        'user_data': peer_data
+    })
+
 
 
 @fi_bp.route('/ui/get-shared-storage', methods=['GET'])

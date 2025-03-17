@@ -26,8 +26,12 @@ export default function Home() {
   const [localStorage, setLocalStorage] = React.useState(0);
   const [remoteStorage, setRemoteStorage] = React.useState(0);
   const [sharedStorage, setSharedStorage] = React.useState(0);
-  const [user_list, setUserList] = React.useState([]);
+  // a list of names...
+  const [userList, setUserList] = React.useState([]);
 
+  // a list of json objects with a user name and the total amount of data stored in each of three categories
+  const [userData, setUserData] = React.useState([]);
+  
   function refresh() {
       forceRedraw(redraw + 1);
   }
@@ -53,12 +57,23 @@ export default function Home() {
 
   React.useEffect(() =>{
     instance
-    .get("/ui/get-all-info")
+    .get("/ui/get-total-shared-per-peer")
+    .then(function (response){
+      setUserData(response.data["user_data"])
+    })
+    .catch (function (error) {
+      console.error("errored:", error)
+    });
+  }, [redraw]);
+
+  React.useEffect(() =>{
+    instance
+    .get("/ui/get-sharing-peers")
     .then(function (response){
       setUserList(response.data["peer-list"])
     })
     .catch (function (error) {
-      console.log("errored:", error)
+      console.error("errored:", error)
     });
   }, [redraw]);
 
@@ -95,8 +110,6 @@ export default function Home() {
     });
   }, [redraw]);
   
-  console.log(user_list)
-
   const UserTable: React.FC = () => {
     return (
       <table className="w-full border-collapse border border-gray-300">
@@ -110,18 +123,20 @@ export default function Home() {
           </tr>
         </thead>
         <tbody>
-          {user_list.map((user) => (
-            <tr key={user.id} className="hover:bg-gray-100">
-              <td className="border p-2">{user.id}</td>
-              <td className="border p-2">{user.id}</td>
-              <td className="border p-2">{user.id}</td>
-              <td className="border p-2">{user.id}</td>
+          {userData.map((user) => (
+            <tr key={user.user} className="hover:bg-gray-100">
+              <td className="border p-2">{user.user} Bytes</td>
+              <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
+              <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
+              <td className="border p-2">{user.storage_data.shared} Bytes</td>
             </tr>
           ))}
         </tbody>
       </table>
     );
   };
+
+  console.log(userData)
 
     return (
   <div>
