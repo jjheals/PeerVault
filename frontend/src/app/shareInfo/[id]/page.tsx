@@ -20,7 +20,7 @@ export default function Home() {
     return (
       <div className="header">
           <div className="header-row">
-              <div className="titleText">Universal Requests</div>
+              <div className="titleText">User Share History </div>
           <div className="header-options-row">
               <div className="icon-padding"></div>
               <button onClick={()=> router.push("/")}>
