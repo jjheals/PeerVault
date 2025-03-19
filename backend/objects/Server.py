@@ -393,6 +393,7 @@ class Server(object):
                     "most_recent_ip": client_address,
                     "common_name": client_common_name,
                     "mac_address": client_mac_address,
+                    "max_GB_allowed": 5000000,
                     "have_shared_before": 0,
                     "currently_storing_with": 0,
                     "total_gb_storing_with": 0,

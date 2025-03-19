@@ -5,6 +5,7 @@
         "most_recent_ip": "192.168.4.6",
         "common_name": "quentin",
         "mac_last_four": "12:45",
+        "max_GB_allowed":10,
         "have_shared_before": 12,
         "currently_storing_with": 32,
         "total_gb_storing_with": 3,

@@ -5,6 +5,11 @@ Codes - each packet sent to eachother will have a code for the first 3 bytes exe
 handshake message layout 
     code        -all
     public key  -all
-    
+    mac address
+    common name
 
+share message layout 
+    code        -all
+    public key  -all
+    
 
