@@ -26,8 +26,8 @@ enc_config:ConfigParser = ConfigParser()
 enc_config.read('config/encryption-config.conf')
 
 # Multicast config 
-mcast_config:ConfigParser = ConfigParser()
-mcast_config.read('config/multicast-config.conf')
+network_config:ConfigParser = ConfigParser()
+network_config.read('config/network.conf')
 
 # Extract attrs from the flask config 
 PORT:int = int(flask_config['flask-config']['PORT'])
@@ -71,7 +71,7 @@ CORS(
 # Add all the configs to the app so they are accessible in the blueprints
 app.flask_config = flask_config
 app.enc_config = enc_config
-app.mcast_config = mcast_config
+app.network_config = network_config
 
 # Init a server obj and tie it to the flask app
 #server:Server = Server()
