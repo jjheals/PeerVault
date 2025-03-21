@@ -3,6 +3,11 @@
 import React from "react";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { Model } from "@/model";
+import { filesSelectController } from "@/controllers";
+import { send } from "process";
+import router from "next/router";
+import { motion } from "framer-motion";
 import Image from "next/image";
 
 

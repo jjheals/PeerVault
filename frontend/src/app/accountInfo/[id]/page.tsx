@@ -2,6 +2,8 @@
 
 import React, {Suspense} from "react";
 import axios from "axios";
+import Table from "@/app/table"
+import { TableSkeleton } from "@/app/skeletons";
 import { useParams } from "next/navigation";
 import { Model, User } from "@/model";
 import { useRouter } from 'next/navigation';
@@ -29,6 +31,11 @@ export default function Home() {
 
   // a list of json objects with a user name and the total amount of data stored in each of three categories
   const [userData, setUserData] = React.useState([]);
+
+  var user_list: any[] = [];
+  var total_stored_remote_list: any[] = [];
+  var total_stored_local_list: any[] = [];
+  var total_shared_list: any[] = [];
   
   function refresh() {
       forceRedraw(redraw + 1);
@@ -108,6 +115,11 @@ export default function Home() {
     });
   }, [redraw]);
   
+// TODO 
+    // This needs to get the info from all-peers to connect pub_key with common_name
+    // needs to get pub_key and connect that with the number of bytes for each type of file shown!!!
+    // needs to be handled on the backend 
+
   const UserTable: React.FC = () => {
     return (
       <table className="w-full border-collapse border border-gray-300">
@@ -145,9 +157,7 @@ export default function Home() {
     );
   };
 
-  console.log(userData)
-
-    return (
+  return (
   <div>
     <div className="header">
       <div className="header-row">

@@ -746,3 +746,73 @@ def get_remote_storage():
     return jsonify({
         'storage': numBytes,
     })
+@fi_bp.route('/ui/init-application', methods=['POST'])
+@require_localhost
+def init_application(): 
+    """ 
+        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
+
+        REQ BODY: 
+            The request body should look like: 
+                {
+                    "passphrase": "<super secure passphrase>"
+                }
+
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
+            - 400 | bad request: if the user fails to supply the required data.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+
+    # Extract the required info from the request 
+    request_body:dict = request.get_json()
+    given_passphrase:str = request_body.get('passphrase', None)
+
+    # Check that the required info is given
+    if not given_passphrase: abort(400)
+
+    # Check the given passphrase with the stored hash
+    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
+        abort(403)
+
+    # Return success 
+    return jsonify({
+        'status': 'success'
+    })
+    
+
+@fi_bp.route("ui/get-all-info", methods=['POST'])
+@require_localhost
+def init_application(): 
+    """ 
+        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
+
+        REQ BODY: 
+            The request body should look like: 
+                {
+                    "passphrase": "<super secure passphrase>"
+                }
+
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
+            - 400 | bad request: if the user fails to supply the required data.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+
+    # Extract the required info from the request 
+    request_body:dict = request.get_json()
+    given_passphrase:str = request_body.get('passphrase', None)
+
+    # Check that the required info is given
+    if not given_passphrase: abort(400)
+
+    # Check the given passphrase with the stored hash
+    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
+        abort(403)
+
+    # Return success 
+    return jsonify({
+        'status': 'success'
+    })  
