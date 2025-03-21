@@ -131,6 +131,111 @@ The flask API is structured like the following:
 curl -X GET "http://localhost:8000/ui/get-peer-list?online=1&common_name=jjhealey"
 ```
 
+### /ui/get-stored-with-info
+
+**Endpoint:** /ui-get-stored-with-info
+
+**Methods:** GET
+
+**Description:** returns the info for all files that the user is currently storing with other peers (i.e. the peers that are storing files on behalf of this user).
+
+#### Arguments
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `online` | `int` | Filter by if the peers are active or not (`0` or `1`).  |
+| `allowed_to_receive` | `int` | Filter by the status of `allowed_to_receive` (`-1`, `0`, or `1`). |
+| `public_key` | `str` | Filter by public key. |
+| `most_recent_ip` | `str` | Filter by the most recently known IP for peers. |
+| `common_name` | `str` | Filter by common name. |
+| `mac_last_four` | `str` | Filter by the last four characters of the MAC address. |
+
+#### Returns 
+
+| HTTP | Format | Description |
+|------|--------|-------------|
+| `200` | `JSON`   | a dict with two keys ['matched_peers', 'matched_files'] where 'matched_peers' is a list of dicts containing the info for each individual peer that matched at least one file, and 'matched_files' is a list of dicts containing the metadata for each of the individual matched files. |
+| `400` | - | Bad request: if the client supplies an unsupported method or some other error in the client's request. |
+| `403` | - | Unauthorized: request came from an address that is not a loopback address (not via localhost) |
+| `500` | - | Server error: if some unexpected error occurs during server-side processing of the request. |
+
+### /ui/whoami
+
+**Endpoint:** /ui/whoami
+
+**Methods:** GET
+
+**Description:** returns all info about this user account (i.e. info stored in the [identity.conf](config/identity.conf) file plus the user's public key and peer storage path).
+
+#### Arguments 
+
+*Takes no arguments.*
+
+#### Returns 
+
+| HTTP | Format | Description |
+|------|--------|-------------|
+| `200` | `dict` | A JSON object with all the information about this user account with the following keys: ['pub_key', 'common_name', 'mac', 'ip']. |
+| `403` | - | Unauthorized if the request comes from a non-loopback address (not localhost). | 
+| `500` | - | If there is some internal error processing the request. |
+
+### /ui/signup
+
+**Endpoint:** /ui/signup
+
+**Methods:** POST
+
+**Description:** endpoint to create a new account. Checks if an account already exists, updates the identity config file with the new given info, hashes the given password and stores it in the enc config. 
+
+#### Request Body
+
+The request body should look like: 
+```json
+{
+    "common_name": "<new common name>",
+    "peer_storage_path": "<some filepath>",
+    "allocated_storage": <int, size in gb>,
+    "passphrase": "<some super secure passphrase>"
+}
+```
+
+#### Returns 
+
+| HTTP | Format | Description | 
+|------|--------|-------------|
+| `200` | `JSON` | A JSON object that contains the info for the newly submitted and accepted request. |
+| `400` | - | If the request fails to supply the required data. |
+| `403` | - | If the request comes from a non-loopback address (not localhost). |
+| `409` | - | (conflict) If the user already has an account created. | 
+| `500` | - | If there is some error in processing the request. | 
+
+### /ui/init-application
+
+**Endpoint:** /ui/init-application
+
+**Methods:** POST
+
+**Description:** endpoint to initialize the application and provide a passphrase. 
+
+### Request Body 
+
+The request body should look like: 
+```json
+{
+    "passphrase": "<super secure passphrase>"
+}
+```
+
+### Returns 
+
+| HTTP | Format | Description | 
+|------|--------|-------------|
+| `200` | `JSON` | A JSON object that contains a "message": "success" if the passphrase is correct. | 
+| `400` | - | If the request fails to supply the required data. |
+| `403` | - | If the request comes from a non-loopback addresss (not localhost) **OR** if the given passphrase is wrong. | 
+| `500` | - | If there is some error in processing the request. | 
+
+
 ## Usage & Examples
 
 ### Using the API

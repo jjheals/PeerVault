@@ -1,6 +1,8 @@
 import os 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+import base64
+
 from .general import now
 import re
 
@@ -38,15 +40,12 @@ def load_key(filepath:str, type:str, passphrase:str=None) -> str:
                     return None
 
                 # Convert the key to a string and return
-                return re.sub(
-                    r"-----.*KEY-----|\s", "", 
-                    key.private_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                        encryption_algorithm=serialization.NoEncryption(),
-                    ).decode()
-                )
-
+                return key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                ).decode()
+            
             except Exception as e:
                 print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mFailed to load private key - {e}')
                 return None
@@ -62,13 +61,10 @@ def load_key(filepath:str, type:str, passphrase:str=None) -> str:
                     return None
 
                 # Convert the key to a string and return
-                return re.sub(
-                    r"-----.*KEY-----|\s", "",       
-                    key.public_bytes(
+                return key.public_bytes(
                         encoding=serialization.Encoding.PEM,
                         format=serialization.PublicFormat.SubjectPublicKeyInfo,
                     ).decode()
-                )
 
             except Exception as e:
                 print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mFailed to load public key - {e}')
@@ -133,3 +129,43 @@ def generate_asymm_keys(keysize:int, exp:int, prv_save_path:str, pub_save_path:s
 
     with open(pub_save_path, 'rb+') as file: 
         file.write(pub_key_str)
+
+
+def encrypt_message(public_key_pem:str, plaintext:str) -> str:
+    """Encrypts the given data with the given public key and returns the ciphertext as a string."""
+    
+    # Convert the pub key pem to a PublicKeyTypes 
+    public_key = serialization.load_pem_public_key(public_key_pem.encode())
+
+    # Enrcypt the given plaintext 
+    ciphertext:str = public_key.encrypt(
+        plaintext.encode(),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    # Convert the ciphertext to a string and return
+    return base64.b64encode(ciphertext).decode()
+
+
+def decrypt_message(private_key_pem:str, ciphertext_message:str) -> str:
+    """Decrypts the given message with the given key and returns the plaintext as a string."""
+
+    # Convert the private key pem to a PrivateKeyTypes
+    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
+
+    # Decrypt the given ciphertext
+    plaintext_bytes:bytes = private_key.decrypt(
+        base64.b64decode(ciphertext_message),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    # Decode the decrypted ciphertext and return
+    return plaintext_bytes.decode()
