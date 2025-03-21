@@ -45,7 +45,7 @@ def get_local_users():
                 print("Error: ", {e})
 
 
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
         reader = csv.reader(f4)
         next(reader, None)  # Skip header row
         
@@ -222,6 +222,7 @@ def whoami():
         current_app.enc_config['paths']['PUB_KEY_PATH'],
         'public'
     )
+    print(identity_config['IDENTITY']['COMMON_NAME'])
         
     # Create a dict, jsonify and return 
     return jsonify({
@@ -432,7 +433,7 @@ def get_all_sharing_info_application():
     # # open currently-sharing-with.csv
     sharing_with = [];
 
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
             reader = csv.reader(f4)
             next(reader, None)  # Skip header row
             
@@ -504,8 +505,7 @@ def get_sharing_name():
             except Exception as e:
                 print("Error: ", {e})
 
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
         reader = csv.reader(f4)
         next(reader, None)  # Skip header row
         
@@ -526,7 +526,7 @@ def get_sharing_name():
         'peer-list': unique_peers
     })
 
-@fi_bp.route("/ui/get-total-shared-per-peer", methods=['GET'])
+@fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
 @require_localhost
 def get_total_shared_by_user():
  
@@ -560,7 +560,7 @@ def get_total_shared_by_user():
                 print("Error: ", {e})
 
 
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
         reader = csv.reader(f4)
         next(reader, None)  # Skip header row
         
@@ -576,13 +576,12 @@ def get_total_shared_by_user():
 
     unique_peers = list(set(all_peers))
 
-    stored_locally = 0
-    stored_remotely = 0
-    shared = 0
-
     peer_data = []
 
     for user in unique_peers:
+        stored_locally = 0
+        stored_remotely = 0
+        shared = 0
 
         with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
             reader = csv.reader(f2)
@@ -614,7 +613,7 @@ def get_total_shared_by_user():
                         print("Error: ", {e})
 
 
-        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f4:
+        with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
             reader = csv.reader(f4)
             next(reader, None)  # Skip header row
             
@@ -668,7 +667,7 @@ def get_shared_storage():
                     continue  # Skip rows with missing data
 
                 try:
-                    numBytes += int(row[2])
+                    numBytes += float(row[3])
                 except ValueError:
                     print(f"Skipping invalid row: {row}")  # Debugging info
 
@@ -703,7 +702,7 @@ def get_local_storage():
                     continue  # Skip rows with missing data
 
                 try:
-                    numBytes += int(row[2])
+                    numBytes += float(row[2])
                 except ValueError:
                     print(f"Skipping invalid row: {row}")  # Debugging info
 
@@ -738,81 +737,110 @@ def get_remote_storage():
                     continue  # Skip rows with missing data
 
                 try:
-                    numBytes += int(row[2])
+                    numBytes += float(row[2])
                 except ValueError:
                     print(f"Skipping invalid row: {row}")  # Debugging info
         
     # Create a dict, jsonify and return 
     return jsonify({
         'storage': numBytes,
-    })
-@fi_bp.route('/ui/init-application', methods=['POST'])
+    })    
+
+
+@fi_bp.route('/ui/get-user-history', methods=['GET'])
 @require_localhost
-def init_application(): 
-    """ 
-        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
+def get_user_history(): 
+    all_peers= []
 
-        REQ BODY: 
-            The request body should look like: 
-                {
-                    "passphrase": "<super secure passphrase>"
-                }
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+        reader = csv.reader(f2)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
 
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
-            - 400 | bad request: if the user fails to supply the required data.
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
-            - 500 | internal server error: if there is some error in processing the request.
-    """
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
 
-    # Extract the required info from the request 
-    request_body:dict = request.get_json()
-    given_passphrase:str = request_body.get('passphrase', None)
 
-    # Check that the required info is given
-    if not given_passphrase: abort(400)
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+        reader = csv.reader(f3)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
 
-    # Check the given passphrase with the stored hash
-    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
-        abort(403)
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
 
-    # Return success 
+
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
+        reader = csv.reader(f4)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+        
+
+    unique_peers = list(set(all_peers))
+
+    all_user_data = []
+
+
+    for user in unique_peers:
+        user_data = []
+        with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+            reader = csv.reader(f2)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if row[0] == user:      
+                    try:
+                        user_data.append(row)
+                    except Exception as e:
+                        print("Error: ", {e})
+
+
+        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+            reader = csv.reader(f3)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if row[0] == user: 
+                    try:
+                        user_data.append(row)
+                    except Exception as e:
+                        print("Error: ", {e})
+
+
+        with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
+            reader = csv.reader(f4)
+            next(reader, None)  # Skip header row
+            
+            for row in reader:
+                if row[0] == user: 
+                    try:
+                        user_data.append(row)
+                    except Exception as e:
+                        print("Error: ", {e})
+       
+        all_user_data.append(
+            {"user": user,
+                    "history" : user_data
+            }
+        )
     return jsonify({
-        'status': 'success'
+        'all_user_data': all_user_data
     })
-    
-
-@fi_bp.route("ui/get-all-info", methods=['POST'])
-@require_localhost
-def init_application(): 
-    """ 
-        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
-
-        REQ BODY: 
-            The request body should look like: 
-                {
-                    "passphrase": "<super secure passphrase>"
-                }
-
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
-            - 400 | bad request: if the user fails to supply the required data.
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
-            - 500 | internal server error: if there is some error in processing the request.
-    """
-
-    # Extract the required info from the request 
-    request_body:dict = request.get_json()
-    given_passphrase:str = request_body.get('passphrase', None)
-
-    # Check that the required info is given
-    if not given_passphrase: abort(400)
-
-    # Check the given passphrase with the stored hash
-    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
-        abort(403)
-
-    # Return success 
-    return jsonify({
-        'status': 'success'
-    })  

@@ -23,9 +23,9 @@ export default function Home() {
   const [model, setModel] = React.useState(new Model());
   const [redraw, forceRedraw] = React.useState(0);
   const [identity, setIdentity] = React.useState();
-  const [localStorage, setLocalStorage] = React.useState(0);
-  const [remoteStorage, setRemoteStorage] = React.useState(0);
-  const [sharedStorage, setSharedStorage] = React.useState(0);
+  const [localStorage, setLocalStorage] = React.useState(0.0);
+  const [remoteStorage, setRemoteStorage] = React.useState(0.0);
+  const [sharedStorage, setSharedStorage] = React.useState(0.0);
   // a list of names...
   const [userList, setUserList] = React.useState([]);
 
@@ -40,6 +40,7 @@ export default function Home() {
   function refresh() {
       forceRedraw(redraw + 1);
   }
+
   
   function retreiveIdentity(setIdentity:any) {
       instance
@@ -62,7 +63,7 @@ export default function Home() {
 
   React.useEffect(() =>{
     instance
-    .get("/ui/get-total-shared-per-peer")
+    .get("/ui/get-shared-by-peer")
     .then(function (response){
       setUserData(response.data["user_data"])
     })
@@ -114,11 +115,8 @@ export default function Home() {
       console.log("errored:", error)
     });
   }, [redraw]);
-  
-// TODO 
-    // This needs to get the info from all-peers to connect pub_key with common_name
-    // needs to get pub_key and connect that with the number of bytes for each type of file shown!!!
-    // needs to be handled on the backend 
+ 
+
 
   const UserTable: React.FC = () => {
     return (
@@ -139,6 +137,18 @@ export default function Home() {
               <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
               <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
               <td className="border p-2">{user.storage_data.shared} Bytes</td>
+              <td className="border p-2"> 
+                <a href={`/history/${user.user}`} className="hover" title="Account Settings">
+                    <Image
+                      className="dark"
+                      src="/info-circle-svgrepo-com.svg"
+                      alt="History"
+                      width={30}
+                      height={30}
+                    />
+                </a>  
+              </td>
+
             </tr>
           ))}
         </tbody>
