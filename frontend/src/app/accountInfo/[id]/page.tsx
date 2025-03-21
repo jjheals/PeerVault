@@ -139,17 +139,6 @@ export default function Home() {
               <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
               <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
               <td className="border p-2">{user.storage_data.shared} Bytes</td>
-              <td className="border p-2">
-              <a href={`/shareInfo/${user.user}`} className="hover" title="interaction history">
-                  <Image
-                    className="dark"
-                    src="\info-circle-svgrepo-com.svg"
-                    alt="share history info icon"
-                    width={30}
-                    height={30}
-                  />
-              </a>
-              </td>
             </tr>
           ))}
         </tbody>

@@ -1,6 +1,8 @@
 'use client'; //needed to handle site events (clicks / events / interactions)
 
 import React from "react";
+import { Model } from "@/model";
+import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Model } from "@/model";
