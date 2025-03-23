@@ -4,3 +4,4 @@ backend/*/__pycache__
 backend/server.log
 *.log
 *.vscode/
+*__pycache__
