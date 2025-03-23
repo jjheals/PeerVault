@@ -1,6 +1,5 @@
-
 # Third-party imports
-from flask import Flask, g, request, current_app
+from flask import Flask, g, request
 from flask_compress import Compress
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
@@ -64,7 +63,7 @@ compress.init_app(app)
 print(f'\033[0m[{now()}] \033[94mConfiguring CORS\033[0m')
 CORS(
     app, 
-    origins=['http://localhost:3000'],
+    origins=['http://localhost:3001'],
     allow_headers=['Content-Type'],
     supports_credentials=True
 )  
