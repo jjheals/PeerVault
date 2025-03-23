@@ -2,6 +2,7 @@ import os
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 import base64
+import re 
 
 from .general import now
 
@@ -168,3 +169,8 @@ def decrypt_message(private_key_pem:str, ciphertext_message:str) -> str:
 
     # Decode the decrypted ciphertext and return
     return plaintext_bytes.decode()
+
+
+def strip_pem_headers(pem_str:str) -> str:
+    """Strips the leading and trailing "----- * KEY -----" from the given key PEM string."""
+    return re.sub(r'-----.*?-----', '', pem_str).strip()
