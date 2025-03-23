@@ -99,7 +99,7 @@ export default function Home() {
 
       return (
         <div>
-          <label>Total Size of Files: {model.getTotalStorage().toString()}</label>
+          <label>Total Size of Files: {model.getTotalStorage().toString()}B</label>
           {props.files.map((file: any, index: any) => (
             <p key={index}>
               <label>{file.name} - {file.size}B </label>
@@ -116,7 +116,7 @@ export default function Home() {
     
           return (
             <div>
-              <label>Total Size of Files: {model.getTotalStorage().toString()}</label>
+              <label>Total Size of Files: {model.getTotalStorage().toString()}B</label>
               {props.files.map((file: any, index: any) => (
                 <p key={index}>
                   <label>{file.name} - {file.size}B </label>
@@ -404,6 +404,7 @@ export default function Home() {
                     id="fileInput"
                     onChange={handleFilesSelect}
                     className="hidden"
+                    multiple
                   />
 
                   {/* Custom Upload Button */}
@@ -470,7 +471,8 @@ export default function Home() {
               <div className="itemContainerContent">
                 <div className="itemCard">
                   <div className="itemCardLeftContent">
-                    <div className="itemCardTitleText">Storage Type</div>
+                    <div className="itemCardTitleText">Confirmation</div>
+                      <div>Storage Type: {sendType}</div>
                       <div>
                         <FileConfirmationList files={files}/>
                       </div>
