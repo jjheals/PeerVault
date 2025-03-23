@@ -1,4 +1,6 @@
 {
-    "common-name": "jjhealey",
-    "mac": "db:85:ed:17:e5:44"
+    "pub_key": "mykey123",
+    "common_name": "jjhealey",
+    "mac": "db:85:ed:17:e5:44",
+    "ip": "ip123"
 }

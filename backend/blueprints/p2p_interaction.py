@@ -1,6 +1,5 @@
 
 from flask import Blueprint, jsonify, g, request, abort, current_app
-import json 
 import pandas as pd
 from objects import Server
 

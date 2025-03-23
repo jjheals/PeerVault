@@ -1,6 +1,7 @@
 backend/keys/
 backend/__pycache__
 backend/*/__pycache__
+backend/server.log
 *.log
 *.vscode/
 "Quentin Notes"

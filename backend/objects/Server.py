@@ -172,7 +172,7 @@ class Server(object):
 
                 # Do identity check
                 id_check_result:bool = self.initiate_identity_check(connection, client_public_key, client_address, self.DISC_CODE)  
-
+ 
                 # If ID check pass, handle the discovery request
                 if id_check_result: 
                     self.handle_discovery_code(connection, client_public_key, incoming_message, client_address)
@@ -424,7 +424,6 @@ class Server(object):
         raise NotImplementedError
 
 
-
     def server_shutdown(self):
         """Shuts down the server and closes all sockets.
         
@@ -439,3 +438,9 @@ class Server(object):
         self.thread_pool.shutdown(wait=True)
         
         self.logger.info("Server shutdown completed")
+
+
+    def start_multicast_listener(self, iface:str, port:int): 
+        """Starts a thread that listens for incoming multicast messages, performs identity checks, and 
+        updates the local database of peer information as appropriate."""
+        raise NotImplementedError
