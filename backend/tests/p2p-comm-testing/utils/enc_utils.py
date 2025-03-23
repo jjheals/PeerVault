@@ -2,6 +2,7 @@ import os
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 import base64
+import re 
 
 from .general import now
 
@@ -200,3 +201,7 @@ def decrypt_message(private_key_pem: str, encrypted_data: dict) -> str:
     plaintext_bytes = decryptor.update(ciphertext) + decryptor.finalize()
     
     return plaintext_bytes.decode()
+
+
+def strip_pem_headers(pem_str):
+    return re.sub(r'-----.*?-----', '', pem_str).strip()

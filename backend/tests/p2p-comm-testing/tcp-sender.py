@@ -28,6 +28,9 @@ enc_config.read('config/encryption.conf')
 PUBLIC_KEY_PEM:str = load_key_pem(enc_config['paths']['PUB_KEY_PATH'], 'public')
 PRIV_KEY_PEM:str = load_key_pem(enc_config['paths']['PRIV_KEY_PATH'], 'private', 'SomeSuperSecurePassphrase')
 
+# Identity config for mac and common name
+identity_config:ConfigParser = ConfigParser()
+identity_config.read('config/identity.conf')
 
 # Define target IP and get the port from the network config
 TARGET_IP:str = '127.0.0.1'
@@ -43,7 +46,9 @@ client_socket.connect((TARGET_IP, PORT))
 # Construct the json body to send
 message_dict:dict = {
     'code': DISC_CODE,
-    'public_key_pem': PUBLIC_KEY_PEM
+    'public_key_pem': PUBLIC_KEY_PEM,
+    'common_name': identity_config['IDENTITY']['common_name'],
+    'mac_last_four': identity_config['IDENTITY']['mac'][-4:]
 }
 
 # Send the discovery message
@@ -54,7 +59,6 @@ client_socket.send(
 # Wait for a response 
 # Load the incoming message JSON
 incoming_message_json:dict = json.loads(client_socket.recv(BUFF))
-print(incoming_message_json)
 
 # Extract the info from the incoming message 
 # TODO: check the code 
