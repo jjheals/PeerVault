@@ -22,7 +22,7 @@ export default function Home() {
     const [files, setFiles] = React.useState<any[]>([]);
     const [recipient, setRecipient] = React.useState("");
     const [users, setUsers] = React.useState<any[]>([]);
-    const [identity, setIdentity] = React.useState();
+    const [identity, setIdentity] = React.useState("");
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
@@ -61,14 +61,15 @@ export default function Home() {
       instance
       .get("/ui/whoami")
       .then(function (response){
-        console.log("me: ", response["data"]["common_name"]);
-        setIdentity(response["data"]["common_name"]);
-        if (response["data"]["common_name"] != "Guest") {
+
+        if(response.data["common_name"] != undefined){
+          setIdentity(response.data["common_name"]);
           setVerifiedUser(true);
         }
+
       })
       .catch (function (error) {
-        console.log("errored:", error)
+        console.error("errored:", error)
       });
     }, [redraw]);
 
@@ -76,7 +77,6 @@ export default function Home() {
     // store the uploaded files
     React.useEffect(() => {
       retreiveFilesToUpload(setFiles);
-      console.log("files:", files);
     }, [redraw]);
 
 
@@ -90,7 +90,6 @@ export default function Home() {
     const removeFile = (fileToRemove: number) =>{
       model.removeFile(fileToRemove);
       refresh()
-      console.log(files)
     }
 
 
@@ -142,13 +141,11 @@ export default function Home() {
     // stores the value for the recipient of the share
     const selectRecipient = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setRecipient(event.target.value);
-      console.log(recipient);
     };
 
     // display the users that we are available to share/store with
     function DisplayUsers(props: any) {      
       if (!props.users) return <div>Loading</div>;
-      console.log("props:", props.users);
 
       return (
         <select id="users" value={recipient} onChange={selectRecipient}>
@@ -191,10 +188,9 @@ export default function Home() {
         }
       )
       .then(function (response){
-        console.log("success");
       })
       .catch (function (error) {
-        console.log("errored")
+        console.error("errored")
       });
 
       //remove all of the data??
@@ -252,6 +248,7 @@ export default function Home() {
       resetShow();
       refresh();
     }
+
 
     return (
       <div>
