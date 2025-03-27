@@ -1,10 +1,12 @@
 
+import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
 from configparser import ConfigParser
 from hashlib import sha256
 import csv
+import pandas as pd
 
 from utils import filter_args, load_key_pem, get_mac_address
 from .funcs import require_localhost
@@ -476,51 +478,7 @@ def get_sharing_name():
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
-    all_peers= []
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-        reader = csv.reader(f2)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-        reader = csv.reader(f3)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-        reader = csv.reader(f4)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-        
-
-    unique_peers = list(set(all_peers))
-
+    unique_peers = getUniquePeers()
 
     return jsonify({
         'peer-list': unique_peers
@@ -529,52 +487,8 @@ def get_sharing_name():
 @fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
 @require_localhost
 def get_total_shared_by_user():
- 
-    all_peers= []
 
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-        reader = csv.reader(f2)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-        reader = csv.reader(f3)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-        reader = csv.reader(f4)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-        
-
-    unique_peers = list(set(all_peers))
+    unique_peers = getUniquePeers()
 
     peer_data = []
 
@@ -621,14 +535,15 @@ def get_total_shared_by_user():
                 if len(row) < 3:
                     continue  # Skip rows with missing data
 
-                if row[0] == user: 
-                    try:
-                        shared += float(row[3])
-                    except Exception as e:
-                        print("Error: ", {e})
+                # if row[0] == user: 
+                #     try:
+                #         shared += float(row[3])
+                #     except Exception as e:
+                #         print("Error: ", {e})
        
         peer_data.append(
             {"user": user,
+             "common_name": getCommonNameFromPubKey(user),
                     "storage_data" : 
                     {
                         'stored_remotely': stored_remotely,
@@ -747,100 +662,66 @@ def get_remote_storage():
     })    
 
 
-@fi_bp.route('/ui/get-user-history', methods=['GET'])
+@fi_bp.route('/ui/get-user-history', methods=['POST'])
 @require_localhost
 def get_user_history(): 
-    all_peers= []
 
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-        reader = csv.reader(f2)
-        next(reader, None)  # Skip header row
-        
+    try:
+        request_body:dict = request.get_json()
+        other_user:str = getPubKeyFromCommonName(request_body.get('other_user', None))
+        print(other_user)
+
+        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+        filtered_data = data[data['peer_pub_key'] == other_user]
+
+        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
+        return jsonify({
+            'user_data': filtered_json_data
+        })
+    except Exception as e:
+        print(e)
+
+@fi_bp.route('/ui/get-pub-key', methods=['POST'])
+@require_localhost
+def get_peer_public_key(): 
+
+    try:
+        request_body:dict = request.get_json()
+        peer_pub_key = getPubKeyFromCommonName(request_body.get('peer_common_name', None))
+        print(peer_pub_key)
+
+        return jsonify({
+            'peer_pub_key': peer_pub_key
+        })
+    except Exception as e:
+        print(e)
+
+
+def getUniquePeers() -> list:
+    storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+    data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+
+    unique_peers = data['peer_pub_key'].unique()
+    
+    return unique_peers.tolist()
+
+def getCommonNameFromPubKey(pub_key: str):
+    with open('peer-info/all-peers.csv', 'r', newline='') as f:
+        reader = csv.reader(f)
+        next(reader, None)
+
         for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-        reader = csv.reader(f3)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-        reader = csv.reader(f4)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-        
-
-    unique_peers = list(set(all_peers))
-
-    all_user_data = []
-
-
-    for user in unique_peers:
-        user_data = []
-        with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-            reader = csv.reader(f2)
-            next(reader, None)  # Skip header row
+            if row[0] == pub_key:
+                return row[3] 
             
-            for row in reader:
-                if row[0] == user:      
-                    try:
-                        user_data.append(row)
-                    except Exception as e:
-                        print("Error: ", {e})
-
-
-        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-            reader = csv.reader(f3)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if row[0] == user: 
-                    try:
-                        user_data.append(row)
-                    except Exception as e:
-                        print("Error: ", {e})
-
-
-        with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-            reader = csv.reader(f4)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if row[0] == user: 
-                    try:
-                        user_data.append(row)
-                    except Exception as e:
-                        print("Error: ", {e})
-       
-        all_user_data.append(
-            {"user": user,
-                    "history" : user_data
-            }
-        )
-    return jsonify({
-        'all_user_data': all_user_data
-    })
+def getPubKeyFromCommonName(common_name: str):
+    all_peers = pd.read_csv('peer-info/all-peers.csv')
+    result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
+    return result.iloc[0] if not result.empty else None

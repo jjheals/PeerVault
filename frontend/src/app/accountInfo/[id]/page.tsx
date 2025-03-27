@@ -133,12 +133,12 @@ export default function Home() {
         <tbody>
           {userData.map((user) => (
             <tr key={user.user} className="hover:bg-gray-100">
-              <td className="border p-2">{user.user} Bytes</td>
+              <td className="border p-2">{user.common_name}</td>
               <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
               <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
               <td className="border p-2">{user.storage_data.shared} Bytes</td>
               <td className="border p-2"> 
-                <a href={`/history/${user.user}`} className="hover" title="Account Settings">
+                <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
                     <Image
                       className="dark"
                       src="/info-circle-svgrepo-com.svg"

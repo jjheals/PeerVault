@@ -23,7 +23,7 @@ flask_config.read('config/flask.conf')
 
 # Encryption config 
 enc_config:ConfigParser = ConfigParser()
-enc_config.read('config/encryption-config.conf')
+enc_config.read('config/encryption.conf')
 
 # Multicast config 
 mcast_config:ConfigParser = ConfigParser()
