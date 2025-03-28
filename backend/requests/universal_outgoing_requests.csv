@@ -1,4 +1,2 @@
-filename, size_gb, sha256, date_shared
+filename,size_gb,sha256,date_shared
 malware.exe,2.4,<some-hash-ES2>,2024-06-10
-baby_names.csv,2,<some-hash-IE1>,2024-11-11
-midterm_exam_answers.docx,10.1,<some-hash-IG2>,2025-03-28

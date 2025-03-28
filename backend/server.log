@@ -286,3 +286,73 @@ Traceback (most recent call last):
     if row[0] == user:
     ~~~^^^
 IndexError: list index out of range
+ERROR:main:Exception on /ui/get-num-requests [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 920, in full_dispatch_request
+    return self.finalize_request(rv)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 939, in finalize_request
+    response = self.make_response(rv)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1212, in make_response
+    raise TypeError(
+TypeError: The view function for 'frontend_interaction.get_num_requests' did not return a valid response. The function either returned None or ended without a return statement.
+ERROR:main:Exception on /ui/get-num-requests [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 920, in full_dispatch_request
+    return self.finalize_request(rv)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 939, in finalize_request
+    response = self.make_response(rv)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1212, in make_response
+    raise TypeError(
+TypeError: The view function for 'frontend_interaction.get_num_requests' did not return a valid response. The function either returned None or ended without a return statement.
+ERROR:main:Exception on /ui/get-num-requests [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 920, in full_dispatch_request
+    return self.finalize_request(rv)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 939, in finalize_request
+    response = self.make_response(rv)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1212, in make_response
+    raise TypeError(
+TypeError: The view function for 'frontend_interaction.get_num_requests' did not return a valid response. The function either returned None or ended without a return statement.
+ERROR:main:Exception on /ui/get-num-requests [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 920, in full_dispatch_request
+    return self.finalize_request(rv)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 939, in finalize_request
+    response = self.make_response(rv)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1212, in make_response
+    raise TypeError(
+TypeError: The view function for 'frontend_interaction.get_num_requests' did not return a valid response. The function either returned None or ended without a return statement.
+ERROR:main:Exception on /ui/get-num-requests [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 920, in full_dispatch_request
+    return self.finalize_request(rv)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 939, in finalize_request
+    response = self.make_response(rv)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1212, in make_response
+    raise TypeError(
+TypeError: The view function for 'frontend_interaction.get_num_requests' did not return a valid response. The function either returned None or ended without a return statement.

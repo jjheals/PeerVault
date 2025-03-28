@@ -734,9 +734,59 @@ def get_sent_requests():
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
         output = all_requests.to_dict(orient='records')
-        print(output)
         return jsonify({
             'all_requests': output
+        })
+    except Exception as e:
+        print(e)
+
+
+@fi_bp.route('/ui/get-incoming-requests', methods=['GET'])
+@require_localhost
+def get_incoming_requests(): 
+
+    try:
+        all_requests:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
+        output = all_requests.to_dict(orient='records')
+        return jsonify({
+            'all_requests': output
+        })
+    except Exception as e:
+        print(e)
+
+
+@fi_bp.route('/ui/get-universal-requests', methods=['GET'])
+@require_localhost
+def get_universal_requests(): 
+
+    try:
+        all_requests:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
+        output = all_requests.to_dict(orient='records')
+        return jsonify({
+            'all_requests': output
+        })
+    except Exception as e:
+        print(e)
+
+
+@fi_bp.route('/ui/get-num-requests', methods=['GET'])
+@require_localhost
+def get_num_requests(): 
+
+    try:
+        incoming:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
+        num_incoming = (incoming.size) / 5;
+
+        direct:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
+        num_direct = (direct.size) / 5;
+
+        uni:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
+        num_uni = (uni.size) / 4;
+
+        return jsonify({
+            'incoming': num_incoming,
+            'direct': num_direct,
+            'universal': num_uni
         })
     except Exception as e:
         print(e)
