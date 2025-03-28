@@ -1,0 +1,3 @@
+peer_pub_key,filename,size_gb,sha256,date_shared
+<some-public-key-E>,tax_returns.pdf,2,<some-hash-IE1>,2025-01-30
+<some-public-key-G>,not_a_virus.exe,500,<some-hash-IG2>,2025-03-28

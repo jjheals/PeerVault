@@ -16,21 +16,13 @@ const instance = axios.create({
 export default function Home() { 
   const router = useRouter();
   const { id } = useParams(); // Get the username from the URL
-  const username_url = decodeURIComponent(id);
   const [redraw, forceRedraw] = React.useState(0);
-  const [userList, setUserList] = React.useState<any[]>([]);  // array of all users 
-  const [currentUser, setCurrentUser] = React.useState(username_url as string);  // array of all users 
+  const [currentUser, setCurrentUser] = React.useState(""); // array of all users 
+  const [peers, setPeers] = React.useState(""); // array peers
+
 
   const UserTable: React.FC = () => {
-    // Filter history for the selected user
-    const filteredUser = userList.find(entry => entry.user === currentUser);
     
-    if(!filteredUser){
-      return (
-        <div className="text-red-500">No history found for user: {currentUser}</div>
-      );
-    }
-
     return (
       <table className="w-full border-collapse border border-gray-300">
         <thead>
@@ -42,20 +34,21 @@ export default function Home() {
             <th className="border p-2">Hash</th>
           </tr>
         </thead>
-        <tbody>
+
+        {/* <tbody>
           {filteredUser && 
-            filteredUser.history.map((file: any, index: number) => (
+            flattenedhistory.map((file: any, index: number) => (
             file.length === 4? (
               <tr key={index} className="hover:bg-gray-100">
-              <td className="border p-2">{file[0]}</td>
+              <td className="border p-2">{currentUser}</td>
               <td className="border p-2">-</td>
               <td className="border p-2">{file[1]}</td>
               <td className="border p-2">{file[2]} Bytes</td>
               <td className="border p-2">{file[3]}</td>
             </tr>
-            ) : file.length === 5?(
+            ) : file.length === 6? (
               <tr key={index} className="hover:bg-gray-100">
-                <td className="border p-2">{file[0]}</td>
+                <td className="border p-2">{currentUser}</td>
                 <td className="border p-2">{file[1]}</td>
                 <td className="border p-2">{file[2]}</td>
                 <td className="border p-2">{file[3]} Bytes</td>
@@ -64,23 +57,25 @@ export default function Home() {
             ) : (
               <tr key={index} className="hover:bg-gray-100">
                 <td className="border p-2" colSpan={5}>
-                  Invalid file format
+                  Invalid file format: {file}
                 </td>
               </tr>
             )
           ))
           }
-        </tbody>
+        </tbody> */}
       </table>
     );
   };
 
-  console.log(currentUser)
-
+  // Get the identity of the User on this device...
   React.useEffect(() =>{
     instance
-    .get("/ui/get-user-history")
+    .get("/ui/whoami")
     .then(function (response){
+      if(response.data["common_name"] != undefined){
+        setCurrentUser(response.data["common_name"]);
+      }
 
     })
     .catch (function (error) {
@@ -88,12 +83,12 @@ export default function Home() {
     });
   }, [redraw]);
 
+  // Get the identity of the User on this device...
   React.useEffect(() =>{
     instance
-    .get("/ui/get-user-history")
+    .get("/ui/get-peer-list")
     .then(function (response){
-      var list = response.data["all_user_data"];
-      setUserList(list)
+      setPeers(response.data)
     })
     .catch (function (error) {
       console.error("errored:", error)
