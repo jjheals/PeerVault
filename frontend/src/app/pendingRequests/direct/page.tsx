@@ -41,6 +41,7 @@ export default function Home() {
               <div className="icon-padding"></div>
           </div>
       </div>  
+      <div>This page represents the requests sent out to specific recipients</div>
     </div>  
     )
   }

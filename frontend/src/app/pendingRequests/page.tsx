@@ -1,15 +1,8 @@
 'use client'; //needed to handle site events (clicks / events / interactions)
 
 import React from "react";
-import { Model } from "@/model";
-import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Model } from "@/model";
-import { filesSelectController } from "@/controllers";
-import { send } from "process";
-import router from "next/router";
-import { motion } from "framer-motion";
 import Image from "next/image";
 
 
@@ -43,7 +36,8 @@ export default function Home() {
               </button>
               <div className="icon-padding"></div>
           </div>
-      </div>  
+      </div> 
+      <div>This page is representing the requests sent out without a specific recipient in mind</div>
     </div>  
     )
   }

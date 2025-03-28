@@ -19,28 +19,13 @@ const instance = axios.create({
 
 export default function Home() {  
   const router = useRouter();
-  const { id } = useParams(); // Get the dynamic `id` from the URL
-  const [model, setModel] = React.useState(new Model());
   const [redraw, forceRedraw] = React.useState(0);
   const [identity, setIdentity] = React.useState();
   const [localStorage, setLocalStorage] = React.useState(0.0);
   const [remoteStorage, setRemoteStorage] = React.useState(0.0);
   const [sharedStorage, setSharedStorage] = React.useState(0.0);
-  // a list of names...
-  const [userList, setUserList] = React.useState([]);
-
   // a list of json objects with a user name and the total amount of data stored in each of three categories
   const [userData, setUserData] = React.useState([]);
-
-  var user_list: any[] = [];
-  var total_stored_remote_list: any[] = [];
-  var total_stored_local_list: any[] = [];
-  var total_shared_list: any[] = [];
-  
-  function refresh() {
-      forceRedraw(redraw + 1);
-  }
-
   
   function retreiveIdentity(setIdentity:any) {
       instance
@@ -66,17 +51,6 @@ export default function Home() {
     .get("/ui/get-shared-by-peer")
     .then(function (response){
       setUserData(response.data["user_data"])
-    })
-    .catch (function (error) {
-      console.error("errored:", error)
-    });
-  }, [redraw]);
-
-  React.useEffect(() =>{
-    instance
-    .get("/ui/get-sharing-peers")
-    .then(function (response){
-      setUserList(response.data["peer-list"])
     })
     .catch (function (error) {
       console.error("errored:", error)

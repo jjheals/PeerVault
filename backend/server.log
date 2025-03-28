@@ -1,0 +1,288 @@
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 809, in get_user_history
+    if row[0] == user:
+    ~~~^^^
+IndexError: list index out of range
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 809, in get_user_history
+    if row[0] == user:
+    ~~~^^^
+IndexError: list index out of range
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 809, in get_user_history
+    if row[0] == user:
+    ~~~^^^
+IndexError: list index out of range
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 809, in get_user_history
+    if row[0] == user:
+    ~~~^^^
+IndexError: list index out of range
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 839, in get_user_history
+    all_user_data.append(
+    ^^^^^^^^^^^^^
+NameError: name 'all_user_data' is not defined
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 839, in get_user_history
+    all_user_data.append(
+    ^^^^^^^^^^^^^
+NameError: name 'all_user_data' is not defined
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 841, in get_user_history
+    {"user": user,
+             ^^^^
+NameError: name 'user' is not defined
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 841, in get_user_history
+    {"user": user,
+             ^^^^
+NameError: name 'user' is not defined
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 843, in get_user_history
+    "history" : user_data
+                ^^^^^^^^^
+NameError: name 'user_data' is not defined
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 843, in get_user_history
+    "history" : user_data
+                ^^^^^^^^^
+NameError: name 'user_data' is not defined
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 808, in get_user_history
+    if row[0] == user:
+    ~~~^^^
+IndexError: list index out of range
+ERROR:main:Exception on /ui/get-user-history [GET]
+Traceback (most recent call last):
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\funcs.py", line 17, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lilyb\Documents\Repositories\Capstone\PeerVault\backend\blueprints\frontend_interaction.py", line 808, in get_user_history
+    if row[0] == user:
+    ~~~^^^
+IndexError: list index out of range

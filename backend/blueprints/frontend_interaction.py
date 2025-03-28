@@ -535,11 +535,11 @@ def get_total_shared_by_user():
                 if len(row) < 3:
                     continue  # Skip rows with missing data
 
-                # if row[0] == user: 
-                #     try:
-                #         shared += float(row[3])
-                #     except Exception as e:
-                #         print("Error: ", {e})
+                if row[0] == user: 
+                    try:
+                        shared += float(row[3])
+                    except Exception as e:
+                        print("Error: ", {e})
        
         peer_data.append(
             {"user": user,
@@ -725,3 +725,18 @@ def getPubKeyFromCommonName(common_name: str):
     all_peers = pd.read_csv('peer-info/all-peers.csv')
     result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
     return result.iloc[0] if not result.empty else None
+
+
+@fi_bp.route('/ui/get-sent-requests', methods=['GET'])
+@require_localhost
+def get_sent_requests(): 
+
+    try:
+        all_requests:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
+        output = all_requests.to_dict(orient='records')
+        print(output)
+        return jsonify({
+            'all_requests': output
+        })
+    except Exception as e:
+        print(e)
