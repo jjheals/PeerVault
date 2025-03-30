@@ -2,11 +2,13 @@
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
+import numpy as np 
 from configparser import ConfigParser
 from hashlib import sha256
 
-from utils import filter_args, load_key_pem, get_mac_address
+from utils import filter_args, load_key_pem, get_mac_address, hash_bytes_sha256
 from .funcs import require_localhost
+from werkzeug.utils import secure_filename
 
 # ---- Config & init ---- #
 # Create blueprint
@@ -302,37 +304,133 @@ def init_application():
     })
     
 
-@fi_bp.route("/ui/get-all-info", methods=['POST'])
-@require_localhost
-def get_all_info(): 
-    """ 
-        DESC: endpoint to initialize the application (mainly provide and check the passphrase).
-
-        REQ BODY: 
-            The request body should look like: 
-                {
-                    "passphrase": "<super secure passphrase>"
-                }
-
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
-            - 400 | bad request: if the user fails to supply the required data.
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
-            - 500 | internal server error: if there is some error in processing the request.
+@fi_bp.route('/api/send-file', methods=['POST']) 
+def send_file(): 
+    """Endpoint to initiate the process of sending (sharing or storing) a file with another peer.
+    
+    REQ BODY: 
+        The request body should be form data (JS obj FormData). There should also be a file attached to the 
+        request - in JS do this with: 
+            
+            ```javascript
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('code', '<CODE>');
+                formData.append('peer_pub_key': '<PUBLIC KEY>')
+                
+                // Use formData as the request body ... 
+                // ... 
+            ```
+        
+        NOTE: 
+            - If code is blank or any code other than "SHARE" or "STORE" is provided, the request will be
+              dropped and the server will return HTTP 400 (Bad Request).
+            - If the peer_pub_key is empty string, then the server will initiate a broadcast message to find 
+              a recipient that is online.
+    
+    RETURNS: 
+        - 200 | successful: (dict) a JSON object that contains the info of the peer that the file was sent to (or is pending to be sent to) 
+        - 400 | bad request: if the user fails to supply the required data OR if the provided data is invalid.
+        - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+        - 406 | not acceptable: if a peer with the given public key is not found. 
+        - 500 | internal server error: if there is some error in processing the request.
     """
+    
+    # Extract req body
+    request_json:dict = request.form.to_dict()
+    
+    # Extract data from req body
+    try: 
+        given_code:str = request_json['code']
+        peer_pub_key:str = request_json['peer_pub_key']
+        file:bytes = request.files['file']
+    
+        # Validate given code
+        if not given_code or not given_code.upper() in ['SHARE', 'STORE']:
+            print(f'\033[91mERROR in fi_bp.send_file(): \033[0minvalid code given. Got "{given_code}"')
+            abort(400) 
+        
+    # Exception means a key error or something else was wrong about the request 
+    except Exception as e: 
+        print('\033[91mERROR in fi_bp.send_file(): \033[0m', e)
+        abort(400)
 
-    # Extract the required info from the request 
-    request_body:dict = request.get_json()
-    given_passphrase:str = request_body.get('passphrase', None)
+    # Extract the filename and file contents
+    filename:str = secure_filename(file.filename)
+    file_content:bytes = file.read()
+    
+    # Return the pointer to the beginning of the file
+    file.seek(0)
+    
+    # Init vars for the peer's IP and online status
+    peer_ip:str = None
+    peer_online_status:bool = None
+    
+    # Check if we're finding a recipient or if we were given a public key to send to
+    if peer_pub_key: 
+        
+        # Load the all peers df so we can convert the public key to an IP address
+        all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+        
+        # Get the row that matches this public key
+        row:np.ndarray = all_peers_df.loc[all_peers_df['peer_pub_key'] == peer_pub_key]
+        
+        # Get the most recent IP and online status if a match was found
+        if row and not row.empty:
+            peer_ip:str = row.iloc[0]['most_recent_ip']
+            peer_online_status:bool = row.iloc[0]['online']    
+        else: 
+            # No match was found, return HTTP 406 (Not Acceptable) 
+            abort(406)
+    
+    # Find a recipient using multicast
+    else: 
+        # TODO: implement multicast message to find a recipient
+        # DO SOMETHING ... 
+        return jsonify({'status': 200, 'message': 'Implementation for finding a recipient is not complete.'})
 
-    # Check that the required info is given
-    if not given_passphrase: abort(400)
-
-    # Check the given passphrase with the stored hash
-    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
-        abort(403)
-
-    # Return success 
+    # Act according to the code
+    # SHARE request
+    if given_code.upper() == 'SHARE': 
+        
+        # TODO: Use current_app.server to call Server.send_share_request()
+        # DO SOMETHING ...
+        
+        #try: 
+        #   current_app.server.send_share_request(
+        #       peer_ip,
+        #       file_content,
+        #       filename
+        #   )
+        #except Exception as e: 
+        #   HANDLE EXCEPTION 
+        # 
+        
+        pass
+        
+    # STORE request
+    else: 
+        # TODO: Use current_app.server to call Server.send_share_request()
+        # DO SOMETHING ...
+        
+        #try: 
+        #   current_app.server.send_store_request(
+        #       peer_ip,
+        #       file_content,
+        #       filename
+        #   )
+        #except Exception as e: 
+        #   HANDLE EXCEPTION 
+        # 
+   
+        pass 
+    
+    # Send back a message confirming the request was received
     return jsonify({
-        'status': 'success'
-    })  
+        'message': 'Share request sent' if peer_online_status else 'Peer is offline - send queued.',
+        'peer_pub_key': peer_pub_key,
+        'peer_ip': peer_ip,
+        'common_name': row.iloc[0]['common_name']
+    })
+    
+    
