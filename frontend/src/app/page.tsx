@@ -22,7 +22,7 @@ export default function Home() {
     const [files, setFiles] = React.useState<any[]>([]);
     const [recipient, setRecipient] = React.useState("");
     const [users, setUsers] = React.useState<any[]>([]);
-    const [identity, setIdentity] = React.useState();
+    const [identity, setIdentity] = React.useState("");
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
@@ -31,6 +31,11 @@ export default function Home() {
     const [showFileSelect, setShowFileSelect] = React.useState(false);
     const [showStorageType, setShowStorageType] = React.useState(false);
     const [showConfirmation, setShowConfirmation] = React.useState(false);
+
+    const [numSendReq, setNumSendReq] = React.useState(0);
+    const [numIncomingReq, setNumIncomingReq] = React.useState(0);
+    const [numUniversalReq, setNumUniversalReq] = React.useState(0);
+
 
     const router = useRouter();
 
@@ -61,14 +66,28 @@ export default function Home() {
       instance
       .get("/ui/whoami")
       .then(function (response){
-        console.log("me: ", response["data"]["common_name"]);
-        setIdentity(response["data"]["common_name"]);
-        if (response["data"]["common_name"] != "Guest") {
+
+        if(response.data["common_name"] != undefined){
+          setIdentity(response.data["common_name"]);
           setVerifiedUser(true);
         }
+
       })
       .catch (function (error) {
-        console.log("errored:", error)
+        console.error("errored:", error)
+      });
+    }, [redraw]);
+
+    React.useEffect(() =>{
+      instance
+      .get("/ui/get-num-requests")
+      .then(function (response){
+        setNumSendReq(response.data["direct"]);
+        setNumIncomingReq(response.data["incoming"]);
+        setNumUniversalReq(response.data["universal"]);
+      })
+      .catch (function (error) {
+        console.error("errored:", error)
       });
     }, [redraw]);
 
@@ -76,7 +95,6 @@ export default function Home() {
     // store the uploaded files
     React.useEffect(() => {
       retreiveFilesToUpload(setFiles);
-      console.log("files:", files);
     }, [redraw]);
 
 
@@ -90,7 +108,6 @@ export default function Home() {
     const removeFile = (fileToRemove: number) =>{
       model.removeFile(fileToRemove);
       refresh()
-      console.log(files)
     }
 
 
@@ -142,13 +159,11 @@ export default function Home() {
     // stores the value for the recipient of the share
     const selectRecipient = (event: React.ChangeEvent<HTMLSelectElement>) => {
       setRecipient(event.target.value);
-      console.log(recipient);
     };
 
     // display the users that we are available to share/store with
     function DisplayUsers(props: any) {      
       if (!props.users) return <div>Loading</div>;
-      console.log("props:", props.users);
 
       return (
         <select id="users" value={recipient} onChange={selectRecipient}>
@@ -191,10 +206,9 @@ export default function Home() {
         }
       )
       .then(function (response){
-        console.log("success");
       })
       .catch (function (error) {
-        console.log("errored")
+        console.error("errored")
       });
 
       //remove all of the data??
@@ -253,6 +267,7 @@ export default function Home() {
       refresh();
     }
 
+
     return (
       <div>
       <div className="header">
@@ -271,7 +286,7 @@ export default function Home() {
             <div className="header-options-row">
               <div className="relative inline-block">
                 <button onClick={() => router.push("/pendingRequests/sent")}>
-                  <div className="hover" title="Pending Sent Requests">
+                  <div className="hover" title="Direct Send Requests">
                     <Image
                       className="dark"
                       src="/send-svgrepo-com.svg"
@@ -282,13 +297,13 @@ export default function Home() {
                   </div>
                 </button>
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {30}
+                  {numSendReq}
                 </span>
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
                 <button onClick={() => router.push("/pendingRequests/direct")}>
-                  <div className="hover" title="Direct Requests">
+                  <div className="hover" title="Incoming Requests">
                     <Image
                       className="dark"
                       src="/inbox-alt-1-svgrepo-com.svg"
@@ -299,13 +314,13 @@ export default function Home() {
                   </div>
                 </button>
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {30}
+                  {numIncomingReq}
                 </span>
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
                 <button onClick={() => router.push("/pendingRequests")}>
-                  <div className="hover" title="Universal Requests">
+                  <div className="hover" title="Universal Sent Requests">
                     <Image
                       className="dark"
                       src="/globe-svgrepo-com.svg"
@@ -316,7 +331,7 @@ export default function Home() {
                   </div>
                 </button>
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {30}
+                  {numUniversalReq}
                 </span>
               </div>
               <div className="icon-padding"></div>

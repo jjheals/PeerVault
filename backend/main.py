@@ -23,7 +23,7 @@ flask_config.read('config/flask.conf')
 
 # Encryption config 
 enc_config:ConfigParser = ConfigParser()
-enc_config.read('config/encryption-config.conf')
+enc_config.read('config/encryption.conf')
 
 # Multicast config 
 mcast_config:ConfigParser = ConfigParser()
@@ -63,7 +63,7 @@ compress.init_app(app)
 print(f'\033[0m[{now()}] \033[94mConfiguring CORS\033[0m')
 CORS(
     app, 
-    origins=['http://localhost:3001'],
+    origins=['http://localhost:3000'],
     allow_headers=['Content-Type'],
     supports_credentials=True
 )  
