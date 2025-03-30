@@ -202,6 +202,6 @@ def decrypt_message(private_key_pem: str, encrypted_data: dict) -> str:
     
     return plaintext_bytes.decode()
 
-
-def strip_pem_headers(pem_str):
+def strip_pem_headers(pem_str:str) -> str:
+    """Strips the leading and trailing "----- * KEY -----" from the given key PEM string."""
     return re.sub(r'-----.*?-----', '', pem_str).strip()

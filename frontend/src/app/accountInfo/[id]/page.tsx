@@ -19,22 +19,13 @@ const instance = axios.create({
 
 export default function Home() {  
   const router = useRouter();
-  const { id } = useParams(); // Get the dynamic `id` from the URL
-  const [model, setModel] = React.useState(new Model());
   const [redraw, forceRedraw] = React.useState(0);
-  // new User("","","","")
   const [identity, setIdentity] = React.useState();
-
-  var user_list: any[] = [];
-  var total_stored_remote_list: any[] = [];
-  var total_stored_local_list: any[] = [];
-  var total_shared_list: any[] = [];
-
-
-  
-  function refresh() {
-      forceRedraw(redraw + 1);
-  }
+  const [localStorage, setLocalStorage] = React.useState(0.0);
+  const [remoteStorage, setRemoteStorage] = React.useState(0.0);
+  const [sharedStorage, setSharedStorage] = React.useState(0.0);
+  // a list of json objects with a user name and the total amount of data stored in each of three categories
+  const [userData, setUserData] = React.useState([]);
   
   function retreiveIdentity(setIdentity:any) {
       instance
@@ -48,17 +39,58 @@ export default function Home() {
           console.log("errored:", error)
       });
   }
-  
+
   React.useEffect(() => {
-      if (!identity) {
-          retreiveIdentity(setIdentity);
-      }
-    }, [redraw]);
-  
-// TODO 
-    // This needs to get the info from all-peers to connect pub_key with common_name
-    // needs to get pub_key and connect that with the number of bytes for each type of file shown!!!
-    // needs to be handled on the backend 
+    if (!identity) {
+        retreiveIdentity(setIdentity);
+    }
+  }, [redraw]);
+
+  React.useEffect(() =>{
+    instance
+    .get("/ui/get-shared-by-peer")
+    .then(function (response){
+      setUserData(response.data["user_data"])
+    })
+    .catch (function (error) {
+      console.error("errored:", error)
+    });
+  }, [redraw]);
+
+  React.useEffect(() =>{
+    instance
+    .get("/ui/get-shared-storage")
+    .then(function (response){
+      setSharedStorage(response.data.storage);
+    })
+    .catch (function (error) {
+      console.log("errored:", error)
+    });
+  }, [redraw]);
+
+  React.useEffect(() =>{
+    instance
+    .get("/ui/get-remote-storage")
+    .then(function (response){
+      setRemoteStorage(response.data.storage);
+    })
+    .catch (function (error) {
+      console.log("errored:", error)
+    });
+  }, [redraw]);
+
+  React.useEffect(() =>{
+    instance
+    .get("/ui/get-local-storage")
+    .then(function (response){
+      setLocalStorage(response.data.storage);
+    })
+    .catch (function (error) {
+      console.log("errored:", error)
+    });
+  }, [redraw]);
+ 
+
 
   const UserTable: React.FC = () => {
     return (
@@ -73,12 +105,24 @@ export default function Home() {
           </tr>
         </thead>
         <tbody>
-          {user_list.map((user) => (
-            <tr key={user.id} className="hover:bg-gray-100">
-              <td className="border p-2">{user.id}</td>
-              <td className="border p-2">{user.id}</td>
-              <td className="border p-2">{user.id}</td>
-              <td className="border p-2">{user.id}</td>
+          {userData.map((user) => (
+            <tr key={user.user} className="hover:bg-gray-100">
+              <td className="border p-2">{user.common_name}</td>
+              <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
+              <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
+              <td className="border p-2">{user.storage_data.shared} Bytes</td>
+              <td className="border p-2"> 
+                <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
+                    <Image
+                      className="dark"
+                      src="/info-circle-svgrepo-com.svg"
+                      alt="History"
+                      width={30}
+                      height={30}
+                    />
+                </a>  
+              </td>
+
             </tr>
           ))}
         </tbody>
@@ -86,7 +130,7 @@ export default function Home() {
     );
   };
 
-    return (
+  return (
   <div>
     <div className="header">
       <div className="header-row">
@@ -113,29 +157,29 @@ export default function Home() {
       <div className="subtitleText">Account Summary</div>
       <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
         <div className="font-semibold">Name: </div>
-        <div>{identity?.common_name}</div>
+        <div className="break-all">{identity?.common_name}</div>
 
         <div className="font-semibold">Public Key: </div>
-        <div>{identity?.pub_key}</div>
+        <div className="break-all">{identity?.pub_key}</div>
 
         <div className="font-semibold">MAC Address: </div>
-        <div>{identity?.mac}</div>
+        <div className="break-all">{identity?.mac}</div>
 
         <div className="font-semibold">IP Address: </div>
-        <div>{identity?.ip}</div>
+        <div className="break-all">{identity?.ip}</div>
       </div>
 
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
       <div className="subtitleText">Quick Facts</div>
       <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
         <div className="font-semibold">Total Amount Stored Locally: </div>
-        <div>{0}</div>
+        <div>{localStorage} Bytes</div>
 
         <div className="font-semibold">Total Amount Stored Remotely: </div>
-        <div>{0}</div>
+        <div>{remoteStorage} Bytes</div>
 
         <div className="font-semibold">Total Amount Shared: </div>
-        <div>{0}</div>
+        <div>{sharedStorage} Bytes</div>
       </div>
       <div>
         
