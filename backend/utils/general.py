@@ -1,6 +1,8 @@
 from flask import Request
 import datetime as dt
 import uuid
+import secrets
+import string 
 from hashlib import sha256
 
 def now() -> str: 
@@ -63,3 +65,8 @@ def filter_args(expected_args:dict[str,type], request:Request) -> dict:
     
     # Return the adjusted given_args dict
     return given_args
+
+
+def generate_random_passcode(n:int=20) -> str: 
+    """Generates a random alphanumeric passcode of length n."""
+    return ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(n))
