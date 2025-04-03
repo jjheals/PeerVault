@@ -35,15 +35,32 @@ class Server(object):
 
     BUFF:int = 2048             # Buffer for requests
 
-    def __init__(self, pub_key_pem:str, priv_key_pem:str, common_name:str, iface:str, data_dir_path:str):
+    def __init__(
+        self, 
+        pub_key_pem:str, 
+        priv_key_pem:str, 
+        common_name:str, 
+        iface:str, 
+        port:int,
+        mcast_iface:str,
+        mcast_port:int,
+        mcast_group:str,
+        data_dir_path:str
+    ):
         self.pub_key_pem = pub_key_pem
         self.priv_key_pem = priv_key_pem
         self.common_name = common_name
         self.iface = iface
-        self.server_alive = False
+        self.port = port
+        self.mcast_iface = mcast_iface
+        self.mcast_port = mcast_port
+        self.mcast_group = mcast_group
         self.data_dir_path = data_dir_path
         
+        self.server_alive = False
+        
         print('\033[92mServer init complete.\033[0m')
+        
         # Call initialization funcs
         '''
         if self.server_startup():
@@ -143,7 +160,7 @@ class Server(object):
             ))
 
 
-    def mcast_listen(self, mcast_iface, mcast_port, mcast_group) -> None: 
+    def mcast_listen(self) -> None:         
         
         # Create the socket
         sock = socket.socket(
@@ -160,13 +177,13 @@ class Server(object):
         )
 
         # Bind the socket to the correct interface and port
-        sock.bind((mcast_iface, mcast_port))
+        sock.bind((self.mcast_iface, self.mcast_port))
 
         # Pack group and interface together 
         mreq = struct.pack( 
-            "4s4s",                         # Pack format 
-            socket.inet_aton(mcast_group),    # Convert mcast group addr to binary
-            socket.inet_aton(mcast_iface)         # Convert local interface/addr to binary
+            "4s4s",                                # Pack format 
+            socket.inet_aton(self.mcast_group),    # Convert mcast group addr to binary
+            socket.inet_aton(self.mcast_iface)     # Convert local interface/addr to binary
         )
 
         sock.setsockopt(
@@ -598,7 +615,7 @@ class Server(object):
     # ---- Methods related to SENDING INFO TO OTHER PEERS ---- #
     # NOTE: the reverse methods of "Methods that HANDLE INCOMING REQUESTS" 
 
-    def send_mcast_hello(self, mcast_group:str, mcast_port:int) -> None:
+    def send_mcast_hello(self) -> None:
         """Sends a multicast discovery message to the given group and port.
 
             Args:
@@ -628,10 +645,13 @@ class Server(object):
         }
         
         # Send a multicast message to the multicast group
-        mcast_sock.sendto(json.dumps(message).encode(), (mcast_group, mcast_port))
+        mcast_sock.sendto(
+            json.dumps(message).encode(), 
+            (self.mcast_group, self.mcast_port)
+        )
         
         # Info print
-        print(f"Server.send_mcast_hello() sent message: {message}")
+        print(f"\n\033[92mServer.send_mcast_hello() sent message: \033[0m\n{message}")
 
 
     def initiate_identity_check(self, connection:socket.socket, peer_public_key_pem:str, client_address:str) -> bool:
