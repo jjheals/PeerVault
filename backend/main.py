@@ -11,7 +11,7 @@ from blueprints import fi_bp, p2p_bp
 
 # Custom objs & util funcs
 from objects import Server
-from utils import generate_asymm_keys, now
+from utils import now
 
 
 # ---- Load configs ---- #
@@ -32,26 +32,6 @@ network_config.read('config/network.conf')
 # Extract attrs from the flask config 
 PORT:int = int(flask_config['flask-config']['PORT'])
 FRONTEND_URL:str = flask_config['flask-config']['FRONTEND_URL']
-
-
-# ---- Setting up encryption ---- # 
-# Check if keys already exist
-if not (
-    os.path.exists(enc_config['paths']['PRIV_KEY_PATH']) and
-    os.path.exists(enc_config['paths']['PUB_KEY_PATH'])
-): 
-    # Generate new keypairs 
-    print(f'\033[0m[{now()}] \033[94mGenerating new asymmetric keys\033[0m')
-
-    generate_asymm_keys(
-        int(enc_config['keys']['SIZE']),        # Keysize
-        int(enc_config['keys']['EXP']),         # Exponent
-        enc_config['paths']['PRIV_KEY_PATH'],   # Private key save path
-        enc_config['paths']['PUB_KEY_PATH']     # Public key save path
-    )
-# If the keys already exist, info print only and do not regenerate them
-else: 
-    print(f'\033[0m[{now()}] \033[94mFound asymm keys - skipping new key generation.\033[0m')
 
 
 # ---- Flask init ---- #
@@ -104,6 +84,6 @@ if __name__ == '__main__':
 
     # Run on the interface specified in the multicast config
     #http_server = WSGIServer((mcast_config['multicast-config']['LOCAL_IP'], PORT), app)
-    print(f'\033[0m[{now()}] \033[92mFlask app running')
+    print(f'\033[0m[{now()}] \033[92mFlask app running\033[0m')
     http_server = WSGIServer(('0.0.0.0', PORT), app)
     http_server.serve_forever()

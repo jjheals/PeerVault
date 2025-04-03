@@ -1,6 +1,7 @@
 from flask import Request
 import datetime as dt
 import uuid
+from hashlib import sha256
 import secrets
 import string
 
@@ -9,6 +10,15 @@ def now() -> str:
     """Returns the current time as a string for debugging."""
     return dt.datetime.now().strftime('%H:%M:%S')
 
+
+def hash_bytes_sha256(bytes) -> str: 
+    """Takes in a bytes obj and hashes it using sha256."""
+    sha256_hash = sha256()
+
+    for byte_block in iter(lambda: bytes.read(4096), b""):
+        sha256_hash.update(byte_block)
+    
+    return sha256_hash.hexdigest()
 
 
 def get_mac_address() -> str:
