@@ -5,6 +5,12 @@ import json
 import os
 import concurrent.futures 
 
+# for digial signatures 
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives import serialization
+
 from datetime import datetime #to get the current time 
 import pandas as pd 
 
@@ -92,7 +98,7 @@ class Server(object):
 
         # Send out hello message to multicast port
         try:
-            self.discover_message(self, self.multicast_ip)
+            self.send_mcast_hello(self, self.multicast_ip, self.multicast_port)
             self.logger.info("Server sent discover message")
         except Exception as e:
             self.logger.error("Failed to send discover message: %s", e)
@@ -273,7 +279,6 @@ class Server(object):
                     peer_pub_key_pem, 
                     addr[0]
                 )  
-
                 # If ID check pass, handle the discovery request
                 if id_check_result: 
                     self.handle_share_request(
@@ -411,6 +416,16 @@ class Server(object):
         Returns:
             None
         """
+
+        response = b''  # Initialize response as a byte string
+
+        while True:
+            data = connection.recv(self.BUFF)
+            if not data:  # Check if no more data is received
+                break
+            response += data
+
+
         # Get the current working directory
         current_directory = os.getcwd()
         
@@ -442,12 +457,56 @@ class Server(object):
         outgoing_message: dict = {
             'code': self.IDC_CODE,
             'public_key': self.get_public_key,
-            'payload': self.encrypt_data(self, client_public_key, message)
+            'data': self.encrypt_data(self, client_public_key, message)
         }
         
         # Send the encrypted message to the client
         connection.send(json.dumps(outgoing_message).encode())
 
+        if(message == "File written"):
+            with open('../peer_info/previously-shared-with.csv', 'a') as file:
+                # Append text to the end of the file
+                file.write( client_public_key + ',' + 
+                            "OUTBOUND" + ',' + 
+                            file_name + ',' + 
+                            str(len(file_content)) + ',' + 
+                            response['signature'] + ',' + 
+                            datetime.date.today().strftime('%Y-%m-%d') +
+                            '\n')
+    
+    """
+    Purpose: 
+    Writes content to a file.
+
+    Parameters:
+    filename (str): The name of the file to write to.
+    content (str): The content to be written to the file.
+
+    Returns a string: 
+    "File written": no errors in the method
+    "File already exists": did not save the file as it is already is storeage
+    "Error occured": There was a unexpected error and logs will need to be checked  
+    """
+    def write_to_file(self, filename, content) -> str:
+        try:
+            # Check if the file already exists
+            if os.path.exists(filename):
+                raise FileExistsError(f"File '{filename}' already exists.")
+            
+            # Write content to the file
+            with open(filename, 'w') as file:
+                file.write(content)
+            self.logger.info("File '%s' written successfully.", filename)
+            return "File written"
+        
+        except FileExistsError as e:
+            # Log a warning if the file already exists
+            self.logger.warning(e)
+            return "File already exists"
+        except Exception as e:
+            # Log any other exceptions that occur
+            self.logger.error("An error occurred: %s", e)
+            return "Error occured"
     
     def handle_store_request(self, connection, client_public_key: str, file_information: dict) -> None:
         """Handles a request to store a file from a client and replys back to the client the results of the store.
@@ -684,23 +743,87 @@ class Server(object):
         # Return false to indicate failure
         return False
     
-
-    def send_share_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None: 
+    def send_share_request(self, peer_ip_address: str, peer_port: int, plaintext_file: bytes, filename: str) -> None:
         """Sends a share request to the given client address, and shares the file if ID check is passed."""
 
-        # TODO Step 0: Send basic packet with this client's public key, common name, mac last four, and send share req code (unencrypted packet)
-        # TODO ... respond to the incoming ID check 
-        # TODO ... if pass, continue | if fail, return error
+        # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
-        # TODO Step 1: compute filehash 
-        # TODO Step 2: create digital signature 
-        # TODO Step 3: create message 
-        # TODO Step 4: encrypt message 
-        # TODO Step 5: Send encrypted message ... 
+        try:
 
-        raise NotImplementedError
+            # TODO Step 0: Send basic packet with 
+            # this client's public key, 
+            # common name, 
+            # mac last four, 
+            # and send share req code (unencrypted packet)
 
-    
+            # Connect to the server
+            client_socket.connect((peer_ip_address, peer_port))
+            print(f"Connected to {peer_ip_address} on port {peer_port}")
+            
+            # Send some data to the server
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four,
+                'code': self.SHARE_REQ_CODE
+            })
+            client_socket.sendall(message.encode())
+            
+            # TODO ... respond to the incoming ID check 
+
+            # Receive handshake data from the server
+            response = json.loads(client_socket.recv(self.BUFF))
+            print(f"Received from server: {response}")
+            
+            passcode = decrypt_message(self.priv_key_pem, response['data'])
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'code': self.RESP_IDC_CODE,
+                'data': encrypt_message(response['public_key_pem'], passcode)
+            })
+            client_socket.sendall(message.encode())
+            
+            # TODO compute filehash 
+            # TODO create digital signature 
+            signature = self.sign_file(plaintext_file)
+            
+            # TODO create, encrypt and send message
+            # Create and send the final message
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'filename': filename,
+                'signature': signature,
+                'plaintext_file': plaintext_file
+            })
+            client_socket.sendall(encrypt_message(response['public_key_pem'], message.encode()))
+
+            response = json.loads(client_socket.recv(self.BUFF))
+            result = decrypt_message(self.priv_key_pem, response['data'])
+
+            if(result == "Error occured"):
+                raise Exception
+            elif(result == "File already exists"):
+                raise FileExistsError
+            else: #means result == "file writen"
+                # Open the file in append mode
+                with open('../peer_info/previously-shared-with.csv', 'a') as file:
+                    # Append text to the end of the file
+                    file.write( response['public_key_pem'] + ',' + 
+                                "OUTBOUND" + ',' + 
+                                filename + ',' + 
+                                str(len(plaintext_file)) + ',' + 
+                                signature + ',' + 
+                                datetime.date.today().strftime('%Y-%m-%d') +
+                                '\n')
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        finally:
+            # Close the connection
+            client_socket.close()
+            print("Connection closed")
+
     def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None: 
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 
@@ -747,4 +870,48 @@ class Server(object):
         # TODO Step 6: Send encrypted message ... 
 
         raise NotImplementedError
+    
+    def sign_file(self, file_data) -> str:
 
+        priv_key = serialization.load_pem_private_key(
+            self.priv_key_pem.encode(),
+            password=None
+        )
+
+        # Sign the file data
+        return priv_key.sign(
+            file_data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+
+    def verify_signature(file_path, signature_path, public_key_path):
+        # Load the public key
+        with open(public_key_path, "rb") as key_file:
+            public_key = serialization.load_pem_public_key(key_file.read())
+
+        # Read the file data
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+
+        # Read the signature
+        with open(signature_path, "rb") as f:
+            signature = f.read()
+
+        # Verify the signature
+        try:
+            public_key.verify(
+                signature,
+                file_data,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            print("Signature is valid.")
+        except Exception as e:
+            print("Signature is invalid:", e)
