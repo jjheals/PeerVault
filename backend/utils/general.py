@@ -20,6 +20,11 @@ def hash_bytes_sha256(bytes) -> str:
     return sha256_hash.hexdigest()
 
 
+def hash_str_sha256(s:str) -> str: 
+    """Takes in a str obj and hashes it using sha256."""
+    return sha256(s).hexdigest()
+
+
 def get_mac_address() -> str:
     """Returns the device's MAC address in the format "AB:CD:EF:GH:00"."""
     mac = uuid.getnode()
