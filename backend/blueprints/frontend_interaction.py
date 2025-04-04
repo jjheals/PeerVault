@@ -726,12 +726,14 @@ def upload_data():
 
         for file in uploaded_files:
             file_name = file.filename
-            date = file.uploadTime
+            # date = file.uploadTime
+            date = "4/4/2025"
             fileBytes = file.read()
             size = len(fileBytes)        
-            hash_256 = sha256(fileBytes)
+            hash_256 = sha256(fileBytes).hexdigest()
 
-        data = [peer_pub_key, file_name, send_method, size, date, hash_256.hexdigest()]
+
+        data = [peer_pub_key, file_name, send_method, size, date, hash_256]
 
         # Open the file in append mode ('a'), create if not exists
         with open('requests/outgoing.csv', 'a', newline='') as file:

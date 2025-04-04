@@ -36,6 +36,8 @@ export default function Home() {
     const [numSendReq, setNumSendReq] = React.useState(0);
     const [numIncomingReq, setNumIncomingReq] = React.useState(0);
     const [numUniversalReq, setNumUniversalReq] = React.useState(0);
+    
+    const [userData, setUserData] = React.useState([]);
 
 
     const router = useRouter();
@@ -262,6 +264,43 @@ export default function Home() {
       resetShow();
       refresh();
     }
+
+    const UserTable: React.FC = () => {
+        return (
+          <table className="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border p-2">Recipient</th>
+                <th className="border p-2">Total Stored Remotely</th>
+                <th className="border p-2">Total Stored Locally</th>
+                <th className="border p-2">Total Shared</th>
+                <th className="border p-2">View</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userData.map((user) => (
+                <tr key={user.user} className="hover:bg-gray-100">
+                  <td className="border p-2">{user.common_name}</td>
+                  <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
+                  <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
+                  <td className="border p-2">{user.storage_data.shared} Bytes</td>
+                  <td className="border p-2"> 
+                    <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
+                        <Image
+                          className="dark"
+                          src="/info-circle-svgrepo-com.svg"
+                          alt="History"
+                          width={30}
+                          height={30}
+                        />
+                    </a>  
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      };
 
 
     return (
@@ -508,6 +547,9 @@ export default function Home() {
             </div>
           </div>
         )}
+        <div>
+          <UserTable />
+        </div>
       </div>
     )
   }
