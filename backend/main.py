@@ -76,7 +76,6 @@ app.mcast_config = mcast_config
 # Init a server obj and tie it to the flask app
 #server:Server = Server()
 #app.server = server
-`
 # Add logging before & after requests
 @app.before_request
 def before_request(): 

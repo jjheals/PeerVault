@@ -692,7 +692,6 @@ def get_peer_public_key():
     try:
         request_body:dict = request.get_json()
         peer_pub_key = getPubKeyFromCommonName(request_body.get('peer_common_name', None))
-        print(peer_pub_key)
 
         return jsonify({
             'peer_pub_key': peer_pub_key
@@ -788,5 +787,34 @@ def get_num_requests():
             'direct': num_direct,
             'universal': num_uni
         })
+    except Exception as e:
+        print(e)
+
+
+@fi_bp.route('/ui/upload-data', methods=['POST'])
+@require_localhost
+def upload_data(): 
+
+    request_body:dict = request.get_json()
+
+    peer_pub_key = request_body.get('peer_pub_key', None)
+    file_name = request_body.get('file_name', None)
+    send_method = request_body.get('send_method', None)
+    size_gb = request_body.get('size_gb', None)
+    
+    # sha256 = get_hash()
+    sha256 = 0
+    # date = get_date()
+    date = "4/1/2025"
+
+    data = [peer_pub_key, file_name, send_method, size_gb, sha256, date]
+
+    # Open the file in append mode ('a'), create if not exists
+    with open('requests/outgoing.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(data)
+
+    try:
+        return jsonify({'status': 'success'})    
     except Exception as e:
         print(e)

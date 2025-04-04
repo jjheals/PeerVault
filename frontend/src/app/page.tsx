@@ -26,6 +26,7 @@ export default function Home() {
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
+
     const [showStartSharing, setShowStartSharing] = React.useState(true);
     const [showSelectRecipient, setShowSelectRecipient] = React.useState(false);
     const [showFileSelect, setShowFileSelect] = React.useState(false);
@@ -128,21 +129,21 @@ export default function Home() {
       )
     }
 
-        // display the list of files selected to be shared or sent
-        function FileConfirmationList(props: any) {
-          if(!props.files) return;
-    
-          return (
-            <div>
-              <label>Total Size of Files: {model.getTotalStorage().toString()}B</label>
-              {props.files.map((file: any, index: any) => (
-                <p key={index}>
-                  <label>{file.name} - {file.size}B </label>
-                </p>
-              ))}
-            </div>
-          )
-        }
+    // display the list of files selected to be shared or sent
+    function FileConfirmationList(props: any) {
+      if(!props.files) return;
+
+      return (
+        <div>
+          <label>Total Size of Files: {model.getTotalStorage().toString()}B</label>
+          {props.files.map((file: any, index: any) => (
+            <p key={index}>
+              <label>{file.name} - {file.size}B </label>
+            </p>
+          ))}
+        </div>
+      )
+    }
 
 
     // stores the value for the files that have been selected
@@ -190,23 +191,19 @@ export default function Home() {
       }
     };
 
-    // send the request to store 
-    // TODO --> not implemented...
     function uploadData() {  
-      var toUser = recipient; 
-      var files:any = files;
-      var sendMethod = sendType;
-         
+      var file:any = model.getFilesToUpload()[0];
+      var size = model.getTotalStorage(); 
+
       instance
-      .post("/ui/uploadData",
+      .post("/ui/upload-data",
         {
-          recipient: toUser,
-          data: files,
-          sendMethod: sendMethod
+          peer_pub_key: recipient,
+          file_name: file,
+          send_method: sendType,
+          size_gb: size,
         }
       )
-      .then(function (response){
-      })
       .catch (function (error) {
         console.error("errored")
       });
