@@ -1,8 +1,12 @@
 import os 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
 import base64
 import re 
+
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
 from .general import now
 
@@ -131,46 +135,91 @@ def generate_asymm_keys(keysize:int, exp:int, prv_save_path:str, pub_save_path:s
         file.write(pub_key_str)
 
 
-def encrypt_message(public_key_pem:str, plaintext:str) -> str:
-    """Encrypts the given data with the given public key and returns the ciphertext as a string."""
+def encrypt_message(public_key_pem:str, plaintext:str) -> dict:
+    """Encrypts the given plaintext with the provided public key using hybrid encryption."""
     
-    # Convert the pub key pem to a PublicKeyTypes 
-    public_key = serialization.load_pem_public_key(public_key_pem.encode())
-
-    # Enrcypt the given plaintext 
-    ciphertext:str = public_key.encrypt(
-        plaintext.encode(),
+    # Load the public key
+    public_key = serialization.load_pem_public_key(public_key_pem.encode(), backend=default_backend())
+    
+    # Generate a random symmetric key (AES)
+    symmetric_key = os.urandom(32)  # 256-bit key for AES-256
+    
+    # Encrypt the plaintext using AES
+    iv = os.urandom(16)  # Initialization vector for AES
+    cipher = Cipher(algorithms.AES(symmetric_key), modes.CFB(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(plaintext.encode()) + encryptor.finalize()
+    
+    # Encrypt the symmetric key using RSA
+    encrypted_symmetric_key = public_key.encrypt(
+        symmetric_key,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
+    
+    # Encode components to base64 for safe transmission
+    encrypted_data = {
+        'encrypted_symmetric_key': base64.b64encode(encrypted_symmetric_key).decode(),
+        'iv': base64.b64encode(iv).decode(),
+        'ciphertext': base64.b64encode(ciphertext).decode()
+    }
+    
+    return encrypted_data
 
-    # Convert the ciphertext to a string and return
-    return base64.b64encode(ciphertext).decode()
 
-
-def decrypt_message(private_key_pem:str, ciphertext_message:str) -> str:
-    """Decrypts the given message with the given key and returns the plaintext as a string."""
-
-    # Convert the private key pem to a PrivateKeyTypes
-    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
-
-    # Decrypt the given ciphertext
-    plaintext_bytes:bytes = private_key.decrypt(
-        base64.b64decode(ciphertext_message),
+def decrypt_message(private_key_pem:str, encrypted_data:dict) -> str:
+    """Decrypts the given encrypted data with the provided private key."""
+    
+    # Load the private key
+    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None, backend=default_backend())
+    
+    # Decode components from base64
+    encrypted_symmetric_key = base64.b64decode(encrypted_data['encrypted_symmetric_key'])
+    iv = base64.b64decode(encrypted_data['iv'])
+    ciphertext = base64.b64decode(encrypted_data['ciphertext'])
+    
+    # Decrypt the symmetric key using RSA
+    symmetric_key = private_key.decrypt(
+        encrypted_symmetric_key,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
+    
+    # Decrypt the ciphertext using AES
+    cipher = Cipher(algorithms.AES(symmetric_key), modes.CFB(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    plaintext_bytes = decryptor.update(ciphertext) + decryptor.finalize()
+    decoded_bytes = plaintext_bytes.decode()
 
-    # Decode the decrypted ciphertext and return
-    return plaintext_bytes.decode()
+    return decoded_bytes
 
 
 def strip_pem_headers(pem_str:str) -> str:
     """Strips the leading and trailing "----- * KEY -----" from the given key PEM string."""
     return re.sub(r'-----.*?-----', '', pem_str).strip()
+
+
+def sign_file(priv_key_pem_str:str, file_data:bytes) -> str:
+    """Computes a digital signature for the given private key and file data."""
+
+    # Convert the key pem str to a PrivateKeyPEM obj
+    priv_key = serialization.load_pem_private_key(
+        priv_key_pem_str.encode(),
+        password=None
+    )
+
+    # Sign the file data
+    return priv_key.sign(
+        file_data,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH
+        ),
+        hashes.SHA256()
+    )

@@ -1,22 +1,26 @@
+
+"""
+TODO: 
+    - Check dig signature in handle_*_request() funcs
+
+"""
+
 import logging 
 import socket
 import struct
 import json
 import os
 import concurrent.futures 
+import threading as th 
+import base64 
+import datetime as dt 
 
-from datetime import datetime #to get the current time 
-import pandas as pd 
-
-from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, update_peer_info
+from utils import strip_pem_headers, generate_random_passcode, encrypt_message, \
+    decrypt_message, now, update_peer_info, write_to_file, hash_bytes_sha256, \
+        sign_file, new_csv_row, bytes_to_gb
 
 
 class Server(object):
-
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(filename='server.log', encoding='utf-8', level=logging.DEBUG)
-    socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
 
     common_name:str             # The common name for this client
     iface:str                   # The interface (address) the server is running on
@@ -32,6 +36,7 @@ class Server(object):
     STORE_REQ_CODE:str = "102"  # Code for requesting to store a file
     DEL_FILE_CODE:str = "103"   # Code for requesting to delete a file
     UPD_FILE_CODE:str = "104"   # Code for requesting to update a stored file
+    DONE_CODE:str = "900"       # Code for saying "everything is good, close the connection"
 
     BUFF:int = 2048             # Buffer for requests
 
@@ -56,67 +61,42 @@ class Server(object):
         self.mcast_port = mcast_port
         self.mcast_group = mcast_group
         self.data_dir_path = data_dir_path
-        
+
+        self.mac_last_four = 'i hate this'
+
+        # Init the connection
+        self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_alive = False
         
-        print('\033[92mServer init complete.\033[0m')
+        # Set up logger 
+        self.logger = logging.getLogger(__name__)
+        logging.basicConfig(filename='server.log', encoding='utf-8', level=logging.DEBUG)
         
-        # Call initialization funcs
-        '''
-        if self.server_startup():
-            self.server_on()
-            self.server_shutdown()
-        else:
-            self.logger.error("Server startup failed. Initialization aborted.")
-        '''     
+        # Init a thread pool
+        self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
 
-    # ---- Methods related to SERVER INITIALIZATION and SHUTDOWN ---- #
-    def server_startup(self) -> bool:
-        """ Initializes the server, checks for necessary keys, binds the socket, and starts listening for connections."""
-        
+        # Info log
         self.logger.info("Server startup beginning")
-
-        # Check if the public and private keys exist and are accessible
-        if not self.check_keys():
-            self.logger.info("Generating new keys")
-            self.generate_keys(self)
 
         # Start to build the network connections
         try:
-            self.socket_connection.bind((self.IP_address, self.port))
-            self.logger.info("Bound socket connection to address: %s and port %d", self.IP_address, self.port)
-        except Exception as e:
-            self.logger.error("Failed to bind socket connection: %s", e)
-            return False
 
-        try:
-            self.socket_connection.listen(5)
+            # Bind the socket to the interface and port
+            self.socket_connection.bind((self.iface, self.port))
+            self.logger.info("Bound socket connection to address: %s and port %d", self.iface, self.port)
+
+            # Set the server as alive
             self.server_alive = True
-            self.logger.info("Server is now listening for connections")
+            
+            # Info log
+            print('\033[92mServer init complete.\033[0m')
+
         except Exception as e:
-            self.logger.error("An error occurred while starting to listen for connections: %s", e)
-            return False
+            print('\033[91mERROR in Server.__init__(): \033[0mfailed to initialize server - ', e)
+            self.logger.error("Failed to initialize server: %s", e)
+ 
 
-        # Connect to the React server
-        try:
-            self.logger.info("Server starting connection to front-end")
-            # Assuming there's a method to connect to the front-end
-            self.connect_to_frontend()
-        except Exception as e:
-            self.logger.error("Failed to connect to front-end: %s", e)
-            return False
-
-        # Send out hello message to multicast port
-        try:
-            self.discover_message(self, self.multicast_ip)
-            self.logger.info("Server sent discover message")
-        except Exception as e:
-            self.logger.error("Failed to send discover message: %s", e)
-            return False
-
-        self.logger.info("Server startup completed")
-        return True
-
+    # ---- Methods related to SERVER INITIALIZATION and SHUTDOWN ---- #
 
     def server_shutdown(self):
         """Shuts down the server and closes all sockets.
@@ -145,9 +125,18 @@ class Server(object):
 
         Notes: A client will make one request to the server. If the server needs infomation like the public key from server then it will make it own request to that server 
         """
+        
+        # Start listening for incoming connections
+        self.socket_connection.listen(5)
+        
+        # Info log
+        print('\033[92mServer is now listening for connections.\033[0m')
+        self.logger.info("Server is now listening for connections")
+        
+        # Run the listener while the server is alive
         while(self.server_alive):
-
-           # Accept the incoming connection
+        
+            # Accept the incoming connection
             cxn, addr = self.socket_connection.accept()
 
             # Log
@@ -195,14 +184,17 @@ class Server(object):
         # Listen for incoming messages
         print("[Multicast Listener] Listening for peer announcements...")
 
-        while True:
+        while self.server_alive:
             data, addr = sock.recvfrom(1024)  # Receive message
             peer_info = data.decode()
 
             print(f"[Listener] New peer discovered: {peer_info}")
 
+            # TODO: handle the new peer 
+            # DO SOMETHING ...
 
-    def handle_network_request(self, connection:socket.socket, addr:tuple[str, int], data:dict, print_info:bool=False) -> None: 
+
+    def handle_network_request(self, connection:socket.socket, addr:tuple[str, int], print_info:bool=False) -> None: 
         """Takes in an incoming connection, the addr info (in the format (ip, port)), checks the requirements of the message, initiates an identity check if required,
         and passes the connection off to the appropriate function.
 
@@ -292,10 +284,7 @@ class Server(object):
 
                 # If ID check pass, handle the discovery request
                 if id_check_result: 
-                    self.handle_share_request(
-                        # TODO: ADD PARAMS 
-                        # ...
-                    )
+                    self.handle_share_request(connection)
                     
                 # If ID check failed, do not respond
                 else: pass
@@ -387,14 +376,11 @@ class Server(object):
 
         # Decrypt the incoming data
         decrypted_message = decrypt_message(self.priv_key_pem, incoming_data)
-        print('Received passcode: ', decrypted_message)
 
         # Encrypt the passcode using the sender's public key
         encrypted_passcode_msg:dict = encrypt_message(peer_public_key, decrypted_message)
 
         # Send the encrypted message back 
-        print('\033[94mSending response...\033[0m')
-
         connection.send(json.dumps({
             'code': self.RESP_IDC_CODE, 
             'public_key_pem': self.pub_key_pem,
@@ -416,7 +402,7 @@ class Server(object):
             return False
 
 
-    def handle_share_request(self, connection, client_public_key: str, file_information: dict) -> None:  
+    def handle_share_request(self, connection:socket.socket) -> None:  
         """Handles a request to share a file from a client and replys back to the client the results of the share.
 
         Parameters:
@@ -427,42 +413,72 @@ class Server(object):
         Returns:
             None
         """
-        # Get the current working directory
-        current_directory = os.getcwd()
-        
+
+        # Read exactly 4 bytes to get the length
+        raw_length = connection.recv(4)
+        if not raw_length:
+            raise ConnectionError("Did not receive length header")
+
+        message_length = struct.unpack('>I', raw_length)[0]
+
+        # Now read the full message
+        data = b''
+        while len(data) < message_length:
+            chunk = connection.recv(self.BUFF)
+            if not chunk:
+                break
+            data += chunk
+
+        # Decode JSON
+        response: dict = json.loads(data.decode())
+                
+        # Decrypt the message
+        response_plaintext_dict:dict = json.loads(decrypt_message(self.priv_key_pem, response))
+    
         # Extract the file name and file content from the file_information dictionary
-        file_name = file_information["file_name"]
-        file_content = file_information["file"]
+        file_name:str = response_plaintext_dict["filename"]
+        encoded_file_content:str = response_plaintext_dict["plaintext_file"]
 
-        # Construct the target directory path using the current directory and the client's public key
-        target_directory = os.path.join(current_directory, "Stored_Files", self.get_public_key) # this is the only line that is diffrent from store
+        # Decode the file content 
+        decoded_file_content:str = base64.b64decode(encoded_file_content)
 
-        try:
-            # Try to change to the target directory
-            os.chdir(target_directory)
-            self.logger.info("Changed to directory: %s", os.getcwd())
-        except FileNotFoundError:
-            # Create the directory if it doesn't exist and change to it
-            os.makedirs(target_directory)
-            os.chdir(target_directory)
-            self.logger.info("Directory created and changed to: %s", os.getcwd())
-        except Exception as e:
-            # Handle other possible exceptions and log the error
-            self.logger.error("An error occurred: %s", e)
-            return
-        
+        # Extract the peer's pub key pem from the response dict
+        peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
+
+        # Construct the target directory path
+        target_directory:str = 'shared_files'
+
+        # Create the target dir if it doesn't exist
+        os.makedirs(target_directory, exist_ok=True)
+
         # Write the file to the target directory and get the message
-        message:str = self.write_to_file(file_name, file_content)
+        message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
         
         # Prepare the outgoing message to be sent to the client
         outgoing_message: dict = {
-            'code': self.IDC_CODE,
-            'public_key': self.get_public_key,
-            'payload': self.encrypt_data(self, client_public_key, message)
+            'code': Server.DONE_CODE,
+            'public_key_pem': self.pub_key_pem,
+            'data': encrypt_message(peer_pub_key_pem, message)
         }
         
         # Send the encrypted message to the client
         connection.send(json.dumps(outgoing_message).encode())
+
+        if(message == "File written"):
+            
+            # Add a new row for the new shared file
+            new_csv_row(
+                os.path.join(self.data_dir_path, 'previously-shared-with.csv'),
+                {
+                    'peer_pub_key': strip_pem_headers(peer_pub_key_pem),
+                    'direction': 'INBOUND',
+                    'filename': file_name,
+                    'size_gb': bytes_to_gb(len(decoded_file_content)),
+                    'sha256': hash_bytes_sha256(decoded_file_content),
+                    'date_shared': dt.datetime.now().strftime('%Y-%m-%d')
+                }
+            )
+            
 
     
     def handle_store_request(self, connection, client_public_key: str, file_information: dict) -> None:
@@ -618,7 +634,7 @@ class Server(object):
     def send_mcast_hello(self) -> None:
         """Sends a multicast discovery message to the given group and port.
 
-            Args:
+            Parameters:
                 multicast_group (str): The multicast group IP address.
                 port (int): The port number to send the message to.
         """
@@ -704,20 +720,120 @@ class Server(object):
         return False
     
 
-    def send_share_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None: 
+    def send_share_request(self, peer_ip_address: str, peer_port: int, plaintext_file: bytes, filename: str) -> None:
         """Sends a share request to the given client address, and shares the file if ID check is passed."""
 
-        # TODO Step 0: Send basic packet with this client's public key, common name, mac last four, and send share req code (unencrypted packet)
-        # TODO ... respond to the incoming ID check 
-        # TODO ... if pass, continue | if fail, return error
+        # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
-        # TODO Step 1: compute filehash 
-        # TODO Step 2: create digital signature 
-        # TODO Step 3: create message 
-        # TODO Step 4: encrypt message 
-        # TODO Step 5: Send encrypted message ... 
+        try:
 
-        raise NotImplementedError
+            # TODO Step 0: Send basic packet with 
+            # this client's public key, 
+            # common name, 
+            # mac last four, 
+            # and send share req code (unencrypted packet)
+
+            # Connect to the server
+            client_socket.connect((peer_ip_address, peer_port))
+
+            # Log
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
+            
+            # Construct an initial message to send
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four,
+                'code': self.SHARE_REQ_CODE
+            })
+
+            # Send the message
+            client_socket.send(message.encode())
+
+            # Receive handshake data from the server
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mreceived response from peer (presumed ID check)\033[0m')
+            response = json.loads(client_socket.recv(self.BUFF))
+            
+            # Complete the ID check
+            passcode = decrypt_message(self.priv_key_pem, response['data'])
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'code': self.RESP_IDC_CODE,
+                'data': encrypt_message(response['public_key_pem'], passcode)
+            })
+
+            # Send the ID check response
+            client_socket.send(message.encode())
+            
+            # TODO compute filehash 
+            # TODO create digital signature 
+            # DO SOMETHING ... 
+            # ... 
+
+            # Log
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mSigning file\033[0m')
+
+            #signature = sign_file(self.priv_key_pem, plaintext_file)
+            signature:str = 'file signature...'
+
+            # Create a message with the file contents
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'filename': filename,
+                'signature': signature,
+                'plaintext_file': base64.b64encode(plaintext_file).decode('utf-8')
+            })
+
+            # Encrypt the message with the file data
+            enc_message:dict = encrypt_message(response['public_key_pem'], message)
+
+            # Prepare the message
+            message_bytes:bytes = json.dumps(enc_message).encode()
+            message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
+
+            # Send length first, then message
+            client_socket.sendall(message_length + message_bytes)
+
+            # Wait for response
+            response = json.loads(client_socket.recv(self.BUFF))
+            result = decrypt_message(self.priv_key_pem, response['data'])
+
+            # Handle the response message
+            # Some unknown error occured on the receiving server
+            if(result == "Error occured"): raise Exception('An unknown error occured and receiving server was unable to process the request.')
+            
+            # File already exists on the recieving server
+            elif(result == "File already exists"): raise FileExistsError('Recieving server already has a shared file with the same name.')
+            
+            # Success result (result == 'File written')
+            else: 
+
+                # Log
+                print(f'\033[0m[{now()}] \033[92mSUCCESS: \033[0mSuccessfully shared file "{filename}" with peer IP "{peer_ip_address}"')
+
+                # Add a new row for the new shared file in the previously shared with CSV
+                new_csv_row(
+                    os.path.join(self.data_dir_path, 'previously-shared-with.csv'),
+                    {
+                        'peer_pub_key': strip_pem_headers(response['public_key_pem']),
+                        'direction': 'OUTBOUND',
+                        'filename': filename,
+                        'size_gb': bytes_to_gb(len(plaintext_file)),
+                        'sha256': signature,                                    # TODO: update to sha hash not signature
+                        'date_shared': dt.datetime.now().strftime('%Y-%m-%d')
+                    }
+                )
+        
+        # Handle exceptions
+        except Exception as e:
+            print(f"\033[91mERROR in Server.send_share_request(): \033[0m{e.__class__}", e)
+
+        # When everything is done, close the connection
+        finally:
+            # Close the connection
+            client_socket.close()
+            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_share_request(): \033[0mConnection closed")
 
     
     def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None: 
@@ -766,4 +882,3 @@ class Server(object):
         # TODO Step 6: Send encrypted message ... 
 
         raise NotImplementedError
-

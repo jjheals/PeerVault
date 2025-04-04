@@ -88,3 +88,23 @@ def getUniquePeers() -> list:
     
     return unique_peers.tolist()
 
+
+def new_csv_row(csv_path:str, new_entry:dict) -> None: 
+    """Writes the given new entry to the given CSV as a new row."""
+
+    try: 
+        # Load the current CSV as a df 
+        df:pd.DataFrame = pd.read_csv(csv_path)
+
+        df = pd.concat([
+            df,
+            pd.DataFrame({
+                k : [v] for k,v in new_entry.items()
+            })
+        ])
+        
+        # Resave the df 
+        df.to_csv(csv_path, index=False)
+    
+    except Exception as e: 
+        print(f'\033[91mERROR in data_utils new_csv_row(): \033[0m{e.__class__}', e)

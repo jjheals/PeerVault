@@ -327,6 +327,9 @@ def init_application():
         'peer-info/'                                                # data_dir_path
     )
     
+    # TODO: call server.send_mcast_hello()
+    # DO SOMETHING ...
+    
     # Add the server to the current app 
     current_app.server = server
     
