@@ -3,71 +3,20 @@ import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
+import numpy as np 
 from configparser import ConfigParser
 from hashlib import sha256
 import csv
 import pandas as pd
 import datetime
 
-from utils import filter_args, load_key_pem, get_mac_address
+from utils import filter_args, load_key_pem, get_mac_address, hash_bytes_sha256, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers
 from .funcs import require_localhost
+from werkzeug.utils import secure_filename
 
 # ---- Config & init ---- #
 # Create blueprint
 fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
-
-# ---- Make function to get local users ---- #
-def get_local_users():
-    all_peers= []
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-        reader = csv.reader(f2)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-        reader = csv.reader(f3)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-        reader = csv.reader(f4)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-        
-
-    unique_peers = list(set(all_peers))
-
-
-    return jsonify({
-        'peer-list': unique_peers
-    })
 
 
 # ---- Add endpoints ---- #
@@ -379,7 +328,7 @@ def get_all_sharing_info_application():
     """
 
     # open all-peers.csv
-    all_peers = [];
+    all_peers = []
 
     with open('peer-info/all-peers.csv', 'r', newline='') as file:
             reader = csv.reader(file)
@@ -398,7 +347,7 @@ def get_all_sharing_info_application():
 
 
     # # open currently-storing-for.csv
-    storing_for = [];
+    storing_for = []
 
     with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
             reader = csv.reader(f2)
@@ -416,7 +365,7 @@ def get_all_sharing_info_application():
         
 
     # # open currently-storing-with.csv
-    storing_with = [];
+    storing_with = []
 
     with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
             reader = csv.reader(f3)
@@ -434,7 +383,7 @@ def get_all_sharing_info_application():
         
 
     # # open currently-sharing-with.csv
-    sharing_with = [];
+    sharing_with = []
 
     with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
             reader = csv.reader(f4)
@@ -484,6 +433,7 @@ def get_sharing_name():
     return jsonify({
         'peer-list': unique_peers
     })
+
 
 @fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
 @require_localhost
@@ -572,7 +522,7 @@ def get_shared_storage():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    numBytes = 0;
+    numBytes = 0
 
     with open('peer-info/previously-shared-with.csv', 'r', newline='') as file:
             reader = csv.reader(file)
@@ -607,7 +557,7 @@ def get_local_storage():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    numBytes = 0;
+    numBytes = 0
 
     with open('peer-info/currently-storing-for.csv', 'r', newline='') as file:
             reader = csv.reader(file)
@@ -642,7 +592,7 @@ def get_remote_storage():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    numBytes = 0;
+    numBytes = 0
 
     with open('peer-info/currently-storing-with.csv', 'r', newline='') as file:
             reader = csv.reader(file)
@@ -686,6 +636,7 @@ def get_user_history():
     except Exception as e:
         print(e)
 
+
 @fi_bp.route('/ui/get-pub-key', methods=['POST'])
 @require_localhost
 def get_peer_public_key(): 
@@ -699,32 +650,6 @@ def get_peer_public_key():
         })
     except Exception as e:
         print(e)
-
-
-def getUniquePeers() -> list:
-    storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-    storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-    shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
-
-    data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
-
-    unique_peers = data['peer_pub_key'].unique()
-    
-    return unique_peers.tolist()
-
-def getCommonNameFromPubKey(pub_key: str):
-    with open('peer-info/all-peers.csv', 'r', newline='') as f:
-        reader = csv.reader(f)
-        next(reader, None)
-
-        for row in reader:
-            if row[0] == pub_key:
-                return row[3] 
-            
-def getPubKeyFromCommonName(common_name: str):
-    all_peers = pd.read_csv('peer-info/all-peers.csv')
-    result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
-    return result.iloc[0] if not result.empty else None
 
 
 @fi_bp.route('/ui/get-sent-requests', methods=['GET'])
@@ -774,13 +699,13 @@ def get_num_requests():
 
     try:
         incoming:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
-        num_incoming = (incoming.size) / 5;
+        num_incoming = (incoming.size) / 5
 
         direct:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
         num_direct = (direct.size) / 6;
 
         uni:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
-        num_uni = (uni.size) / 4;
+        num_uni = (uni.size) / 4
 
         return jsonify({
             'incoming': num_incoming,
