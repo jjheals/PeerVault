@@ -1,2 +1,3 @@
-peer_pub_key,file,upload_type,size_b,sha256,date_shared
-lily,"{'name': 'careerfair24.pdf', 'size': 458422, 'lastModified': '2024-09-18T19:54:49.247Z', 'uploadTime': '2025-04-04T03:49:33.970Z', 'file': {}}",Share,458422,0,4/1/2025
+peer_pub_key,file,upload_type,size,date,sha256
+dan,lily-resume-ver1.doc,Store,38400,"04/01/2025",d2f78c0f21a43d1f23fab17cc136ef8c67523f06104881c19e5f0d46a798c7d4
+alice,Resume - Spring 23.pdf,Store,36209,"04/01/2025",74201235c26abd8615ffedb1081de69be06ad2de323d11346278c9d5064f6812

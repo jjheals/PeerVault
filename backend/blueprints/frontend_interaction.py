@@ -7,6 +7,7 @@ from configparser import ConfigParser
 from hashlib import sha256
 import csv
 import pandas as pd
+import datetime
 
 from utils import filter_args, load_key_pem, get_mac_address
 from .funcs import require_localhost
@@ -731,11 +732,10 @@ def getPubKeyFromCommonName(common_name: str):
 def get_sent_requests(): 
 
     try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
+        all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
         output = all_requests.to_dict(orient='records')
-        return jsonify({
-            'all_requests': output
-        })
+        print(output)
+        return jsonify({'all_requests': output})
     except Exception as e:
         print(e)
 
@@ -776,8 +776,8 @@ def get_num_requests():
         incoming:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
         num_incoming = (incoming.size) / 5;
 
-        direct:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
-        num_direct = (direct.size) / 5;
+        direct:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
+        num_direct = (direct.size) / 6;
 
         uni:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
         num_uni = (uni.size) / 4;
@@ -794,27 +794,25 @@ def get_num_requests():
 @fi_bp.route('/ui/upload-data', methods=['POST'])
 @require_localhost
 def upload_data(): 
-
-    request_body:dict = request.get_json()
-
-    peer_pub_key = request_body.get('peer_pub_key', None)
-    file_name = request_body.get('file_name', None)
-    send_method = request_body.get('send_method', None)
-    size_gb = request_body.get('size_gb', None)
-    
-    # sha256 = get_hash()
-    sha256 = 0
-    # date = get_date()
-    date = "4/1/2025"
-
-    data = [peer_pub_key, file_name, send_method, size_gb, sha256, date]
-
-    # Open the file in append mode ('a'), create if not exists
-    with open('requests/outgoing.csv', 'a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(data)
-
     try:
+        peer_pub_key = request.form.get('peer_pub_key', "")
+        send_method = request.form.get('send_method', "")
+        uploaded_files = request.files.getlist('files')
+
+        for file in uploaded_files:
+            file_name = file.filename
+            date = file.uploadTime
+            fileBytes = file.read()
+            size = len(fileBytes)        
+            hash_256 = sha256(fileBytes)
+
+        data = [peer_pub_key, file_name, send_method, size, date, hash_256.hexdigest()]
+
+        # Open the file in append mode ('a'), create if not exists
+        with open('requests/outgoing.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(data)
+
         return jsonify({'status': 'success'})    
     except Exception as e:
         print(e)
