@@ -192,20 +192,21 @@ export default function Home() {
     };
 
     function uploadData() {  
-      var file:any = model.getFilesToUpload()[0];
-      var size = model.getTotalStorage(); 
+      const formData = new FormData();
+
+      model.filesToUpload.forEach((fileObj: any, index: number) => {
+        formData.append(`files`, fileObj.file);
+      });
+      formData.append("peer_pub_key", recipient);
+      formData.append("send_method", sendType);
 
       instance
-      .post("/ui/upload-data",
-        {
-          peer_pub_key: recipient,
-          file_name: file,
-          send_method: sendType,
-          size_gb: size,
-        }
-      )
+      .post("/ui/upload-data", formData, {headers: {"Content-Type": "multipart/form-data",},})
+      .then(()=>{
+        alert("Uploaded Data!")
+      })
       .catch (function (error) {
-        console.error("errored")
+        alert("failed:" + error)
       });
 
       //remove all of the data??
@@ -213,8 +214,6 @@ export default function Home() {
       setFiles([])
       model.filesToUpload = []
       setSendType("")
-
-      alert("Uploaded Data!")
     }
 
     const handleContinue = (value:number) => {

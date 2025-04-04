@@ -22,7 +22,11 @@ export default function Home() {
     instance
     .get("/ui/get-sent-requests")
     .then(function (response){
-      setRequestData(response.data["all_requests"])
+      if (response.status === 200 && response.data && response.data.all_requests) {
+        setRequestData(response.data.all_requests);
+      }else {
+        console.error('Incorrect format:', response.data);
+      }
     })
     .catch (function (error) {
       console.error("errored:", error)
@@ -36,20 +40,22 @@ export default function Home() {
             <tr className="bg-gray-200">
               <th className="border p-2">User Name</th>
               <th className="border p-2">File Name</th>
+              <th className="border p-2">Upload Type</th>
               <th className="border p-2">File Size</th>
-              <th className="border p-2">File Hash</th>
               <th className="border p-2">Date</th>
+              <th className="border p-2">File Hash</th>
               <th className="border p-2">Resend?</th>
             </tr>
           </thead>
           <tbody>
             {requestData.map((request) => (
-              <tr key={request.filename} className="hover:bg-gray-100">
-                <td className="border p-2">{request.username}</td>
-                <td className="border p-2">{request.filename}</td>
-                <td className="border p-2">{request.size_gb} Bytes</td>
+              <tr key={request.peer_pub_key} className="hover:bg-gray-100">
+                <td className="border p-2">{request.peer_pub_key}</td>
+                <td className="border p-2">{request.file}</td>
+                <td className="border p-2">{request.upload_type}</td>
+                <td className="border p-2">{request.size} Bytes</td>
+                <td className="border p-2">{request.date}</td>
                 <td className="border p-2">{request.sha256}</td>
-                <td className="border p-2">{request.date_shared}</td>
                 <td className="border p-2">
                   <a href={`/resend`} className="hover" title="Resend Request">
                       <Image
