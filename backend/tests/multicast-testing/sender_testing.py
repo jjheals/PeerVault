@@ -9,101 +9,41 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from configparser import ConfigParser
 
+# Modify sys path to import utils 
+import sys
+
+# Get the absolute path of the parent directory
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
+# Add the parent directory to sys.path
+sys.path.insert(0, parent_dir)
+
+# Util imports
+from utils import load_key_pem
+
 
 # --- Load config --- #
-config:ConfigParser = ConfigParser()
-config.read('config/multicast-config.conf')
+# Network config
+network_config:ConfigParser = ConfigParser()
+network_config.read('../../config/network.conf')
 
+MCAST_GRP = network_config['multicast']['MCAST_GROUP']       # Multicast group addr
+MCAST_PORT = int(network_config['multicast']['MCAST_PORT'])  # Port to listen on
+IFACE = network_config['multicast']['LOCAL_IP']              # Local IP
+
+# Identity config
 identity_config:ConfigParser = ConfigParser()
-identity_config.read('config/identity.conf')
+identity_config.read('../../config/identity.conf')
 
-MCAST_GRP = config['multicast-config']['MCAST_GROUP']           # Multicast group addr
-MCAST_PORT = int(config['multicast-config']['MCAST_PORT'])      # Port to listen on
-IFACE = config['multicast-config']['LOCAL_IP']                  # Local IP
 COMMON_NAME:str = identity_config['IDENTITY']['common_name']    # Common name
 
+# Encryption config 
+# NOTE: using static path relative to this script rather than the paths in enc config
+#enc_config:ConfigParser = ConfigParser()
+#enc_config.read('../../config/encryption.conf')
 
-# --- Functions --- # 
-# NOTE: actual functions defined in ../utils/*
+PUBLIC_KEY_PEM:str = load_key_pem('../TEST-keys/TEST-public.key', 'public')
 
-def now() -> str: 
-    """Returns the current time as a string for debugging."""
-    return dt.datetime.now().strftime('%H:%M:%S')
-
-
-def load_key(filepath:str, type:str, passphrase:str=None) -> str:
-    """Loads the RSA key from the given filepath, where type is 'public' or 'private'."""
-
-    # Check that the filepath exists and is valid
-    if not (os.path.exists(filepath) and filepath.endswith('.key')):
-        print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe given filepath "{filepath}" does not exist or is invalid.')
-        return None
-
-    # Read the key file
-    with open(filepath, 'rb') as key_file:
-        key_data = key_file.read()
-
-        # Read RSA private key
-        if type == 'private':
-            
-            # Make sure a passphrase is given 
-            if not passphrase: 
-                print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe private key is not an RSA key.')
-                return None
-            
-            # Read the key
-            try:
-                key = serialization.load_pem_private_key(
-                    key_data,
-                    password=passphrase.encode()
-                )
-
-                # Ensure it's an RSA key
-                if not isinstance(key, rsa.RSAPrivateKey):
-                    print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe private key is not an RSA key.')
-                    return None
-
-                # Convert the key to a string and return
-                return re.sub(
-                    r"-----.*KEY-----|\s", "", 
-                    key.private_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                        encryption_algorithm=serialization.NoEncryption(),
-                    ).decode()
-                )
-
-            except Exception as e:
-                print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mFailed to load private key - {e}')
-                return None
-
-        # Read RSA public key
-        elif type == 'public':
-            try:
-                key = serialization.load_pem_public_key(key_data)
-
-                # Ensure it's an RSA key
-                if not isinstance(key, rsa.RSAPublicKey):
-                    print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe public key is not an RSA key.')
-                    return None
-
-                # Convert the key to a string and return
-                return re.sub(
-                    r"-----.*KEY-----|\s", "",       
-                    key.public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                    ).decode()
-                )
-
-            except Exception as e:
-                print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mFailed to load public key - {e}')
-                return None
-
-        # Invalid type
-        else:
-            print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe given type "{type}" is not valid.')
-            return None
 
 # --- Testing multicast sending --- #
 # Create the socket
@@ -123,11 +63,9 @@ sock.setsockopt(
 # Send a multicast message with this machine's common name, IP, and pub key
 while True:
     
-    # Load the public key
-    pub_key_str:str = load_key('../TEST-keys/TEST-public.key', 'public') 
-    
+    # Construct the message    
     message:dict = {
-        'public_key': pub_key_str,
+        'public_key': PUBLIC_KEY_PEM,
         'ip': IFACE,
         'common_name': COMMON_NAME
     }

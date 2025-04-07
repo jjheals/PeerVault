@@ -1,4 +1,10 @@
 
+# NOTE: anytime current_app.server is used, CHECK that current_app.server is not null. This enforces that
+# the endpoint /ui/init-application/ is (successfully) hit BEFORE anything else happens, because initializing 
+# the Server for the app requires the passphrase to load the priv key, thus any use of current_app.server 
+# BEFORE /ui/init-application/ is successfully hit will return an error because current_app.server will be 
+# None. 
+
 import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
@@ -9,7 +15,9 @@ from hashlib import sha256
 import csv
 import pandas as pd
 
-from utils import filter_args, load_key_pem, get_mac_address, hash_bytes_sha256
+from utils import filter_args, load_key_pem, get_mac_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
+from objects import Server 
+
 from .funcs import require_localhost
 from werkzeug.utils import secure_filename
 
@@ -355,6 +363,29 @@ def init_application():
     if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
         abort(403)
 
+    # Load the keys 
+    pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['PUB_KEY_PATH'])
+    priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['PRIV_KEY_PEM'], given_passphrase)
+    
+    # Init a Server obj 
+    server:Server = Server(
+        pub_key_pem,                                                # pub_key_pem
+        priv_key_pem,                                               # priv_key_pem
+        current_app.identity_config['IDENTITY']['common_name'],     # common_name
+        current_app.network_config['network']['IFACE'],             # iface
+        current_app.network_config['network']['PORT'],              # port
+        current_app.network_config['network']['IFACE'],             # mcast_iface
+        current_app.network_config['multicast']['MCAST_PORT'],      # mcast_port
+        current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
+        'peer-info/'                                                # data_dir_path
+    )
+    
+    # TODO: call server.send_mcast_hello()
+    # DO SOMETHING ...
+    
+    # Add the server to the current app 
+    current_app.server = server
+    
     # Return success 
     return jsonify({
         'status': 'success'
@@ -394,9 +425,6 @@ def get_all_sharing_info_application():
                     all_peers.push(row)
                 except ValueError:
                     print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-
 
     # # open currently-storing-for.csv
     storing_for = []
