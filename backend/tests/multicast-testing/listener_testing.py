@@ -5,12 +5,12 @@ from configparser import ConfigParser
 
 
 # --- Load config --- #
-config:ConfigParser = ConfigParser()
-config.read('config/multicast-config.conf')
+network_config:ConfigParser = ConfigParser()
+network_config.read('../../config/network.conf')
 
-MCAST_GRP = config['multicast-config']['MCAST_GROUP']       # Multicast group addr
-MCAST_PORT = int(config['multicast-config']['MCAST_PORT'])  # Port to listen on
-IFACE = config['multicast-config']['LOCAL_IP']              # Local IP
+MCAST_GRP = network_config['multicast']['MCAST_GROUP']       # Multicast group addr
+MCAST_PORT = int(network_config['multicast']['MCAST_PORT'])  # Port to listen on
+IFACE = network_config['multicast']['LOCAL_IP']              # Local IP
 
 # Create the socket
 sock = socket.socket(

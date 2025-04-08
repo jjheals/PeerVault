@@ -1,3 +1,8 @@
+
+# NOTE: a Server obj is created and added to the app (app.server) by the /ui/init-application/ endpoint,
+# so this endpoint MUST be used BEFORE any p2p communication takes place, because it relies on the given
+# passphrase to load the keys  
+
 # Third-party imports
 from flask import Flask, g, request
 from flask_compress import Compress
@@ -10,8 +15,7 @@ import os
 from blueprints import fi_bp, p2p_bp
 
 # Custom objs & util funcs
-from objects import Server
-from utils import now
+from utils import generate_asymm_keys, now
 
 
 # ---- Load configs ---- #
@@ -29,6 +33,10 @@ enc_config.read('config/encryption.conf')
 network_config:ConfigParser = ConfigParser()
 network_config.read('config/network.conf')
 
+# Identity config 
+identity_config:ConfigParser = ConfigParser()
+identity_config.read('config/identity.conf')
+
 # Extract attrs from the flask config 
 PORT:int = int(flask_config['flask-config']['PORT'])
 FRONTEND_URL:str = flask_config['flask-config']['FRONTEND_URL']
@@ -43,7 +51,7 @@ compress.init_app(app)
 print(f'\033[0m[{now()}] \033[94mConfiguring CORS\033[0m')
 CORS(
     app, 
-    origins=['http://localhost:3000'],
+    origins=['http://localhost:3001'],
     allow_headers=['Content-Type'],
     supports_credentials=True
 )  
@@ -52,10 +60,17 @@ CORS(
 app.flask_config = flask_config
 app.enc_config = enc_config
 app.network_config = network_config
+app.identity_config = identity_config
 
+<<<<<<< HEAD
 # Init a server obj and tie it to the flask app
 #server:Server = Server()
 #app.server = server
+=======
+# NOTE: init app.server as None to start, and it is changed via the /ui/init-application endpoint
+app.server = None
+
+>>>>>>> e88178bafdb26870836aa6e3a893afedd2e57ccf
 # Add logging before & after requests
 @app.before_request
 def before_request(): 
@@ -83,6 +98,6 @@ if __name__ == '__main__':
 
     # Run on the interface specified in the multicast config
     #http_server = WSGIServer((mcast_config['multicast-config']['LOCAL_IP'], PORT), app)
-    print(f'\033[0m[{now()}] \033[92mFlask app running\033[0m')
+    print(f'\033[0m[{now()}] \033[92mFlask app running')
     http_server = WSGIServer(('0.0.0.0', PORT), app)
     http_server.serve_forever()

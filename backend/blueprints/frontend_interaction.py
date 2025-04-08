@@ -1,4 +1,10 @@
 
+# NOTE: anytime current_app.server is used, CHECK that current_app.server is not null. This enforces that
+# the endpoint /ui/init-application/ is (successfully) hit BEFORE anything else happens, because initializing 
+# the Server for the app requires the passphrase to load the priv key, thus any use of current_app.server 
+# BEFORE /ui/init-application/ is successfully hit will return an error because current_app.server will be 
+# None. 
+
 import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
@@ -10,13 +16,68 @@ import csv
 import pandas as pd
 import datetime
 
-from utils import filter_args, load_key_pem, get_mac_address, hash_bytes_sha256, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers
+from utils import filter_args, load_key_pem, get_mac_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
+from objects import Server 
+
 from .funcs import require_localhost
 from werkzeug.utils import secure_filename
 
 # ---- Config & init ---- #
 # Create blueprint
 fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
+
+# ---- Make function to get local users ---- #
+def get_local_users():
+    all_peers= []
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+        reader = csv.reader(f2)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+        reader = csv.reader(f3)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
+        reader = csv.reader(f4)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+        
+
+    unique_peers = list(set(all_peers))
+
+
+    return jsonify({
+        'peer-list': unique_peers
+    })
 
 
 # ---- Add endpoints ---- #
@@ -303,6 +364,29 @@ def init_application():
     if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
         abort(403)
 
+    # Load the keys 
+    pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['PUB_KEY_PATH'])
+    priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['PRIV_KEY_PEM'], given_passphrase)
+    
+    # Init a Server obj 
+    server:Server = Server(
+        pub_key_pem,                                                # pub_key_pem
+        priv_key_pem,                                               # priv_key_pem
+        current_app.identity_config['IDENTITY']['common_name'],     # common_name
+        current_app.network_config['network']['IFACE'],             # iface
+        current_app.network_config['network']['PORT'],              # port
+        current_app.network_config['network']['IFACE'],             # mcast_iface
+        current_app.network_config['multicast']['MCAST_PORT'],      # mcast_port
+        current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
+        'peer-info/'                                                # data_dir_path
+    )
+    
+    # TODO: call server.send_mcast_hello()
+    # DO SOMETHING ...
+    
+    # Add the server to the current app 
+    current_app.server = server
+    
     # Return success 
     return jsonify({
         'status': 'success'
@@ -342,9 +426,6 @@ def get_all_sharing_info_application():
                     all_peers.push(row)
                 except ValueError:
                     print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-
 
     # # open currently-storing-for.csv
     storing_for = []
@@ -642,6 +723,36 @@ def get_peer_public_key():
     except Exception as e:
         print(e)
 
+<<<<<<< HEAD
+=======
+
+def getUniquePeers() -> list:
+    storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+    data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+
+    unique_peers = data['peer_pub_key'].unique()
+    
+    return unique_peers.tolist()
+
+def getCommonNameFromPubKey(pub_key: str):
+    with open('peer-info/all-peers.csv', 'r', newline='') as f:
+        reader = csv.reader(f)
+        next(reader, None)
+
+        for row in reader:
+            if row[0] == pub_key:
+                return row[3] 
+            
+def getPubKeyFromCommonName(common_name: str):
+    all_peers = pd.read_csv('peer-info/all-peers.csv')
+    result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
+    return result.iloc[0] if not result.empty else None
+
+
+>>>>>>> e88178bafdb26870836aa6e3a893afedd2e57ccf
 @fi_bp.route('/ui/get-sent-requests', methods=['GET'])
 @require_localhost
 def get_sent_requests(): 
