@@ -27,21 +27,23 @@ export default function Home() {
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
 
+    // for the sharing flow...
     const [showStartSharing, setShowStartSharing] = React.useState(true);
     const [showSelectRecipient, setShowSelectRecipient] = React.useState(false);
     const [showFileSelect, setShowFileSelect] = React.useState(false);
     const [showStorageType, setShowStorageType] = React.useState(false);
     const [showConfirmation, setShowConfirmation] = React.useState(false);
 
+    // for the icons
     const [numSendReq, setNumSendReq] = React.useState(0);
     const [numIncomingReq, setNumIncomingReq] = React.useState(0);
     const [numUniversalReq, setNumUniversalReq] = React.useState(0);
     
+    // for the history table...
     const [userData, setUserData] = React.useState([]);
 
 
     const router = useRouter();
-
 
     function refresh() {
         forceRedraw(redraw + 1);
@@ -193,6 +195,17 @@ export default function Home() {
       }
     };
 
+    React.useEffect(() =>{
+      instance
+      .get("/ui/get-shared-by-peer")
+      .then(function (response){
+        setUserData(response.data["user_data"])
+      })
+      .catch (function (error) {
+        console.error("errored:", error)
+      });
+    }, [redraw]);
+
     function uploadData() {  
       const formData = new FormData();
 
@@ -267,7 +280,10 @@ export default function Home() {
 
     const UserTable: React.FC = () => {
         return (
-          <table className="w-full border-collapse border border-gray-300">
+          <div>
+            <div className="titleText"> File History </div>
+            <table className="w-full border-collapse border border-gray-300">
+
             <thead>
               <tr className="bg-gray-200">
                 <th className="border p-2">Recipient</th>
@@ -299,6 +315,8 @@ export default function Home() {
               ))}
             </tbody>
           </table>
+          </div>
+          
         );
       };
 
@@ -331,9 +349,12 @@ export default function Home() {
                     />
                   </div>
                 </button>
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {numSendReq > 0 ? (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numSendReq}
                 </span>
+                ): null}
+                
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
@@ -348,9 +369,11 @@ export default function Home() {
                     />
                   </div>
                 </button>
+                {numIncomingReq  > 0 ? (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numIncomingReq}
                 </span>
+                ): null}
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
@@ -365,9 +388,11 @@ export default function Home() {
                     />
                   </div>
                 </button>
+                {numUniversalReq > 0 ? (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numUniversalReq}
                 </span>
+                ): null}
               </div>
               <div className="icon-padding"></div>
               <a href={`/accountInfo/${identity}`} className="hover" title="Account Settings">
@@ -547,9 +572,14 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        { showSelectRecipient || showFileSelect || showStorageType || showConfirmation ? (
+          null
+        ):         
         <div>
           <UserTable />
-        </div>
+        </div>}
+
       </div>
     )
   }

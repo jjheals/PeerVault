@@ -2,9 +2,6 @@
 
 import React, {Suspense} from "react";
 import axios from "axios";
-import Table from "@/app/table"
-import { TableSkeleton } from "@/app/skeletons";
-import { useParams } from "next/navigation";
 import { Model, User } from "@/model";
 import { useRouter } from 'next/navigation';
 import Image from "next/image";
@@ -91,45 +88,6 @@ export default function Home() {
   }, [redraw]);
  
 
-
-  const UserTable: React.FC = () => {
-    return (
-      <table className="w-full border-collapse border border-gray-300">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border p-2">Recipient</th>
-            <th className="border p-2">Total Stored Remotely</th>
-            <th className="border p-2">Total Stored Locally</th>
-            <th className="border p-2">Total Shared</th>
-            <th className="border p-2">View</th>
-          </tr>
-        </thead>
-        <tbody>
-          {userData.map((user) => (
-            <tr key={user.user} className="hover:bg-gray-100">
-              <td className="border p-2">{user.common_name}</td>
-              <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
-              <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
-              <td className="border p-2">{user.storage_data.shared} Bytes</td>
-              <td className="border p-2"> 
-                <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
-                    <Image
-                      className="dark"
-                      src="/info-circle-svgrepo-com.svg"
-                      alt="History"
-                      width={30}
-                      height={30}
-                    />
-                </a>  
-              </td>
-
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  };
-
   return (
   <div>
     <div className="header">
@@ -182,12 +140,6 @@ export default function Home() {
         <div>{sharedStorage} Bytes</div>
       </div>
       <div>
-        
-      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
-      <div className = "subtitleText">History Summary:</div>
-      <div>
-        <UserTable />
-      </div>
     </div>
     </div>
   </div>)}

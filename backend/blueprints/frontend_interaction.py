@@ -434,7 +434,6 @@ def get_sharing_name():
         'peer-list': unique_peers
     })
 
-
 @fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
 @require_localhost
 def get_total_shared_by_user():
@@ -508,8 +507,6 @@ def get_total_shared_by_user():
         'user_data': peer_data
     })
 
-
-
 @fi_bp.route('/ui/get-shared-storage', methods=['GET'])
 @require_localhost
 def get_shared_storage(): 
@@ -542,8 +539,6 @@ def get_shared_storage():
     return jsonify({
         'storage': numBytes,
     })
-
-
 
 @fi_bp.route('/ui/get-local-storage', methods=['GET'])
 @require_localhost
@@ -578,8 +573,6 @@ def get_local_storage():
         'storage': numBytes,
     })
 
-
-
 @fi_bp.route('/ui/get-remote-storage', methods=['GET'])
 @require_localhost
 def get_remote_storage(): 
@@ -612,7 +605,6 @@ def get_remote_storage():
         'storage': numBytes,
     })    
 
-
 @fi_bp.route('/ui/get-user-history', methods=['POST'])
 @require_localhost
 def get_user_history(): 
@@ -636,7 +628,6 @@ def get_user_history():
     except Exception as e:
         print(e)
 
-
 @fi_bp.route('/ui/get-pub-key', methods=['POST'])
 @require_localhost
 def get_peer_public_key(): 
@@ -650,7 +641,6 @@ def get_peer_public_key():
         })
     except Exception as e:
         print(e)
-
 
 @fi_bp.route('/ui/get-sent-requests', methods=['GET'])
 @require_localhost
@@ -678,11 +668,9 @@ def get_incoming_requests():
     except Exception as e:
         print(e)
 
-
 @fi_bp.route('/ui/get-universal-requests', methods=['GET'])
 @require_localhost
 def get_universal_requests(): 
-
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
         output = all_requests.to_dict(orient='records')
@@ -691,7 +679,6 @@ def get_universal_requests():
         })
     except Exception as e:
         print(e)
-
 
 @fi_bp.route('/ui/get-num-requests', methods=['GET'])
 @require_localhost
@@ -715,7 +702,6 @@ def get_num_requests():
     except Exception as e:
         print(e)
 
-
 @fi_bp.route('/ui/upload-data', methods=['POST'])
 @require_localhost
 def upload_data(): 
@@ -726,8 +712,47 @@ def upload_data():
 
         for file in uploaded_files:
             file_name = file.filename
-            # date = file.uploadTime
-            date = "4/4/2025"
+            date = datetime.datetime.now()
+            fileBytes = file.read()
+            size = len(fileBytes)        
+            hash_256 = sha256(fileBytes).hexdigest()
+
+
+        data = [peer_pub_key, file_name, send_method, size, date, hash_256]
+
+        # Open the file in append mode ('a'), create if not exists
+        with open('requests/outgoing.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(data)
+
+        return jsonify({'status': 'success'})    
+    except Exception as e:
+        print(e)
+
+@fi_bp.route('/ui/reupload-data', methods=['POST'])
+@require_localhost
+def reupload_data(): 
+    try:
+        # remove the old request
+        incoming_date_key = request.form.get("date", "")
+
+        with open('requests/outgoing.csv', newline='') as file:
+            reader = csv.DictReader(file);
+            for i, row in enumerate(reader):
+                if row["date"] == incoming_date_key:
+                    index = i
+                    
+            del row[index]
+
+
+        # add the new request
+        peer_pub_key = request.form.get('peer_pub_key', "")
+        send_method = request.form.get('send_method', "")
+        uploaded_files = request.files.getlist('files')
+
+        for file in uploaded_files:
+            file_name = file.filename
+            date = datetime.datetime.now()
             fileBytes = file.read()
             size = len(fileBytes)        
             hash_256 = sha256(fileBytes).hexdigest()

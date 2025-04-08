@@ -32,6 +32,21 @@ export default function Home() {
       console.error("errored:", error)
     });
   }, [redraw]);
+
+  function resend(){
+    alert("clicked resend!")
+
+    instance
+    .get("/ui/reupload-data")
+    .then(function (response){
+      // ...
+    })
+    .catch (function (error) {
+      console.error("errored:", error)
+    });
+
+    forceRedraw();
+  }
   
     const SentRequestTable: React.FC = () => {
       return (
@@ -49,7 +64,7 @@ export default function Home() {
           </thead>
           <tbody>
             {requestData.map((request) => (
-              <tr key={request.peer_pub_key} className="hover:bg-gray-100">
+              <tr key={request.date} className="hover:bg-gray-100">
                 <td className="border p-2">{request.peer_pub_key}</td>
                 <td className="border p-2">{request.file}</td>
                 <td className="border p-2">{request.upload_type}</td>
@@ -57,15 +72,15 @@ export default function Home() {
                 <td className="border p-2">{request.date}</td>
                 <td className="border p-2">{request.sha256}</td>
                 <td className="border p-2">
-                  <a href={`/resend`} className="hover" title="Resend Request">
-                      <Image
+                  <button onClick={resend}>
+                  <Image
                         className="dark"
                         src="/refresh.svg"
                         alt="History"
                         width={30}
                         height={30}
                       />
-                  </a>
+                  </button>
                 </td>
                 </tr>
             ))}
