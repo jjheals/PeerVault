@@ -33,11 +33,18 @@ export default function Home() {
     });
   }, [redraw]);
 
-  function resend(){
-    alert("clicked resend!")
+  function resend(req:any){
+    const formData = new FormData();
+
+    formData.append("peer_pub_key", req.peer_pub_key);
+    formData.append("file", req.file);
+    formData.append("send_method", req.upload_type);
+    formData.append("size", req.size);
+    formData.append("sha256", req.sha256);
+    formData.append("date", req.date)
 
     instance
-    .get("/ui/reupload-data")
+    .post("/ui/reupload-data", formData, {headers: {"Content-Type": "multipart/form-data",},})
     .then(function (response){
       // ...
     })
@@ -45,7 +52,7 @@ export default function Home() {
       console.error("errored:", error)
     });
 
-    forceRedraw();
+    alert("please manually refresh...")
   }
   
     const SentRequestTable: React.FC = () => {
@@ -72,7 +79,7 @@ export default function Home() {
                 <td className="border p-2">{request.date}</td>
                 <td className="border p-2">{request.sha256}</td>
                 <td className="border p-2">
-                  <button onClick={resend}>
+                  <button onClick={() => resend(request)}>
                   <Image
                         className="dark"
                         src="/refresh.svg"

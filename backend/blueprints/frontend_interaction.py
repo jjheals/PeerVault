@@ -649,7 +649,6 @@ def get_sent_requests():
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
         output = all_requests.to_dict(orient='records')
-        print(output)
         return jsonify({'all_requests': output})
     except Exception as e:
         print(e)
@@ -729,42 +728,99 @@ def upload_data():
     except Exception as e:
         print(e)
 
+# @fi_bp.route('/ui/reupload-data', methods=['POST'])
+# @require_localhost
+# def reupload_data(): 
+#     try:
+#         # remove the old request
+#         incoming_date_key = request.form.get("date", "")
+#         index = -1
+
+#         # identify the row we want to remove
+#         with open('requests/outgoing.csv', "r+", newline='') as file:
+#             reader = csv.DictReader(file);
+#             rows = list(reader)
+#             writer = csv.writer(file)
+#             for i, row in enumerate(reader):
+#                 if row["date"] == incoming_date_key:
+#                     index = i
+#                     print(index)
+
+#         # remove the row
+#         del rows[index]
+#         print("rows": rows)
+
+#         # remove all data except header:
+#         with open('requests/outgoing.csv', 'r+', newline='') as file:
+#             next(file)
+#             file.truncate()
+
+#         # create the new request
+#         peer_pub_key = request.form.get("peer_pub_key", "")
+#         file_name = request.form.get("file", "")
+#         send_method = request.form.get("send_method", "")
+#         size = request.form.get("size", "")
+#         new_date = datetime.datetime.now()
+#         hash_256 = request.form.get("sha256", "")
+
+#         data = [peer_pub_key, file_name, send_method, size, new_date, hash_256]
+
+#         # add the updated line AND all old lines
+#         with open('requests/outgoing.csv', 'a', newline='') as file:
+#             writer = csv.writer(file)
+#             writer.writerow(data)
+#             writer.writerows(rows)
+
+#         return jsonify({'status': 'success'})    
+#     except Exception as e:
+#         print(e)
+#         return jsonify({"error": e})
+
 @fi_bp.route('/ui/reupload-data', methods=['POST'])
 @require_localhost
-def reupload_data(): 
+def reupload_data():
     try:
-        # remove the old request
         incoming_date_key = request.form.get("date", "")
 
-        with open('requests/outgoing.csv', newline='') as file:
-            reader = csv.DictReader(file);
-            for i, row in enumerate(reader):
-                if row["date"] == incoming_date_key:
-                    index = i
-                    
-            del row[index]
+        # Read all rows from the CSV into a list
+        with open('requests/outgoing.csv', "r", newline='') as file:
+            reader = csv.DictReader(file)
+            rows = list(reader)  # Convert to list of dicts
+            fieldnames = reader.fieldnames
 
+        # Find the index of the row with the matching date
+        index_to_remove = None
+        for i, row in enumerate(rows):
+            if row["date"] == incoming_date_key:
+                index_to_remove = i
+                break
 
-        # add the new request
-        peer_pub_key = request.form.get('peer_pub_key', "")
-        send_method = request.form.get('send_method', "")
-        uploaded_files = request.files.getlist('files')
+        if index_to_remove is not None:
+            del rows[index_to_remove]  # Remove the row
 
-        for file in uploaded_files:
-            file_name = file.filename
-            date = datetime.datetime.now()
-            fileBytes = file.read()
-            size = len(fileBytes)        
-            hash_256 = sha256(fileBytes).hexdigest()
+        # Overwrite the CSV with only the header (truncate previous data)
+        with open('requests/outgoing.csv', 'w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)  # Re-write all other rows
 
+        # create the new request
+        peer_pub_key = request.form.get("peer_pub_key", "")
+        file_name = request.form.get("file", "")
+        send_method = request.form.get("send_method", "")
+        size = request.form.get("size", "")
+        new_date = datetime.datetime.now()
+        hash_256 = request.form.get("sha256", "")
 
-        data = [peer_pub_key, file_name, send_method, size, date, hash_256]
+        data = [peer_pub_key, file_name, send_method, size, new_date, hash_256]
 
-        # Open the file in append mode ('a'), create if not exists
+        # add the updated line AND all old lines
         with open('requests/outgoing.csv', 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(data)
+#             writer.writerows(rows)
 
-        return jsonify({'status': 'success'})    
+        return jsonify({'status': 'success'})
     except Exception as e:
-        print(e)
+        print(f"Error in reupload_data: {e}")
+        return jsonify({"error": str(e)})
