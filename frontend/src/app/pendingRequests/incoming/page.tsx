@@ -69,7 +69,7 @@ export default function Home() {
     return (
       <div className="header">
           <div className="header-row">
-              <div className="titleText">Incoming Requests</div>
+              <div className="titleText">Pending Incoming Requests</div>
           <div className="header-options-row">
               <div className="icon-padding"></div>
               <button onClick={()=> router.push("/")}>
@@ -86,7 +86,7 @@ export default function Home() {
               <div className="icon-padding"></div>
           </div>
       </div>  
-      <div>This page represents the requests sent out to specific recipients</div>
+      <div>This page represents incoming requests that have not yet been accepted</div>
       <div>
         <SentRequestTable/>
       </div>

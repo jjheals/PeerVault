@@ -37,7 +37,6 @@ export default function Home() {
     // for the icons
     const [numSendReq, setNumSendReq] = React.useState(0);
     const [numIncomingReq, setNumIncomingReq] = React.useState(0);
-    const [numUniversalReq, setNumUniversalReq] = React.useState(0);
     
     // for the history table...
     const [userData, setUserData] = React.useState([]);
@@ -87,9 +86,8 @@ export default function Home() {
       instance
       .get("/ui/get-num-requests")
       .then(function (response){
-        setNumSendReq(response.data["direct"]);
+        setNumSendReq(response.data["outgoing"]);
         setNumIncomingReq(response.data["incoming"]);
-        setNumUniversalReq(response.data["universal"]);
       })
       .catch (function (error) {
         console.error("errored:", error)
@@ -339,7 +337,7 @@ export default function Home() {
             <div className="header-options-row">
               <div className="relative inline-block">
                 <button onClick={() => router.push("/pendingRequests/sent")}>
-                  <div className="hover" title="Direct Send Requests">
+                  <div className="hover" title="Pending Sent Requests">
                     <Image
                       className="dark"
                       src="/send-svgrepo-com.svg"
@@ -358,12 +356,12 @@ export default function Home() {
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
-                <button onClick={() => router.push("/pendingRequests/direct")}>
+                <button onClick={() => router.push("/pendingRequests/incoming")}>
                   <div className="hover" title="Incoming Requests">
                     <Image
                       className="dark"
                       src="/inbox-alt-1-svgrepo-com.svg"
-                      alt="direct request icon"
+                      alt="incoming request icon"
                       width={50}
                       height={50}
                     />
@@ -372,25 +370,6 @@ export default function Home() {
                 {numIncomingReq  > 0 ? (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numIncomingReq}
-                </span>
-                ): null}
-              </div>
-              <div className="icon-padding"></div>
-              <div className="relative inline-block">
-                <button onClick={() => router.push("/pendingRequests")}>
-                  <div className="hover" title="Universal Sent Requests">
-                    <Image
-                      className="dark"
-                      src="/globe-svgrepo-com.svg"
-                      alt="universal request icon"
-                      width={50}
-                      height={50}
-                    />
-                  </div>
-                </button>
-                {numUniversalReq > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {numUniversalReq}
                 </span>
                 ): null}
               </div>
