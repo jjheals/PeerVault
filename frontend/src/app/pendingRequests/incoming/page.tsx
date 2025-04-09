@@ -41,6 +41,7 @@ export default function Home() {
             <thead>
               <tr className="bg-gray-200">
               <th className="border p-2">Peer Pub Key</th>
+              <th className="border p-2">Request Type</th>
               <th className="border p-2">File Name</th>
                 <th className="border p-2">File Size</th>
                 <th className="border p-2">File Hash</th>
@@ -50,12 +51,13 @@ export default function Home() {
             </thead>
             <tbody>
               {requestData.map((request) => (
-                <tr key={request.date_shared} className="hover:bg-gray-100">
+                <tr key={request.date} className="hover:bg-gray-100">
                   <td className="border p-2">{request.peer_pub_key}</td>
+                  <td className="border p-2">{request.isDirect ? "Direct" : "Universal"}</td>
                   <td className="border p-2">{request.filename}</td>
                   <td className="border p-2">{request.size_gb} Bytes</td>
                   <td className="border p-2">{request.sha256}</td>
-                  <td className="border p-2">{request.date_shared}</td>
+                  <td className="border p-2">{request.date}</td>
                   <td>
                     <div className="button">Accept Request</div>
                   </td>

@@ -756,8 +756,9 @@ def get_sent_requests():
 
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-        all_requests['date'] = pd.to_datetime(all_requests['date'])
-        all_requests = all_requests.sort_values(by='date', ascending=False)
+        if not all_requests.empty:
+            all_requests['date'] = pd.to_datetime(all_requests['date'])
+            all_requests = all_requests.sort_values(by='date', ascending=False)
         output = all_requests.to_dict(orient='records')
         return jsonify({'all_requests': output})
     except Exception as e:
@@ -770,8 +771,10 @@ def get_incoming_requests():
 
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/incoming.csv')
-        all_requests['date'] = pd.to_datetime(all_requests['date'])
-        all_requests = all_requests.sort_values(by='date', ascending=False)
+        print(all_requests.head())
+        if not all_requests.empty:
+            all_requests['date'] = pd.to_datetime(all_requests['date'])
+            all_requests = all_requests.sort_values(by='date', ascending=False)
         output = all_requests.to_dict(orient='records')
         return jsonify({
             'all_requests': output
