@@ -62,9 +62,15 @@ app.enc_config = enc_config
 app.network_config = network_config
 app.identity_config = identity_config
 
+<<<<<<< HEAD
+# Init a server obj and tie it to the flask app
+#server:Server = Server()
+#app.server = server
+=======
 # NOTE: init app.server as None to start, and it is changed via the /ui/init-application endpoint
 app.server = None
 
+>>>>>>> e88178bafdb26870836aa6e3a893afedd2e57ccf
 # Add logging before & after requests
 @app.before_request
 def before_request(): 

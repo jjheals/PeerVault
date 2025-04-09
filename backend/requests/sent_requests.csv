@@ -1,4 +1,1 @@
 username,filename,size_gb,sha256,date_shared
-<some-public-key-E>,homework_assignment2.pdf,2.4,<some-hash-ES2>,2024-01-04
-<some-public-key-E>,tax_returns.pdf,2,<some-hash-IE1>,2025-01-30
-<some-public-key-G>,my_cat.jpg,0.2,<some-hash-IG2>,2025-03-28

@@ -50,7 +50,7 @@ export default function Home() {
             </thead>
             <tbody>
               {requestData.map((request) => (
-                <tr key={request.filename} className="hover:bg-gray-100">
+                <tr key={request.date_shared} className="hover:bg-gray-100">
                   <td className="border p-2">{request.peer_pub_key}</td>
                   <td className="border p-2">{request.filename}</td>
                   <td className="border p-2">{request.size_gb} Bytes</td>

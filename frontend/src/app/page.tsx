@@ -26,19 +26,24 @@ export default function Home() {
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
+
+    // for the sharing flow...
     const [showStartSharing, setShowStartSharing] = React.useState(true);
     const [showSelectRecipient, setShowSelectRecipient] = React.useState(false);
     const [showFileSelect, setShowFileSelect] = React.useState(false);
     const [showStorageType, setShowStorageType] = React.useState(false);
     const [showConfirmation, setShowConfirmation] = React.useState(false);
 
+    // for the icons
     const [numSendReq, setNumSendReq] = React.useState(0);
     const [numIncomingReq, setNumIncomingReq] = React.useState(0);
     const [numUniversalReq, setNumUniversalReq] = React.useState(0);
+    
+    // for the history table...
+    const [userData, setUserData] = React.useState([]);
 
 
     const router = useRouter();
-
 
     function refresh() {
         forceRedraw(redraw + 1);
@@ -128,21 +133,21 @@ export default function Home() {
       )
     }
 
-        // display the list of files selected to be shared or sent
-        function FileConfirmationList(props: any) {
-          if(!props.files) return;
-    
-          return (
-            <div>
-              <label>Total Size of Files: {model.getTotalStorage().toString()}B</label>
-              {props.files.map((file: any, index: any) => (
-                <p key={index}>
-                  <label>{file.name} - {file.size}B </label>
-                </p>
-              ))}
-            </div>
-          )
-        }
+    // display the list of files selected to be shared or sent
+    function FileConfirmationList(props: any) {
+      if(!props.files) return;
+
+      return (
+        <div>
+          <label>Total Size of Files: {model.getTotalStorage().toString()}B</label>
+          {props.files.map((file: any, index: any) => (
+            <p key={index}>
+              <label>{file.name} - {file.size}B </label>
+            </p>
+          ))}
+        </div>
+      )
+    }
 
 
     // stores the value for the files that have been selected
@@ -190,25 +195,33 @@ export default function Home() {
       }
     };
 
-    // send the request to store 
-    // TODO --> not implemented...
-    function uploadData() {  
-      var toUser = recipient; 
-      var files:any = files;
-      var sendMethod = sendType;
-         
+    React.useEffect(() =>{
       instance
-      .post("/ui/uploadData",
-        {
-          recipient: toUser,
-          data: files,
-          sendMethod: sendMethod
-        }
-      )
+      .get("/ui/get-shared-by-peer")
       .then(function (response){
+        setUserData(response.data["user_data"])
       })
       .catch (function (error) {
-        console.error("errored")
+        console.error("errored:", error)
+      });
+    }, [redraw]);
+
+    function uploadData() {  
+      const formData = new FormData();
+
+      model.filesToUpload.forEach((fileObj: any, index: number) => {
+        formData.append(`files`, fileObj.file);
+      });
+      formData.append("peer_pub_key", recipient);
+      formData.append("send_method", sendType);
+
+      instance
+      .post("/ui/upload-data", formData, {headers: {"Content-Type": "multipart/form-data",},})
+      .then(()=>{
+        alert("Uploaded Data!")
+      })
+      .catch (function (error) {
+        alert("failed:" + error)
       });
 
       //remove all of the data??
@@ -216,8 +229,6 @@ export default function Home() {
       setFiles([])
       model.filesToUpload = []
       setSendType("")
-
-      alert("Uploaded Data!")
     }
 
     const handleContinue = (value:number) => {
@@ -267,6 +278,48 @@ export default function Home() {
       refresh();
     }
 
+    const UserTable: React.FC = () => {
+        return (
+          <div>
+            <div className="titleText"> File History </div>
+            <table className="w-full border-collapse border border-gray-300">
+
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border p-2">Recipient</th>
+                <th className="border p-2">Total Stored Remotely</th>
+                <th className="border p-2">Total Stored Locally</th>
+                <th className="border p-2">Total Shared</th>
+                <th className="border p-2">View</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userData.map((user) => (
+                <tr key={user.user} className="hover:bg-gray-100">
+                  <td className="border p-2">{user.common_name}</td>
+                  <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
+                  <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
+                  <td className="border p-2">{user.storage_data.shared} Bytes</td>
+                  <td className="border p-2"> 
+                    <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
+                        <Image
+                          className="dark"
+                          src="/info-circle-svgrepo-com.svg"
+                          alt="History"
+                          width={30}
+                          height={30}
+                        />
+                    </a>  
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+          
+        );
+      };
+
 
     return (
       <div>
@@ -296,9 +349,12 @@ export default function Home() {
                     />
                   </div>
                 </button>
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {numSendReq > 0 ? (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numSendReq}
                 </span>
+                ): null}
+                
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
@@ -313,9 +369,11 @@ export default function Home() {
                     />
                   </div>
                 </button>
+                {numIncomingReq  > 0 ? (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numIncomingReq}
                 </span>
+                ): null}
               </div>
               <div className="icon-padding"></div>
               <div className="relative inline-block">
@@ -330,9 +388,11 @@ export default function Home() {
                     />
                   </div>
                 </button>
+                {numUniversalReq > 0 ? (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {numUniversalReq}
                 </span>
+                ): null}
               </div>
               <div className="icon-padding"></div>
               <a href={`/accountInfo/${identity}`} className="hover" title="Account Settings">
@@ -512,6 +572,14 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        { showSelectRecipient || showFileSelect || showStorageType || showConfirmation ? (
+          null
+        ):         
+        <div>
+          <UserTable />
+        </div>}
+
       </div>
     )
   }
