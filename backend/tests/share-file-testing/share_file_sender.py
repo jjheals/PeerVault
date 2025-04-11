@@ -55,8 +55,12 @@ server:Server = Server(
 
 
 # --- Send a file --- #
+# Get the target IP address from CLI
+target_ip:str = input('\033[93mEnter the target IPv4 address: \033[0m')
+
+# Send the request
 server.send_share_request(
-    '127.0.0.1',
+    target_ip,
     5000,
     open('../../../test-data/CS Degree Requirements.pdf', 'rb').read(),
     'CS Degree Requirements SHARED.pdf'
