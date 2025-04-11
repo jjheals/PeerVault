@@ -788,7 +788,7 @@ def get_num_requests():
 
     try:
         incoming:pd.DataFrame = pd.read_csv('requests/incoming.csv')
-        num_incoming = (incoming.size) / 5
+        num_incoming = (incoming.size) / 6
 
         outgoing:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
         num_outgoing = (outgoing.size) / 6
