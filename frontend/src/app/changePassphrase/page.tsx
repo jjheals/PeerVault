@@ -17,14 +17,13 @@ export default function Home() {
     const [passphrase, setPassphrase] = React.useState("");
     const [newPassphrase, setNewPassphrase] = React.useState("");
 
-
     const handleChange = async () => {
         if (!passphrase.trim()) {
             alert("All Fields are required!");
             return;
         }
         try {
-            const response = await instance.post("/ui/signup", {passphrase: passphrase});
+            const response = await instance.post("/changepassphrase", {passphrase: passphrase});
             alert("Passphrase successfully changed!");
         } catch (error) {
             console.error("Passphrase change failed:", error);
