@@ -282,10 +282,11 @@ def signup():
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
+    print(request_body)
         
     # Extract the required keys
     new_common_name:str = request_body.get('common_name', None)
-    new_allocated_storage:int = request_body.get('allocated_storage', None)
+    new_allocated_storage:str = request_body.get('allocated_storage', None)
     new_peer_storage_path:str = request_body.get('peer_storage_path', None)
     new_passphrase:str = request_body.get('passphrase', None) 
 
@@ -306,11 +307,13 @@ def signup():
     # Update the identity config with the new common name, mac, allocated storage, and peer storage path
     identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
     identity_config['IDENTITY']['MAC'] = get_mac_address() 
-    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = new_allocated_storage
+
+    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
     identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
-    current_app.enc_config['misc']['PASS_HASH'] = sha256(str(new_passphrase)).hexdigest()
+    # pass_hash = new_passphrase.hexdigest()
+    current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()
 
     # --- Saving new info --- #
     # Create the [new_peer_storage_path] if it does not exist

@@ -71,9 +71,11 @@ export default function Home() {
       .get("/ui/whoami")
       .then(function (response){
 
-        if(response.data["common_name"] != undefined){
+        if(response.data["common_name"] != ""){
           setIdentity(response.data["common_name"]);
           setVerifiedUser(true);
+        }else{
+          setVerifiedUser(false)
         }
 
       })
@@ -327,9 +329,8 @@ export default function Home() {
 
           {!verifiedUser && (            
             <div className="header-options-row">            
-              <div className="subtitleText">Please Log In!</div>
               <button onClick={()=> router.push("/createAccount/")}>
-                <div className="header-button-text-option-two">Create Account</div>
+                <div className="button">Create Account</div>
               </button>
             </div>
           )}
@@ -396,7 +397,7 @@ export default function Home() {
 
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
       </div>
-        {showStartSharing && (
+        {verifiedUser && showStartSharing && (
           <div>
             <div className="flex items-center justify-center">
               <motion.button
@@ -552,7 +553,7 @@ export default function Home() {
           </div>
         )}
 
-        { showSelectRecipient || showFileSelect || showStorageType || showConfirmation ? (
+        { !verifiedUser || (showSelectRecipient || showFileSelect || showStorageType || showConfirmation) ? (
           null
         ):         
         <div>
