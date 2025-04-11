@@ -723,8 +723,6 @@ def get_peer_public_key():
     except Exception as e:
         print(e)
 
-<<<<<<< HEAD
-=======
 
 def getUniquePeers() -> list:
     storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
@@ -752,13 +750,15 @@ def getPubKeyFromCommonName(common_name: str):
     return result.iloc[0] if not result.empty else None
 
 
->>>>>>> e88178bafdb26870836aa6e3a893afedd2e57ccf
 @fi_bp.route('/ui/get-sent-requests', methods=['GET'])
 @require_localhost
 def get_sent_requests(): 
 
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
+        if not all_requests.empty:
+            all_requests['date'] = pd.to_datetime(all_requests['date'])
+            all_requests = all_requests.sort_values(by='date', ascending=False)
         output = all_requests.to_dict(orient='records')
         return jsonify({'all_requests': output})
     except Exception as e:
@@ -770,19 +770,11 @@ def get_sent_requests():
 def get_incoming_requests(): 
 
     try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
-        output = all_requests.to_dict(orient='records')
-        return jsonify({
-            'all_requests': output
-        })
-    except Exception as e:
-        print(e)
-
-@fi_bp.route('/ui/get-universal-requests', methods=['GET'])
-@require_localhost
-def get_universal_requests(): 
-    try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
+        all_requests:pd.DataFrame = pd.read_csv('requests/incoming.csv')
+        print(all_requests.head())
+        if not all_requests.empty:
+            all_requests['date'] = pd.to_datetime(all_requests['date'])
+            all_requests = all_requests.sort_values(by='date', ascending=False)
         output = all_requests.to_dict(orient='records')
         return jsonify({
             'all_requests': output
@@ -795,19 +787,15 @@ def get_universal_requests():
 def get_num_requests(): 
 
     try:
-        incoming:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
+        incoming:pd.DataFrame = pd.read_csv('requests/incoming.csv')
         num_incoming = (incoming.size) / 5
 
-        direct:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-        num_direct = (direct.size) / 6;
-
-        uni:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
-        num_uni = (uni.size) / 4
+        outgoing:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
+        num_outgoing = (outgoing.size) / 6
 
         return jsonify({
             'incoming': num_incoming,
-            'direct': num_direct,
-            'universal': num_uni
+            'outgoing': num_outgoing
         })
     except Exception as e:
         print(e)

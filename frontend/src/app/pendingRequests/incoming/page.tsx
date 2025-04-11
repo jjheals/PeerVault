@@ -41,6 +41,7 @@ export default function Home() {
             <thead>
               <tr className="bg-gray-200">
               <th className="border p-2">Peer Pub Key</th>
+              <th className="border p-2">Request Type</th>
               <th className="border p-2">File Name</th>
                 <th className="border p-2">File Size</th>
                 <th className="border p-2">File Hash</th>
@@ -50,12 +51,13 @@ export default function Home() {
             </thead>
             <tbody>
               {requestData.map((request) => (
-                <tr key={request.date_shared} className="hover:bg-gray-100">
+                <tr key={request.date} className="hover:bg-gray-100">
                   <td className="border p-2">{request.peer_pub_key}</td>
+                  <td className="border p-2">{request.isDirect ? "Direct" : "Universal"}</td>
                   <td className="border p-2">{request.filename}</td>
                   <td className="border p-2">{request.size_gb} Bytes</td>
                   <td className="border p-2">{request.sha256}</td>
-                  <td className="border p-2">{request.date_shared}</td>
+                  <td className="border p-2">{request.date}</td>
                   <td>
                     <div className="button">Accept Request</div>
                   </td>
@@ -69,7 +71,7 @@ export default function Home() {
     return (
       <div className="header">
           <div className="header-row">
-              <div className="titleText">Incoming Requests</div>
+              <div className="titleText">Pending Incoming Requests</div>
           <div className="header-options-row">
               <div className="icon-padding"></div>
               <button onClick={()=> router.push("/")}>
@@ -86,7 +88,7 @@ export default function Home() {
               <div className="icon-padding"></div>
           </div>
       </div>  
-      <div>This page represents the requests sent out to specific recipients</div>
+      <div>This page represents incoming requests that have not yet been accepted</div>
       <div>
         <SentRequestTable/>
       </div>
