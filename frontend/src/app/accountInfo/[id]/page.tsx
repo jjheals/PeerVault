@@ -125,6 +125,8 @@ export default function Home() {
 
         <div className="font-semibold">IP Address: </div>
         <div className="break-all">{identity?.ip}</div>
+
+        <a className="button" href={'/changePassphrase'}>Change Passphrase</a>
       </div>
 
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
@@ -132,13 +134,24 @@ export default function Home() {
       <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
         <div className="font-semibold">Total Amount Stored Locally: </div>
         <div>{localStorage} Bytes</div>
-
         <div className="font-semibold">Total Amount Stored Remotely: </div>
         <div>{remoteStorage} Bytes</div>
-
         <div className="font-semibold">Total Amount Shared: </div>
         <div>{sharedStorage} Bytes</div>
+        
       </div>
+      <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
+      <div className="subtitleText">FAQ:</div>
+
+      <div className="font-semibold">Can I change the account registered with this device? </div>
+      <div>No </div>
+
+      <div className="font-semibold">Can I change the amount of data allocated for storage locally? </div>
+      <div>Yes...</div>
+
+      <div className="font-semibold">Who made this site? </div>
+      <div>Justin, Dan, Quentin and Lily!</div>
+
       <div>
     </div>
     </div>
