@@ -363,38 +363,16 @@ def get_all_info():
     storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
     shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
 
-    # group the file lists BY user? and send a list of user 
-        
+    # TODO: group the file lists BY user? and send a list of user 
+    # DO SOMETHING ... 
+    # ...
+    
     # Return the filtered entries
     return jsonify({
         'peer_list': all_peers_df.to_dict(orient='records'),
         'storing_with': storing_with_df.to_dict(orient='records'),
         'storing_for': storing_for_df.to_dict(orient='records'),
         'shared_with': shared_with_df.to_dict(orient='records')
-    })
-
-
-@fi_bp.route("/ui/get-sharing-peers", methods=['GET'])
-@require_localhost
-def get_sharing_name(): 
-    """
-        DESC: returns all info about this storage of this user. Extracts information from the
-        peer-info folder (i.e. all-peers.csv, currently-storing-for.csv, currently-storing-with.csv, and previously-shared-with.csv)
-        
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user sharing history with the following keys: 
-            {userID: ...,
-              stored-for:  [{filename: ..., filesize:..., filehash:...},...], 
-              stored-with: [{filename: ..., filesize:..., filehash:...},...],
-              shared-with: [{filename: ..., filesize:..., filehash:...},...]
-            }
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 500 | internal server error: if there is some internal error processing the request.
-    """
-    unique_peers = getUniquePeers()
-
-    return jsonify({
-        'peer-list': unique_peers
     })
 
 
