@@ -410,92 +410,29 @@ def get_interacted_with_peers():
     })
 
 
-@fi_bp.route('/ui/get-shared-storage', methods=['GET'])
+@fi_bp.route('/ui/get-storage-info', methods=['GET'])
 @require_localhost
-def get_shared_storage(): 
+def get_storage_info(): 
     """
-        DESC: returns AMOUNT of shared storage
+        DESC: returns AMOUNT of storage currently storing for, with, and previously shared.
         
         RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
+            - 200 | successful: (dict) a JSON object with all the storage amounts. 
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    # Read the previously_shared_with CSV 
+    # Read the storage and shared with csvs
     shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv') 
+    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv') 
+    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
     
-    # Sum the 'size_gb' col and return 
+    # Sum the 'size_gb' cols and return 
     return jsonify({
-        'storage': shared_with_df['size_gb'].sum()
+        'gb_shared': shared_with_df['size_gb'].sum(),
+        'gb_storing_for': storing_for_df['size_gb'].sum(),
+        'gb_storing_with': storing_with_df['size_gb'].sum()
     })
-    
-
-@fi_bp.route('/ui/get-local-storage', methods=['GET'])
-@require_localhost
-def get_local_storage(): 
-    """
-        DESC: returns amount of local storage
-        
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 500 | internal server error: if there is some internal error processing the request.
-    """
-
-    numBytes = 0
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    numBytes += float(row[2])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-    # Create a dict, jsonify and return 
-    return jsonify({
-        'storage': numBytes,
-    })
-
-
-@fi_bp.route('/ui/get-remote-storage', methods=['GET'])
-@require_localhost
-def get_remote_storage(): 
-    """
-        DESC: returns amount of remote storage
-        
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 500 | internal server error: if there is some internal error processing the request.
-    """
-
-    numBytes = 0
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    numBytes += float(row[2])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-        
-    # Create a dict, jsonify and return 
-    return jsonify({
-        'storage': numBytes,
-    })    
 
 
 @fi_bp.route('/ui/get-user-history', methods=['POST'])
