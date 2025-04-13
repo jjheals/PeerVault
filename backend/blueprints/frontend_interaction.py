@@ -341,7 +341,7 @@ def init_application():
 
 @fi_bp.route("/ui/get-all-info", methods=['GET'])
 @require_localhost
-def get_all_sharing_info_application(): 
+def get_all_info(): 
     """
         DESC: returns all info about this storage of this user. Extracts information from the
         peer-info folder (i.e. all-peers.csv, currently-storing-for.csv, currently-storing-with.csv, and previously-shared-with.csv)
@@ -357,84 +357,20 @@ def get_all_sharing_info_application():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    # open all-peers.csv
-    all_peers = []
+    # Read each of the CSVs into dataframes
+    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
 
-    with open('peer-info/all-peers.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    all_peers.push(row)
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-    # # open currently-storing-for.csv
-    storing_for = []
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-            reader = csv.reader(f2)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    storing_for.push(row)
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-
-    # # open currently-storing-with.csv
-    storing_with = []
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-            reader = csv.reader(f3)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    storing_with.push(row)
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-
-    # # open currently-sharing-with.csv
-    sharing_with = []
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-            reader = csv.reader(f4)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    sharing_with.push(row[0])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-
-# We have a list of peers that we have interacted with
     # group the file lists BY user? and send a list of user 
         
     # Return the filtered entries
     return jsonify({
-        'peer-list': all_peers,
-        'shared-with': sharing_with,
-        'stored-with': storing_with,
-        'stored-for': storing_for
+        'peer_list': all_peers_df.to_dict(orient='records'),
+        'storing_with': storing_with_df.to_dict(orient='records'),
+        'storing_for': storing_for_df.to_dict(orient='records'),
+        'shared_with': shared_with_df.to_dict(orient='records')
     })
 
 
