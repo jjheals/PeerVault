@@ -135,19 +135,22 @@ class Server(object):
         
         # Run the listener while the server is alive
         while(self.server_alive):
-        
+            
             # Accept the incoming connection
             cxn, addr = self.socket_connection.accept()
 
             # Log
             self.logger.info("connection form IP address: %s", str(addr[0])) 
-
-            # Pass connection to handle network req func in a new thread        
-            self.thread_pool.submit(self.handle_network_request(
-                cxn, 
-                addr
-            ))
-
+            
+            try: 
+                # Pass connection to handle network req func in a new thread        
+                self.thread_pool.submit(self.handle_network_request(
+                    cxn, 
+                    addr
+                ))
+                
+            except Exception as e: 
+                print('\033[93mNOTICE: \033[0m')
 
     def mcast_listen(self) -> None:         
         

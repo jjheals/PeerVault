@@ -826,55 +826,8 @@ def upload_data():
         return jsonify({'status': 'success'})    
     except Exception as e:
         print(e)
-
-# @fi_bp.route('/ui/reupload-data', methods=['POST'])
-# @require_localhost
-# def reupload_data(): 
-#     try:
-#         # remove the old request
-#         incoming_date_key = request.form.get("date", "")
-#         index = -1
-
-#         # identify the row we want to remove
-#         with open('requests/outgoing.csv', "r+", newline='') as file:
-#             reader = csv.DictReader(file);
-#             rows = list(reader)
-#             writer = csv.writer(file)
-#             for i, row in enumerate(reader):
-#                 if row["date"] == incoming_date_key:
-#                     index = i
-#                     print(index)
-
-#         # remove the row
-#         del rows[index]
-#         print("rows": rows)
-
-#         # remove all data except header:
-#         with open('requests/outgoing.csv', 'r+', newline='') as file:
-#             next(file)
-#             file.truncate()
-
-#         # create the new request
-#         peer_pub_key = request.form.get("peer_pub_key", "")
-#         file_name = request.form.get("file", "")
-#         send_method = request.form.get("send_method", "")
-#         size = request.form.get("size", "")
-#         new_date = datetime.datetime.now()
-#         hash_256 = request.form.get("sha256", "")
-
-#         data = [peer_pub_key, file_name, send_method, size, new_date, hash_256]
-
-#         # add the updated line AND all old lines
-#         with open('requests/outgoing.csv', 'a', newline='') as file:
-#             writer = csv.writer(file)
-#             writer.writerow(data)
-#             writer.writerows(rows)
-
-#         return jsonify({'status': 'success'})    
-#     except Exception as e:
-#         print(e)
-#         return jsonify({"error": e})
-
+       
+        
 @fi_bp.route('/ui/reupload-data', methods=['POST'])
 @require_localhost
 def reupload_data():
@@ -923,3 +876,4 @@ def reupload_data():
     except Exception as e:
         print(f"Error in reupload_data: {e}")
         return jsonify({"error": str(e)})
+
