@@ -22,12 +22,38 @@ export default function Home() {
     instance
     .get("/ui/get-sent-requests")
     .then(function (response){
-      setRequestData(response.data["all_requests"])
+      if (response.status === 200 && response.data && response.data.all_requests) {
+        setRequestData(response.data.all_requests);
+      }else {
+        console.error('Incorrect format:', response.data);
+      }
     })
     .catch (function (error) {
       console.error("errored:", error)
     });
   }, [redraw]);
+
+  function resend(req:any){
+    const formData = new FormData();
+
+    formData.append("peer_pub_key", req.peer_pub_key);
+    formData.append("file", req.file);
+    formData.append("send_method", req.upload_type);
+    formData.append("size", req.size);
+    formData.append("sha256", req.sha256);
+    formData.append("date", req.date)
+
+    instance
+    .post("/ui/reupload-data", formData, {headers: {"Content-Type": "multipart/form-data",},})
+    .then(function (response){
+      // ...
+    })
+    .catch (function (error) {
+      console.error("errored:", error)
+    });
+
+    alert("please manually refresh...")
+  }
   
     const SentRequestTable: React.FC = () => {
       return (
@@ -36,30 +62,32 @@ export default function Home() {
             <tr className="bg-gray-200">
               <th className="border p-2">User Name</th>
               <th className="border p-2">File Name</th>
+              <th className="border p-2">Upload Type</th>
               <th className="border p-2">File Size</th>
-              <th className="border p-2">File Hash</th>
               <th className="border p-2">Date</th>
+              <th className="border p-2">File Hash</th>
               <th className="border p-2">Resend?</th>
             </tr>
           </thead>
           <tbody>
             {requestData.map((request) => (
-              <tr key={request.filename} className="hover:bg-gray-100">
-                <td className="border p-2">{request.username}</td>
-                <td className="border p-2">{request.filename}</td>
-                <td className="border p-2">{request.size_gb} Bytes</td>
+              <tr key={request.date} className="hover:bg-gray-100">
+                <td className="border p-2">{request.peer_pub_key}</td>
+                <td className="border p-2">{request.file}</td>
+                <td className="border p-2">{request.upload_type}</td>
+                <td className="border p-2">{request.size} Bytes</td>
+                <td className="border p-2">{request.date}</td>
                 <td className="border p-2">{request.sha256}</td>
-                <td className="border p-2">{request.date_shared}</td>
                 <td className="border p-2">
-                  <a href={`/resend`} className="hover" title="Resend Request">
-                      <Image
+                  <button onClick={() => resend(request)}>
+                  <Image
                         className="dark"
                         src="/refresh.svg"
                         alt="History"
                         width={30}
                         height={30}
                       />
-                  </a>
+                  </button>
                 </td>
                 </tr>
             ))}
@@ -71,7 +99,7 @@ export default function Home() {
     return (
       <div className="header">
           <div className="header-row">
-              <div className="titleText">Pending Direct Send Requests</div>
+              <div className="titleText">Pending Sent Requests</div>
           <div className="header-options-row">
               <div className="icon-padding"></div>
               <button onClick={()=> router.push("/")}>
@@ -88,7 +116,7 @@ export default function Home() {
               <div className="icon-padding"></div>
           </div>
       </div>  
-      <div>This page represents incoming requests</div>
+      <div>This page represents sent requests that have not yet been accepted</div>
       <div>
         <SentRequestTable/>
       </div>

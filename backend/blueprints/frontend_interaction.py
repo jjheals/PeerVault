@@ -14,6 +14,7 @@ from configparser import ConfigParser
 from hashlib import sha256
 import csv
 import pandas as pd
+import datetime
 
 from utils import filter_args, load_key_pem, get_mac_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
 from objects import Server 
@@ -24,6 +25,59 @@ from werkzeug.utils import secure_filename
 # ---- Config & init ---- #
 # Create blueprint
 fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
+
+# ---- Make function to get local users ---- #
+def get_local_users():
+    all_peers= []
+
+    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
+        reader = csv.reader(f2)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
+        reader = csv.reader(f3)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+
+
+    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
+        reader = csv.reader(f4)
+        next(reader, None)  # Skip header row
+        
+        for row in reader:
+            if len(row) < 3:
+                continue  # Skip rows with missing data
+
+            try:
+                all_peers.append(row[0])
+            except Exception as e:
+                print("Error: ", {e})
+        
+
+    unique_peers = list(set(all_peers))
+
+
+    return jsonify({
+        'peer-list': unique_peers
+    })
 
 
 # ---- Add endpoints ---- #
@@ -461,7 +515,6 @@ def get_sharing_name():
         'peer-list': unique_peers
     })
 
-
 @fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
 @require_localhost
 def get_total_shared_by_user():
@@ -535,8 +588,6 @@ def get_total_shared_by_user():
         'user_data': peer_data
     })
 
-
-
 @fi_bp.route('/ui/get-shared-storage', methods=['GET'])
 @require_localhost
 def get_shared_storage(): 
@@ -569,8 +620,6 @@ def get_shared_storage():
     return jsonify({
         'storage': numBytes,
     })
-
-
 
 @fi_bp.route('/ui/get-local-storage', methods=['GET'])
 @require_localhost
@@ -605,8 +654,6 @@ def get_local_storage():
         'storage': numBytes,
     })
 
-
-
 @fi_bp.route('/ui/get-remote-storage', methods=['GET'])
 @require_localhost
 def get_remote_storage(): 
@@ -639,7 +686,6 @@ def get_remote_storage():
         'storage': numBytes,
     })    
 
-
 @fi_bp.route('/ui/get-user-history', methods=['POST'])
 @require_localhost
 def get_user_history(): 
@@ -663,7 +709,6 @@ def get_user_history():
     except Exception as e:
         print(e)
 
-
 @fi_bp.route('/ui/get-pub-key', methods=['POST'])
 @require_localhost
 def get_peer_public_key(): 
@@ -671,7 +716,6 @@ def get_peer_public_key():
     try:
         request_body:dict = request.get_json()
         peer_pub_key = getPubKeyFromCommonName(request_body.get('peer_common_name', None))
-        print(peer_pub_key)
 
         return jsonify({
             'peer_pub_key': peer_pub_key
@@ -680,16 +724,43 @@ def get_peer_public_key():
         print(e)
 
 
+def getUniquePeers() -> list:
+    storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+    data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+
+    unique_peers = data['peer_pub_key'].unique()
+    
+    return unique_peers.tolist()
+
+def getCommonNameFromPubKey(pub_key: str):
+    with open('peer-info/all-peers.csv', 'r', newline='') as f:
+        reader = csv.reader(f)
+        next(reader, None)
+
+        for row in reader:
+            if row[0] == pub_key:
+                return row[3] 
+            
+def getPubKeyFromCommonName(common_name: str):
+    all_peers = pd.read_csv('peer-info/all-peers.csv')
+    result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
+    return result.iloc[0] if not result.empty else None
+
+
 @fi_bp.route('/ui/get-sent-requests', methods=['GET'])
 @require_localhost
 def get_sent_requests(): 
 
     try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
+        all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
+        if not all_requests.empty:
+            all_requests['date'] = pd.to_datetime(all_requests['date'])
+            all_requests = all_requests.sort_values(by='date', ascending=False)
         output = all_requests.to_dict(orient='records')
-        return jsonify({
-            'all_requests': output
-        })
+        return jsonify({'all_requests': output})
     except Exception as e:
         print(e)
 
@@ -699,49 +770,110 @@ def get_sent_requests():
 def get_incoming_requests(): 
 
     try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
+        all_requests:pd.DataFrame = pd.read_csv('requests/incoming.csv')
+        print(all_requests.head())
+        if not all_requests.empty:
+            all_requests['date'] = pd.to_datetime(all_requests['date'])
+            all_requests = all_requests.sort_values(by='date', ascending=False)
         output = all_requests.to_dict(orient='records')
         return jsonify({
             'all_requests': output
         })
     except Exception as e:
         print(e)
-
-
-@fi_bp.route('/ui/get-universal-requests', methods=['GET'])
-@require_localhost
-def get_universal_requests(): 
-
-    try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
-        output = all_requests.to_dict(orient='records')
-        return jsonify({
-            'all_requests': output
-        })
-    except Exception as e:
-        print(e)
-
 
 @fi_bp.route('/ui/get-num-requests', methods=['GET'])
 @require_localhost
 def get_num_requests(): 
 
     try:
-        incoming:pd.DataFrame = pd.read_csv('requests/incoming_requests.csv')
+        incoming:pd.DataFrame = pd.read_csv('requests/incoming.csv')
         num_incoming = (incoming.size) / 5
 
-        direct:pd.DataFrame = pd.read_csv('requests/sent_requests.csv')
-        num_direct = (direct.size) / 5
-
-        uni:pd.DataFrame = pd.read_csv('requests/universal_outgoing_requests.csv')
-        num_uni = (uni.size) / 4
+        outgoing:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
+        num_outgoing = (outgoing.size) / 6
 
         return jsonify({
             'incoming': num_incoming,
-            'direct': num_direct,
-            'universal': num_uni
+            'outgoing': num_outgoing
         })
     except Exception as e:
         print(e)
+
+@fi_bp.route('/ui/upload-data', methods=['POST'])
+@require_localhost
+def upload_data(): 
+    try:
+        peer_pub_key = request.form.get('peer_pub_key', "")
+        send_method = request.form.get('send_method', "")
+        uploaded_files = request.files.getlist('files')
+
+        for file in uploaded_files:
+            file_name = file.filename
+            date = datetime.datetime.now()
+            fileBytes = file.read()
+            size = len(fileBytes)        
+            hash_256 = sha256(fileBytes).hexdigest()
+
+
+        data = [peer_pub_key, file_name, send_method, size, date, hash_256]
+
+        # Open the file in append mode ('a'), create if not exists
+        with open('requests/outgoing.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(data)
+
+        return jsonify({'status': 'success'})    
+    except Exception as e:
+        print(e)
+       
         
-        
+@fi_bp.route('/ui/reupload-data', methods=['POST'])
+@require_localhost
+def reupload_data():
+    try:
+        incoming_date_key = request.form.get("date", "")
+
+        # Read all rows from the CSV into a list
+        with open('requests/outgoing.csv', "r", newline='') as file:
+            reader = csv.DictReader(file)
+            rows = list(reader)  # Convert to list of dicts
+            fieldnames = reader.fieldnames
+
+        # Find the index of the row with the matching date
+        index_to_remove = None
+        for i, row in enumerate(rows):
+            if row["date"] == incoming_date_key:
+                index_to_remove = i
+                break
+
+        if index_to_remove is not None:
+            del rows[index_to_remove]  # Remove the row
+
+        # Overwrite the CSV with only the header (truncate previous data)
+        with open('requests/outgoing.csv', 'w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)  # Re-write all other rows
+
+        # create the new request
+        peer_pub_key = request.form.get("peer_pub_key", "")
+        file_name = request.form.get("file", "")
+        send_method = request.form.get("send_method", "")
+        size = request.form.get("size", "")
+        new_date = datetime.datetime.now()
+        hash_256 = request.form.get("sha256", "")
+
+        data = [peer_pub_key, file_name, send_method, size, new_date, hash_256]
+
+        # add the updated line AND all old lines
+        with open('requests/outgoing.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(data)
+#             writer.writerows(rows)
+
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"Error in reupload_data: {e}")
+        return jsonify({"error": str(e)})
+

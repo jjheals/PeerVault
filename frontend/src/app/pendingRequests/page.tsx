@@ -22,7 +22,7 @@ export default function Home() {
   
   React.useEffect(() =>{
     instance
-    .get("/ui/get-universal-requests")
+    .get("/ui/get-sent-requests")
     .then(function (response){
       setRequestData(response.data["all_requests"])
     })
@@ -46,7 +46,7 @@ export default function Home() {
               </thead>
               <tbody>
                 {requestData.map((request) => (
-                  <tr key={request.filename} className="hover:bg-gray-100">
+                  <tr key={request.date_shared} className="hover:bg-gray-100">
                     <td className="border p-2">{request.filename}</td>
                     <td className="border p-2">{request.size_gb} Bytes</td>
                     <td className="border p-2">{request.sha256}</td>
@@ -68,31 +68,4 @@ export default function Home() {
             </table>
           );
         };
-
-    return (
-      <div className="header">
-          <div className="header-row">
-              <div className="titleText">Universal Pending Requests</div>
-          <div className="header-options-row">
-              <div className="icon-padding"></div>
-              <button onClick={()=> router.push("/")}>
-                  <div className="hover" title="Return Home">
-                      <Image
-                          className="dark"
-                          src="/home-1-svgrepo-com.svg"
-                          alt="home icon"
-                          width={50}
-                          height={50}
-                      />
-                  </div>
-              </button>
-              <div className="icon-padding"></div>
-          </div>
-      </div> 
-      <div>This page is representing the requests sent out without a specific recipient in mind</div>
-      <div>
-        <SentRequestTable/>
-      </div>
-    </div>  
-    )
   }
