@@ -422,27 +422,14 @@ def get_shared_storage():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    numBytes = 0
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    numBytes += float(row[3])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-    # Create a dict, jsonify and return 
+    # Read the previously_shared_with CSV 
+    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv') 
+    
+    # Sum the 'size_gb' col and return 
     return jsonify({
-        'storage': numBytes,
+        'storage': shared_with_df['size_gb'].sum()
     })
-
+    
 
 @fi_bp.route('/ui/get-local-storage', methods=['GET'])
 @require_localhost
