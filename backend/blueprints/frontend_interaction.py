@@ -15,7 +15,7 @@ import csv
 import pandas as pd
 import datetime
 
-from utils import filter_args, load_key_pem, get_mac_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers
+from utils import filter_args, load_key_pem, get_mac_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers
 from objects import Server 
 
 from .funcs import require_localhost
@@ -376,77 +376,37 @@ def get_all_info():
     })
 
 
-@fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
+@fi_bp.route("/ui/get-interacted-with-peers", methods=['GET'])
 @require_localhost
-def get_total_shared_by_user():
+def get_interacted_with_peers():
+    """ 
+    
+    """
+    
+    # Get the unique public keys that this client has interacted with
+    unique_peers:list[str] = get_unique_peers()
 
-    unique_peers = getUniquePeers()
+    # Get the data as dfs 
+    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
+    
+    # Create a map of peers -> num shared/stored with/for 
+    peer_map:dict = {
+        pub_key : { 
+            'common_name': cn_from_pub_key(pub_key),
+            'storage_data': {
+                'stored_remotely': (storing_with_df['peer_pub_key'] == pub_key).sum(),
+                'stored_locally': (storing_for_df['peer_pub_key'] == pub_key).sum(),
+                'shared': (shared_with_df['peer_pub_key'] == pub_key).sum()
+            }     
+        } 
+        for pub_key in unique_peers
+    }
 
-    peer_data = []
-
-    for user in unique_peers:
-        stored_locally = 0
-        stored_remotely = 0
-        shared = 0
-
-        with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-            reader = csv.reader(f2)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                if row[0] == user:      
-                    try:
-                        stored_locally += float(row[2])
-                    except Exception as e:
-                        print("Error: ", {e})
-
-
-        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-            reader = csv.reader(f3)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                if row[0] == user: 
-                    try:
-                        stored_remotely += float(row[2])
-                    except Exception as e:
-                        print("Error: ", {e})
-
-
-        with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-            reader = csv.reader(f4)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                if row[0] == user: 
-                    try:
-                        shared += float(row[3])
-                    except Exception as e:
-                        print("Error: ", {e})
-       
-        peer_data.append(
-            {"user": user,
-             "common_name": getCommonNameFromPubKey(user),
-                    "storage_data" : 
-                    {
-                        'stored_remotely': stored_remotely,
-                        'stored_locally': stored_locally,
-                        'shared': shared
-                    }
-            }
-        )
-
+    # Return the results
     return jsonify({
-        'user_data': peer_data
+        'user_data': peer_map
     })
 
 
@@ -557,7 +517,7 @@ def get_user_history():
 
     try:
         request_body:dict = request.get_json()
-        other_user:str = getPubKeyFromCommonName(request_body.get('other_user', None))
+        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
         print(other_user)
 
         storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
@@ -581,7 +541,7 @@ def get_peer_public_key():
 
     try:
         request_body:dict = request.get_json()
-        peer_pub_key = getPubKeyFromCommonName(request_body.get('peer_common_name', None))
+        peer_pub_key = pub_key_from_cn(request_body.get('peer_common_name', None))
 
         return jsonify({
             'peer_pub_key': peer_pub_key

@@ -8,7 +8,7 @@ from hashlib import sha256
 import csv
 import pandas as pd
 
-from utils import filter_args, load_key_pem, get_mac_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
+from utils import filter_args, load_key_pem, get_mac_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers, now, generate_asymm_keys
 from objects import Server 
 
 from .funcs import require_localhost

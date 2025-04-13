@@ -61,33 +61,54 @@ def update_peer_info(peer_public_key:str, csv_path:str, peer_info:dict[str, str|
     all_peers_df.to_csv(csv_path, index=False)
     
     
-def getCommonNameFromPubKey(pub_key: str):
-    with open('peer-info/all-peers.csv', 'r', newline='') as f:
-        reader = csv.reader(f)
-        next(reader, None)
-
-        for row in reader:
-            if row[0] == pub_key:
-                return row[3] 
+def cn_from_pub_key(pub_key: str) -> str|None:
+    """Returns the peer's common name for the given public key."""
+    
+    # Read the all peers csv
+    all_peers:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+    
+    # Find the matching row
+    result:pd.DataFrame = all_peers[all_peers['peer_pub_key'] == pub_key]['common_name']
+    
+    # Return the result if it exists
+    return result.iloc[0] if not result.empty else None
             
 
-def getPubKeyFromCommonName(common_name: str):
-    all_peers = pd.read_csv('peer-info/all-peers.csv')
-    result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
+def pub_key_from_cn(common_name: str) -> str|None:
+    """Returns the peer's public key for the given common name."""
+    
+    # Read the all peers csv
+    all_peers:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+    
+    # Find the matching row
+    result:pd.DataFrame = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
+    
+    # Return the result if it exists
     return result.iloc[0] if not result.empty else None
 
 
-def getUniquePeers() -> list:
+def get_unique_peers() -> list:
+    """Returns a list of all the unique peer public keys of all peers ever interacted with. NOTE: uses the info for 
+    peers that this client has interacted with (shared with, stored for, or stored with) NOT the all-peers list."""
+    
+    # Read the dfs for storing for, storing with, and shared with data
     storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
     storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
     shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
 
-    data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+    # Get the unique peer_pub_keys from each of the dfs and create a single list
+    data:pd.DataFrame = pd.concat(
+        [
+            storing_for_df['peer_pub_key'], 
+            storing_with_df['peer_pub_key'], 
+            shared_with_df['peer_pub_key']
+        ], 
+        ignore_index=True
+    )
 
-    unique_peers = data['peer_pub_key'].unique()
+    # Return a list of the unique peer pub keys
+    return list(data['peer_pub_key'].unique())
     
-    return unique_peers.tolist()
-
 
 def new_csv_row(csv_path:str, new_entry:dict) -> None: 
     """Writes the given new entry to the given CSV as a new row."""
