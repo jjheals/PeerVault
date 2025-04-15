@@ -525,8 +525,23 @@ def peer_cn_to_pub_key():
 @require_localhost
 def get_pending_requests(): 
     """ 
-        DESC: returns a list of all pending requests (incoming and outgoing). 
+        DESC: returns a list of all pending requests (incoming and outgoing). NOTE: to get the number of incoming or outgoing reqs, take the length of
+        the list of dicts for that key. For example, in JS: 
         
+            ```js 
+                // Make API req
+                const response = await fetch(...);
+                const responseJson = await response.json();
+                
+                // Extract lists of incoming and outgoing requests 
+                const incomingRequests = responseJson.incoming_requests;
+                const outgoingRequests = responseJson.outgoing_requests;
+                
+                // Get the number of incoming and outgoing requests 
+                const numIncomingRequests = incomingRequests.length;
+                const numOutgoingRequests = outgoingRequests.length; 
+            ```
+            
         ARGUMENTS:
             *Endpoint takes no arguments*
             
@@ -539,45 +554,8 @@ def get_pending_requests():
     # Read the incoming and outgoing CSVs as DFs and return them as a list of dict
     return jsonify({
         'incoming_requests': pd.read_csv('requests/incoming.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
-        'outgoing_requests': pd.read_csv('requests/outgoing.csv').sort_values(by='date', ascending=False).to_dict(orient='records')
+        'outgoing_requests': pd.read_csv('requests/outgoing.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
     })
-
-
-@fi_bp.route('/ui/get-incoming-requests', methods=['GET'])
-@require_localhost
-def get_incoming_requests(): 
-
-    try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/incoming.csv')
-        print(all_requests.head())
-        if not all_requests.empty:
-            all_requests['date'] = pd.to_datetime(all_requests['date'])
-            all_requests = all_requests.sort_values(by='date', ascending=False)
-        output = all_requests.to_dict(orient='records')
-        return jsonify({
-            'all_requests': output
-        })
-    except Exception as e:
-        print(e)
-
-
-@fi_bp.route('/ui/get-num-requests', methods=['GET'])
-@require_localhost
-def get_num_requests(): 
-
-    try:
-        incoming:pd.DataFrame = pd.read_csv('requests/incoming.csv')
-        num_incoming = (incoming.size) / 5
-
-        outgoing:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-        num_outgoing = (outgoing.size) / 6
-
-        return jsonify({
-            'incoming': num_incoming,
-            'outgoing': num_outgoing
-        })
-    except Exception as e:
-        print(e)
 
 
 @fi_bp.route('/ui/upload-data', methods=['POST'])
