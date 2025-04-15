@@ -523,19 +523,24 @@ def peer_cn_to_pub_key():
 
 @fi_bp.route('/ui/get-pending-requests', methods=['GET'])
 @require_localhost
-def get_sent_requests(): 
+def get_pending_requests(): 
     """ 
         DESC: returns a list of all pending requests (incoming and outgoing). 
+        
+        ARGUMENTS:
+            *Endpoint takes no arguments*
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with two keys for "incoming_requests" and "outgoing_requests" and the values are lists of dicts with the data for each (sorted by date desc).
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
     """
-    try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-        if not all_requests.empty:
-            all_requests['date'] = pd.to_datetime(all_requests['date'])
-            all_requests = all_requests.sort_values(by='date', ascending=False)
-        output = all_requests.to_dict(orient='records')
-        return jsonify({'all_requests': output})
-    except Exception as e:
-        print(e)
+    
+    # Read the incoming and outgoing CSVs as DFs and return them as a list of dict
+    return jsonify({
+        'incoming_requests': pd.read_csv('requests/incoming.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
+        'outgoing_requests': pd.read_csv('requests/outgoing.csv').sort_values(by='date', ascending=False).to_dict(orient='records')
+    })
 
 
 @fi_bp.route('/ui/get-incoming-requests', methods=['GET'])
