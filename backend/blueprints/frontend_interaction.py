@@ -521,10 +521,12 @@ def peer_cn_to_pub_key():
     })
 
 
-@fi_bp.route('/ui/get-sent-requests', methods=['GET'])
+@fi_bp.route('/ui/get-pending-requests', methods=['GET'])
 @require_localhost
 def get_sent_requests(): 
-
+    """ 
+        DESC: returns a list of all pending requests (incoming and outgoing). 
+    """
     try:
         all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
         if not all_requests.empty:
