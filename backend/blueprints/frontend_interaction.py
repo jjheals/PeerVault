@@ -483,16 +483,42 @@ def get_user_history():
 @fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
 @require_localhost
 def peer_cn_to_pub_key(): 
-
-    try:
-        request_body:dict = request.get_json()
-        peer_pub_key = pub_key_from_cn(request_body.get('peer_common_name', None))
-
+    """
+        DESC: returns the public key for the given peer common name.
+        
+        ARGUMENTS: 
+            peer_common_name (str): the common name of the peer. 
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if the given common name does not exist in the DB.
+            - 500 | internal server error: if there is some internal error processing the request.
+            
+    """
+    
+    # Get the peer_common_name from the request 
+    peer_cn:str = request.args.get('peer_common_name', None) 
+    
+    # Check that a CN was given 
+    if not peer_cn: 
         return jsonify({
-            'peer_pub_key': peer_pub_key
-        })
-    except Exception as e:
-        print(e)
+            'error': 'Not given a peer_common_name.'
+        }), 400
+        
+    # Convert the CN to pub key
+    peer_pub_key:str = pub_key_from_cn(peer_cn)
+
+    # Check if results
+    if not peer_pub_key: 
+        return jsonify({
+            'error': 'Common name "{peer_cn}" does not match any known peers.'
+        }), 404
+        
+    # Return the requested information
+    return jsonify({
+        'peer_pub_key': peer_pub_key
+    })
 
 
 @fi_bp.route('/ui/get-sent-requests', methods=['GET'])
