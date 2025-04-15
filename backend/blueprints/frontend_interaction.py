@@ -480,9 +480,9 @@ def get_user_history():
     })
 
 
-@fi_bp.route('/ui/get-pub-key', methods=['POST'])
+@fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
 @require_localhost
-def get_peer_public_key(): 
+def peer_cn_to_pub_key(): 
 
     try:
         request_body:dict = request.get_json()
