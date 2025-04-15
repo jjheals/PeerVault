@@ -435,28 +435,49 @@ def get_storage_info():
     })
 
 
-@fi_bp.route('/ui/get-user-history', methods=['POST'])
+@fi_bp.route('/ui/get-user-history', methods=['GET'])
 @require_localhost
 def get_user_history(): 
+    """
+        DESC: Returns the history of this client with the given peer (ID'd via public key).
+        
+        ARGUMENTS: 
+            peer_pub_key (str, optional): optionally specify a specific peer to get this client's history with. Defaults to None (all peers).
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with three keys for "storing_with", "storing_for", "shared", where each value is a list of dicts containing the matched info.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+    
+    # Get the arguments from the request
+    peer_pub_key:str = request.args.get('peer_pub_key', None)
+    
+    # Load the required data
+    storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
 
-    try:
-        request_body:dict = request.get_json()
-        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
-        print(other_user)
+    # Check if given a peer to filter by 
+    if peer_pub_key: 
 
-        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+        # Filter each of the dfs to the given peer pub key
+        filtered_storing_for_df:pd.DataFrame = storing_for_df.loc[storing_for_df['peer_pub_key'] == peer_pub_key]
+        filtered_storing_with_df:pd.DataFrame = storing_with_df.loc[storing_with_df['peer_pub_key'] == peer_pub_key]
+        filtered_shared_df:pd.DataFrame = shared_with_df.loc[shared_with_df['peer_pub_key'] == peer_pub_key]
 
-        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
-        filtered_data = data[data['peer_pub_key'] == other_user]
+    # If not given a pub key to filter, then use all the data 
+    else: 
+        filtered_storing_for_df:pd.DataFrame = storing_for_df
+        filtered_storing_with_df:pd.DataFrame = storing_with_df
+        filtered_shared_df:pd.DataFrame = shared_with_df
 
-        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
-        return jsonify({
-            'user_data': filtered_json_data
-        })
-    except Exception as e:
-        print(e)
+    # Return the requested data
+    return jsonify({
+        'storing_for': filtered_storing_for_df.to_dict(orient='records'),
+        'storing_with': filtered_storing_with_df.to_dict(orient='records'),
+        'shared': filtered_shared_df.to_dict(orient='records')
+    })
 
 
 @fi_bp.route('/ui/get-pub-key', methods=['POST'])
