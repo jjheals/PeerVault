@@ -143,11 +143,14 @@ export default function Home() {
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
       <div className="subtitleText">FAQ:</div>
 
-      <div className="font-semibold">Can I change the account registered with this device? </div>
-      <div>No </div>
+      <div className="font-semibold">What is the purpose of this site? </div>
+      <div>PeerVault provides a private, secure file transfer and storage system which does NOT leak sensistive information to any company. By keeping your data locally within a network, you can limit the amount of people with this data to the most strict possible circle.</div>
 
-      <div className="font-semibold">Can I change the amount of data allocated for storage locally? </div>
-      <div>Yes...</div>
+      <div className="font-semibold">Can I change the account registered with this device? </div>
+      <div>No. It is crucial that the account is associated with the device so that data can always be located. There will only be one PeerVault account per device as it relies on your MAC Address. </div>
+
+      <div className="font-semibold">What can I change about my accouht? </div>
+      <div>You can change the amount of data you have allocated to store and the passphrase associated with this account. </div>
 
       <div className="font-semibold">Who made this site? </div>
       <div>Justin, Dan, Quentin and Lily!</div>

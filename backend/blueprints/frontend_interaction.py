@@ -326,7 +326,7 @@ def signup():
         identity_config.write(file)
     
     # Resave the enc config with the new passphrase 
-    with open('config/encryption-config.conf', 'w') as file: 
+    with open('config/encryption.conf', 'w') as file: 
         current_app.enc_config.write(file)
 
     # --- Return --- #
@@ -887,28 +887,24 @@ def reupload_data():
         return jsonify({"error": str(e)})
 
 
-@fi_bp.route('/changePassphrase', methods=['POST']) 
+@fi_bp.route('/changepassphrase', methods=['POST']) 
 @require_localhost
 def changePassphrase(): 
 
     # get current passphrase
     request_body:dict = request.get_json()
-    new_passphrase:str = request_body.get('passphrase', None) 
+    new_passphrase:str = request_body.get('passphrase', None)
+    stored_passphrase:str = "" 
 
-    # todo -- change this to use the encryption file...
-    identity_config:ConfigParser = ConfigParser()
-    identity_config.read('config/identity.conf')
-            
-    # Check if there is already a common name for this user (i.e. they already have an account)
-    if identity_config['IDENTITY']['COMMON_NAME']: abort(409)
+    enc_config:ConfigParser = ConfigParser()
+    enc_config.read('config/encryption.conf')
 
-    # if same
-        # update passphrase to the new passphrase
-    # else fail
-    if(same):
+    stored_passphrase = enc_config['MISC']['PASS_HASH']
+
+    if(new_passphrase == stored_passphrase):
         current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()    
         # Resave the enc config with the new passphrase 
-        with open('config/encryption-config.conf', 'w') as file: 
+        with open('config/encryption.conf', 'w') as file: 
             current_app.enc_config.write(file)
         return jsonify({'status': 'success'})
     
