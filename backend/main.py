@@ -12,7 +12,7 @@ from configparser import ConfigParser
 import os 
 
 # Blueprints
-from blueprints import fi_bp, p2p_bp
+from blueprints import fi_bp, p2p_bp, fe_p2p_bp
 
 # Custom objs & util funcs
 from utils import generate_asymm_keys, now
@@ -81,6 +81,7 @@ print(f'\033[0m[{now()}] \033[94mRegistering blueprints\033[0m')
 
 app.register_blueprint(fi_bp)       # Frontend interaction
 app.register_blueprint(p2p_bp)      # Peer-to-Peer interaction
+app.register_blueprint(fe_p2p_bp)   # Frontend P2P requests
 
 
 # ---- Run ---- #

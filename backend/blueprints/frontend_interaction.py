@@ -9,7 +9,6 @@ import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
-import numpy as np 
 from configparser import ConfigParser
 from hashlib import sha256
 import csv
@@ -17,68 +16,15 @@ import pandas as pd
 import datetime
 from dateutil import parser
 
-from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
+from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers
 from objects import Server 
 
 from .funcs import require_localhost
-from werkzeug.utils import secure_filename
+
 
 # ---- Config & init ---- #
 # Create blueprint
 fi_bp:Blueprint = Blueprint('frontend_interaction', __name__)
-
-# ---- Make function to get local users ---- #
-def get_local_users():
-    all_peers= []
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-        reader = csv.reader(f2)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-        reader = csv.reader(f3)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-        reader = csv.reader(f4)
-        next(reader, None)  # Skip header row
-        
-        for row in reader:
-            if len(row) < 3:
-                continue  # Skip rows with missing data
-
-            try:
-                all_peers.append(row[0])
-            except Exception as e:
-                print("Error: ", {e})
-        
-
-    unique_peers = list(set(all_peers))
-
-
-    return jsonify({
-        'peer-list': unique_peers
-    })
 
 
 # ---- Add endpoints ---- #
@@ -396,7 +342,7 @@ def init_application():
 
 @fi_bp.route("/ui/get-all-info", methods=['GET'])
 @require_localhost
-def get_all_sharing_info_application(): 
+def get_all_info(): 
     """
         DESC: returns all info about this storage of this user. Extracts information from the
         peer-info folder (i.e. all-peers.csv, currently-storing-for.csv, currently-storing-with.csv, and previously-shared-with.csv)
@@ -412,394 +358,206 @@ def get_all_sharing_info_application():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    # open all-peers.csv
-    all_peers = []
+    # Read each of the CSVs into dataframes
+    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
 
-    with open('peer-info/all-peers.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    all_peers.push(row)
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-    # # open currently-storing-for.csv
-    storing_for = []
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-            reader = csv.reader(f2)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    storing_for.push(row)
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-
-    # # open currently-storing-with.csv
-    storing_with = []
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-            reader = csv.reader(f3)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    storing_with.push(row)
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-
-    # # open currently-sharing-with.csv
-    sharing_with = []
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-            reader = csv.reader(f4)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    sharing_with.push(row[0])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-
-# We have a list of peers that we have interacted with
-    # group the file lists BY user? and send a list of user 
-        
+    # TODO: group the file lists BY user? and send a list of user 
+    # DO SOMETHING ... 
+    # ...
+    
     # Return the filtered entries
     return jsonify({
-        'peer-list': all_peers,
-        'shared-with': sharing_with,
-        'stored-with': storing_with,
-        'stored-for': storing_for
+        'peer_list': all_peers_df.to_dict(orient='records'),
+        'storing_with': storing_with_df.to_dict(orient='records'),
+        'storing_for': storing_for_df.to_dict(orient='records'),
+        'shared_with': shared_with_df.to_dict(orient='records')
     })
 
 
-@fi_bp.route("/ui/get-sharing-peers", methods=['GET'])
+@fi_bp.route("/ui/get-interacted-with-peers", methods=['GET'])
 @require_localhost
-def get_sharing_name(): 
+def get_interacted_with_peers():
+    """ 
+    
     """
-        DESC: returns all info about this storage of this user. Extracts information from the
-        peer-info folder (i.e. all-peers.csv, currently-storing-for.csv, currently-storing-with.csv, and previously-shared-with.csv)
+    
+    # Get the unique public keys that this client has interacted with
+    unique_peers:list[str] = get_unique_peers()
+
+    # Get the data as dfs 
+    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
+    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
+    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
+    
+    # Create a map of peers -> num shared/stored with/for 
+    peer_map:dict = {
+        pub_key : { 
+            'common_name': cn_from_pub_key(pub_key),
+            'storage_data': {
+                'stored_remotely': (storing_with_df['peer_pub_key'] == pub_key).sum(),
+                'stored_locally': (storing_for_df['peer_pub_key'] == pub_key).sum(),
+                'shared': (shared_with_df['peer_pub_key'] == pub_key).sum()
+            }     
+        } 
+        for pub_key in unique_peers
+    }
+
+    # Return the results
+    return jsonify({
+        'user_data': peer_map
+    })
+
+
+@fi_bp.route('/ui/get-storage-info', methods=['GET'])
+@require_localhost
+def get_storage_info(): 
+    """
+        DESC: returns AMOUNT of storage currently storing for, with, and previously shared.
         
         RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user sharing history with the following keys: 
-            {userID: ...,
-              stored-for:  [{filename: ..., filesize:..., filehash:...},...], 
-              stored-with: [{filename: ..., filesize:..., filehash:...},...],
-              shared-with: [{filename: ..., filesize:..., filehash:...},...]
-            }
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 500 | internal server error: if there is some internal error processing the request.
-    """
-    unique_peers = getUniquePeers()
-
-    return jsonify({
-        'peer-list': unique_peers
-    })
-
-@fi_bp.route("/ui/get-shared-by-peer", methods=['GET'])
-@require_localhost
-def get_total_shared_by_user():
-
-    unique_peers = getUniquePeers()
-
-    peer_data = []
-
-    for user in unique_peers:
-        stored_locally = 0
-        stored_remotely = 0
-        shared = 0
-
-        with open('peer-info/currently-storing-for.csv', 'r', newline='') as f2:
-            reader = csv.reader(f2)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                if row[0] == user:      
-                    try:
-                        stored_locally += float(row[2])
-                    except Exception as e:
-                        print("Error: ", {e})
-
-
-        with open('peer-info/currently-storing-with.csv', 'r', newline='') as f3:
-            reader = csv.reader(f3)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                if row[0] == user: 
-                    try:
-                        stored_remotely += float(row[2])
-                    except Exception as e:
-                        print("Error: ", {e})
-
-
-        with open('peer-info/previously-shared-with.csv', 'r', newline='') as f4:
-            reader = csv.reader(f4)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                if row[0] == user: 
-                    try:
-                        shared += float(row[3])
-                    except Exception as e:
-                        print("Error: ", {e})
-       
-        peer_data.append(
-            {"user": user,
-             "common_name": getCommonNameFromPubKey(user),
-                    "storage_data" : 
-                    {
-                        'stored_remotely': stored_remotely,
-                        'stored_locally': stored_locally,
-                        'shared': shared
-                    }
-            }
-        )
-
-    return jsonify({
-        'user_data': peer_data
-    })
-
-@fi_bp.route('/ui/get-shared-storage', methods=['GET'])
-@require_localhost
-def get_shared_storage(): 
-    """
-        DESC: returns AMOUNT of shared storage
-        
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
+            - 200 | successful: (dict) a JSON object with all the storage amounts. 
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    numBytes = 0
-
-    with open('peer-info/previously-shared-with.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    numBytes += float(row[3])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-    # Create a dict, jsonify and return 
+    # Read the storage and shared with csvs
+    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv') 
+    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv') 
+    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
+    
+    # Sum the 'size_gb' cols and return 
     return jsonify({
-        'storage': numBytes,
+        'gb_shared': shared_with_df['size_gb'].sum(),
+        'gb_storing_for': storing_for_df['size_gb'].sum(),
+        'gb_storing_with': storing_with_df['size_gb'].sum()
     })
 
-@fi_bp.route('/ui/get-local-storage', methods=['GET'])
-@require_localhost
-def get_local_storage(): 
-    """
-        DESC: returns amount of local storage
-        
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 500 | internal server error: if there is some internal error processing the request.
-    """
 
-    numBytes = 0
-
-    with open('peer-info/currently-storing-for.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    numBytes += float(row[2])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-
-        
-    # Create a dict, jsonify and return 
-    return jsonify({
-        'storage': numBytes,
-    })
-
-@fi_bp.route('/ui/get-remote-storage', methods=['GET'])
-@require_localhost
-def get_remote_storage(): 
-    """
-        DESC: returns amount of remote storage
-        
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 500 | internal server error: if there is some internal error processing the request.
-    """
-
-    numBytes = 0
-
-    with open('peer-info/currently-storing-with.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header row
-            
-            for row in reader:
-                if len(row) < 3:
-                    continue  # Skip rows with missing data
-
-                try:
-                    numBytes += float(row[2])
-                except ValueError:
-                    print(f"Skipping invalid row: {row}")  # Debugging info
-        
-    # Create a dict, jsonify and return 
-    return jsonify({
-        'storage': numBytes,
-    })    
-
-@fi_bp.route('/ui/get-user-history', methods=['POST'])
+@fi_bp.route('/ui/get-user-history', methods=['GET'])
 @require_localhost
 def get_user_history(): 
-
-    try:
-        request_body:dict = request.get_json()
-        other_user:str = getPubKeyFromCommonName(request_body.get('other_user', None))
-        print(other_user)
-
-        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
-
-        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
-        filtered_data = data[data['peer_pub_key'] == other_user]
-
-        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
-        return jsonify({
-            'user_data': filtered_json_data
-        })
-    except Exception as e:
-        print(e)
-
-@fi_bp.route('/ui/get-pub-key', methods=['POST'])
-@require_localhost
-def get_peer_public_key(): 
-
-    try:
-        request_body:dict = request.get_json()
-        peer_pub_key = getPubKeyFromCommonName(request_body.get('peer_common_name', None))
-
-        return jsonify({
-            'peer_pub_key': peer_pub_key
-        })
-    except Exception as e:
-        print(e)
-
-
-def getUniquePeers() -> list:
+    """
+        DESC: Returns the history of this client with the given peer (ID'd via public key).
+        
+        ARGUMENTS: 
+            peer_pub_key (str, optional): optionally specify a specific peer to get this client's history with. Defaults to None (all peers).
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with three keys for "storing_with", "storing_for", "shared", where each value is a list of dicts containing the matched info.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+    
+    # Get the arguments from the request
+    peer_pub_key:str = request.args.get('peer_pub_key', None)
+    
+    # Load the required data
     storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
     storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
     shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
 
-    data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+    # Check if given a peer to filter by 
+    if peer_pub_key: 
 
-    unique_peers = data['peer_pub_key'].unique()
-    
-    return unique_peers.tolist()
+        # Filter each of the dfs to the given peer pub key
+        filtered_storing_for_df:pd.DataFrame = storing_for_df.loc[storing_for_df['peer_pub_key'] == peer_pub_key]
+        filtered_storing_with_df:pd.DataFrame = storing_with_df.loc[storing_with_df['peer_pub_key'] == peer_pub_key]
+        filtered_shared_df:pd.DataFrame = shared_with_df.loc[shared_with_df['peer_pub_key'] == peer_pub_key]
 
-def getCommonNameFromPubKey(pub_key: str):
-    with open('peer-info/all-peers.csv', 'r', newline='') as f:
-        reader = csv.reader(f)
-        next(reader, None)
+    # If not given a pub key to filter, then use all the data 
+    else: 
+        filtered_storing_for_df:pd.DataFrame = storing_for_df
+        filtered_storing_with_df:pd.DataFrame = storing_with_df
+        filtered_shared_df:pd.DataFrame = shared_with_df
 
-        for row in reader:
-            if row[0] == pub_key:
-                return row[3] 
+    # Return the requested data
+    return jsonify({
+        'storing_for': filtered_storing_for_df.to_dict(orient='records'),
+        'storing_with': filtered_storing_with_df.to_dict(orient='records'),
+        'shared': filtered_shared_df.to_dict(orient='records')
+    })
+
+
+@fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
+@require_localhost
+def peer_cn_to_pub_key(): 
+    """
+        DESC: returns the public key for the given peer common name.
+        
+        ARGUMENTS: 
+            peer_common_name (str): the common name of the peer. 
             
-def getPubKeyFromCommonName(common_name: str):
-    all_peers = pd.read_csv('peer-info/all-peers.csv')
-    result = all_peers[all_peers['common_name'] == common_name]['peer_pub_key']
-    return result.iloc[0] if not result.empty else None
-
-
-@fi_bp.route('/ui/get-sent-requests', methods=['GET'])
-@require_localhost
-def get_sent_requests(): 
-
-    try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-        if not all_requests.empty:
-            all_requests['date'] = pd.to_datetime(all_requests['date'])
-            all_requests = all_requests.sort_values(by='date', ascending=False)
-        output = all_requests.to_dict(orient='records')
-        return jsonify({'all_requests': output})
-    except Exception as e:
-        print(e)
-
-
-@fi_bp.route('/ui/get-incoming-requests', methods=['GET'])
-@require_localhost
-def get_incoming_requests(): 
-
-    try:
-        all_requests:pd.DataFrame = pd.read_csv('requests/incoming.csv')
-        print(all_requests.head())
-        if not all_requests.empty:
-            all_requests['date'] = pd.to_datetime(all_requests['date'])
-            all_requests = all_requests.sort_values(by='date', ascending=False)
-        output = all_requests.to_dict(orient='records')
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if the given common name does not exist in the DB.
+            - 500 | internal server error: if there is some internal error processing the request.
+            
+    """
+    
+    # Get the peer_common_name from the request 
+    peer_cn:str = request.args.get('peer_common_name', None) 
+    
+    # Check that a CN was given 
+    if not peer_cn: 
         return jsonify({
-            'all_requests': output
-        })
-    except Exception as e:
-        print(e)
+            'error': 'Not given a peer_common_name.'
+        }), 400
+        
+    # Convert the CN to pub key
+    peer_pub_key:str = pub_key_from_cn(peer_cn)
 
-@fi_bp.route('/ui/get-num-requests', methods=['GET'])
-@require_localhost
-def get_num_requests(): 
-
-    try:
-        incoming:pd.DataFrame = pd.read_csv('requests/incoming.csv')
-        num_incoming = (incoming.size) / 6
-
-        outgoing:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-        num_outgoing = (outgoing.size) / 6
-
+    # Check if results
+    if not peer_pub_key: 
         return jsonify({
-            'incoming': num_incoming,
-            'outgoing': num_outgoing
-        })
-    except Exception as e:
-        print(e)
+            'error': 'Common name "{peer_cn}" does not match any known peers.'
+        }), 404
+        
+    # Return the requested information
+    return jsonify({
+        'peer_pub_key': peer_pub_key
+    })
+
+
+@fi_bp.route('/ui/get-pending-requests', methods=['GET'])
+@require_localhost
+def get_pending_requests(): 
+    """ 
+        DESC: returns a list of all pending requests (incoming and outgoing). NOTE: to get the number of incoming or outgoing reqs, take the length of
+        the list of dicts for that key. For example, in JS: 
+        
+            ```js 
+                // Make API req
+                const response = await fetch(...);
+                const responseJson = await response.json();
+                
+                // Extract lists of incoming and outgoing requests 
+                const incomingRequests = responseJson.incoming_requests;
+                const outgoingRequests = responseJson.outgoing_requests;
+                
+                // Get the number of incoming and outgoing requests 
+                const numIncomingRequests = incomingRequests.length;
+                const numOutgoingRequests = outgoingRequests.length; 
+            ```
+            
+        ARGUMENTS:
+            *Endpoint takes no arguments*
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with two keys for "incoming_requests" and "outgoing_requests" and the values are lists of dicts with the data for each (sorted by date desc).
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 500 | internal server error: if there is some internal error processing the request.
+    """
+    
+    # Read the incoming and outgoing CSVs as DFs and return them as a list of dict
+    return jsonify({
+        'incoming_requests': pd.read_csv('requests/incoming.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
+        'outgoing_requests': pd.read_csv('requests/outgoing.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
+    })
+
 
 @fi_bp.route('/ui/upload-data', methods=['POST'])
 @require_localhost
@@ -827,7 +585,8 @@ def upload_data():
         return jsonify({'status': 'success'})    
     except Exception as e:
         print(e)
-
+       
+        
 @fi_bp.route('/ui/reupload-data', methods=['POST'])
 @require_localhost
 def reupload_data():
@@ -880,40 +639,4 @@ def reupload_data():
     except Exception as e:
         print(f"Error in reupload_data: {e}")
         return jsonify({"error": str(e)})
-
-
-@fi_bp.route('/changepassphrase', methods=['POST']) 
-@require_localhost
-def changePassphrase(): 
-
-    # get input passphrase
-    request_body:dict = request.get_json()
-    prev_passphrase:str = request_body.get('prev_passphrase', None)
-    encoded_prev_passphrase = sha256(prev_passphrase.encode()).hexdigest()
-    print("prev: ", encoded_prev_passphrase)
-
-    # get new/incoming passphrase
-    request_body:dict = request.get_json()
-    new_passphrase:str = request_body.get('new_passphrase', None)
-    encoded_new_passphrase = sha256(new_passphrase.encode()).hexdigest()
-    print("new: ", encoded_new_passphrase)
-    
-    # retrieve the current passphrase
-    stored_passphrase:str = "" 
-    encryption_config:ConfigParser = ConfigParser()
-    encryption_config.read('config/encryption.conf')
-    
-
-    stored_passphrase =  encryption_config['misc']['PASS_HASH']
-    print("stored: ", stored_passphrase)
-
-    if(encoded_prev_passphrase == stored_passphrase):
-        current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()    
-        # Resave the enc config with the new passphrase 
-        with open('config/encryption.conf', 'w') as file: 
-            current_app.enc_config.write(file)
-        return jsonify({'status': 'success'})
-    
-    else:
-        abort(400) 
 
