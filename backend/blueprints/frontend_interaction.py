@@ -15,8 +15,9 @@ from hashlib import sha256
 import csv
 import pandas as pd
 import datetime
+from dateutil import parser
 
-from utils import filter_args, load_key_pem, get_mac_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
+from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, getCommonNameFromPubKey, getPubKeyFromCommonName, getUniquePeers, now, generate_asymm_keys
 from objects import Server 
 
 from .funcs import require_localhost
@@ -306,13 +307,14 @@ def signup():
     # --- Updating identity --- #
     # Update the identity config with the new common name, mac, allocated storage, and peer storage path
     identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
-    identity_config['IDENTITY']['MAC'] = get_mac_address() 
+    identity_config['IDENTITY']['MAC'] = get_mac_address()
+    identity_config['IDENTITY']['IP'] = get_IP_address()
+
 
     identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
     identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
-    # pass_hash = new_passphrase.hexdigest()
     current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()
 
     # --- Saving new info --- #
@@ -835,6 +837,8 @@ def upload_data():
 def reupload_data():
     try:
         incoming_date_key = request.form.get("date", "")
+        incoming_date = parser.parse(incoming_date_key)
+        print("incoming:", incoming_date)
 
         # Read all rows from the CSV into a list
         with open('requests/outgoing.csv', "r", newline='') as file:
@@ -842,12 +846,15 @@ def reupload_data():
             rows = list(reader)  # Convert to list of dicts
             fieldnames = reader.fieldnames
 
+
         # Find the index of the row with the matching date
         index_to_remove = None
         for i, row in enumerate(rows):
-            if row["date"] == incoming_date_key:
+            incoming_date = incoming_date.replace(tzinfo=None, microsecond = 0) 
+            existing_date = parser.parse(row["date"]).replace(tzinfo=None, microsecond = 0)            
+           
+            if existing_date == incoming_date:
                 index_to_remove = i
-                break
 
         if index_to_remove is not None:
             del rows[index_to_remove]  # Remove the row

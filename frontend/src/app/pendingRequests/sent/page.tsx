@@ -13,11 +13,15 @@ const instance = axios.create({
 });
 
 export default function Home() {
-  const router = useRouter();
-
+  const router = useRouter();  
   const [redraw, forceRedraw] = React.useState(0);
   const [requestData, setRequestData] = React.useState([]);
-  
+
+
+  function refresh() {
+    forceRedraw(redraw + 1);
+}  
+
   React.useEffect(() =>{
     instance
     .get("/ui/get-sent-requests")
@@ -52,7 +56,7 @@ export default function Home() {
       console.error("errored:", error)
     });
 
-    alert("please manually refresh...")
+    refresh()
   }
   
     const SentRequestTable: React.FC = () => {
