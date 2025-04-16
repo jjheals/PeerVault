@@ -293,10 +293,8 @@ def signup():
 
     # Check that the required keys were given, and return bad request if wrong
     try:
-        
         # Check that keys are given 
         if not (new_common_name and new_allocated_storage and new_peer_storage_path and new_passphrase): raise AttributeError
-        
         # Make sure allocated_storage is an integer
         new_allocated_storage = int(new_allocated_storage)
     
@@ -309,8 +307,6 @@ def signup():
     identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
     identity_config['IDENTITY']['MAC'] = get_mac_address()
     identity_config['IDENTITY']['IP'] = get_IP_address()
-
-
     identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
     identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
     
@@ -879,7 +875,6 @@ def reupload_data():
         with open('requests/outgoing.csv', 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(data)
-#             writer.writerows(rows)
 
         return jsonify({'status': 'success'})
     except Exception as e:
@@ -891,17 +886,28 @@ def reupload_data():
 @require_localhost
 def changePassphrase(): 
 
-    # get current passphrase
+    # get input passphrase
     request_body:dict = request.get_json()
-    new_passphrase:str = request_body.get('passphrase', None)
+    prev_passphrase:str = request_body.get('prev_passphrase', None)
+    encoded_prev_passphrase = sha256(prev_passphrase.encode()).hexdigest()
+    print("prev: ", encoded_prev_passphrase)
+
+    # get new/incoming passphrase
+    request_body:dict = request.get_json()
+    new_passphrase:str = request_body.get('new_passphrase', None)
+    encoded_new_passphrase = sha256(new_passphrase.encode()).hexdigest()
+    print("new: ", encoded_new_passphrase)
+    
+    # retrieve the current passphrase
     stored_passphrase:str = "" 
+    encryption_config:ConfigParser = ConfigParser()
+    encryption_config.read('config/encryption.conf')
+    
 
-    enc_config:ConfigParser = ConfigParser()
-    enc_config.read('config/encryption.conf')
+    stored_passphrase =  encryption_config['misc']['PASS_HASH']
+    print("stored: ", stored_passphrase)
 
-    stored_passphrase = enc_config['MISC']['PASS_HASH']
-
-    if(new_passphrase == stored_passphrase):
+    if(encoded_prev_passphrase == stored_passphrase):
         current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()    
         # Resave the enc config with the new passphrase 
         with open('config/encryption.conf', 'w') as file: 
@@ -909,5 +915,5 @@ def changePassphrase():
         return jsonify({'status': 'success'})
     
     else:
-        return jsonify({'status': 'failure'})
+        abort(400) 
 

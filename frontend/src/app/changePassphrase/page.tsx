@@ -16,21 +16,34 @@ export default function Home() {
     const router = useRouter();
     const [passphrase, setPassphrase] = React.useState("");
     const [newPassphrase, setNewPassphrase] = React.useState("");
+    const [formValid, setFormValid] = React.useState(false);
 
     const handleChange = async () => {
-        if (!passphrase.trim()) {
+        if (!passphrase.trim() || !newPassphrase.trim()) {
             alert("All Fields are required!");
             return;
         }
         try {
-            const response = await instance.post("/changepassphrase", {passphrase: passphrase});
+            const response = await instance.post("/changepassphrase", {prev_passphrase: passphrase, new_passphrase: newPassphrase});
             alert("Passphrase successfully changed!");
+            router.push('/');
         } catch (error) {
-            console.error("Passphrase change failed:", error);
             alert("Passphrase change failed. Please try again.");
         }
-        router.push('/');
     };
+
+    React.useEffect(() => {
+        CheckFormValid();
+    });
+
+    function CheckFormValid() {
+        if (passphrase !== "" && newPassphrase !== "" ) {
+          setFormValid(true);
+        } else {
+          setFormValid(false);
+        }
+        return formValid
+      };
 
     return (
     <div>
@@ -56,7 +69,7 @@ export default function Home() {
             <div className="subtitleText">Signup</div>
             <input type="text" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Current Passphrase" />
             <input type="text" value={newPassphrase} onChange={(e) => setNewPassphrase(e.target.value)} placeholder="New Passphrase" />
-            <div className="button" onClick={handleChange}>Change Passphrase</div>
+            <button className="button disabled:cursor-not-allowed" onClick={handleChange} disabled={formValid == false}>Change Passphrase</button>
         </div>
     </div>
 )}
