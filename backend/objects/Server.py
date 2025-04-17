@@ -17,7 +17,7 @@ import datetime as dt
 
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, \
     decrypt_message, now, update_peer_info, write_to_file, hash_bytes_sha256, \
-        sign_file, new_csv_row, bytes_to_gb
+        sign_file, new_csv_row, bytes_to_gb, verify_signature
 
 
 class Server(object):
@@ -32,11 +32,12 @@ class Server(object):
     DISC_CODE:str = "000"       # Code for a discovery message
     INIT_IDC_CODE:str = "011"   # Code for initiating an identity check
     RESP_IDC_CODE:str = "012"   # Code for responding to an identity check
-    SHARE_REQ_CODE:str = "101"   # Code for requesting to share a file
+    SHARE_REQ_CODE:str = "101"  # Code for requesting to share a file
     STORE_REQ_CODE:str = "102"  # Code for requesting to store a file
     DEL_FILE_CODE:str = "103"   # Code for requesting to delete a file
     UPD_FILE_CODE:str = "104"   # Code for requesting to update a stored file
     DONE_CODE:str = "900"       # Code for saying "everything is good, close the connection"
+    FAIL_CODE:str = "999"       # Code for failing a verification process (e.g. dig signature)
 
     BUFF:int = 2048             # Buffer for requests
 
@@ -483,12 +484,26 @@ class Server(object):
         # Extract the file name and file content from the file_information dictionary
         file_name:str = response_plaintext_dict["filename"]
         encoded_file_content:str = response_plaintext_dict["plaintext_file"]
+        signature_str:str = response_plaintext_dict['signature']
 
         # Decode the file content 
         decoded_file_content:str = base64.b64decode(encoded_file_content)
 
         # Extract the peer's pub key pem from the response dict
         peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
+
+        # Verify the digital signature
+        if not verify_signature(peer_pub_key_pem, decoded_file_content, signature_str):
+
+            # Send a failure message back to the peer
+            connection.send({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Failed digital signature.')
+            })
+
+            # Do nothing else
+            return 
 
         # Construct the target directory path
         target_directory:str = 'shared_files'
@@ -508,7 +523,8 @@ class Server(object):
         
         # Send the encrypted message to the client
         connection.send(json.dumps(outgoing_message).encode())
-
+        
+        # If the file was written successfully, add a new entry to the prev shared with CSV
         if(message == "File written"):
             
             # Add a new row for the new shared file
@@ -809,18 +825,13 @@ class Server(object):
 
             # Send the ID check response
             client_socket.send(message.encode())
-            
-            # TODO compute filehash 
-            # TODO create digital signature 
-            # DO SOMETHING ... 
-            # ... 
 
             # Log
             print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mSigning file\033[0m')
 
-            #signature = sign_file(self.priv_key_pem, plaintext_file)
-            signature:str = 'file signature...'
-
+            # Compute digital signature
+            signature:str = base64.b64encode(sign_file(self.priv_key_pem, plaintext_file)).decode('utf-8')
+            
             # Create a message with the file contents
             message = json.dumps({
                 'public_key_pem': self.pub_key_pem,
@@ -871,15 +882,19 @@ class Server(object):
         
         # Handle exceptions
         except Exception as e:
-            print(f"\033[91mERROR in Server.send_share_request(): \033[0m{e.__class__}", e)
+            print(f"\033[0m[{now()}] \033[91mERROR in Server.send_share_request(): \033[0m{e.__class__}", e)
+            self.logger.error(f'Error in Server.send_share_request(): {e.__class__} - {e}')
 
         # When everything is done, close the connection
         finally:
             # Close the connection
             client_socket.close()
-            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_share_request(): \033[0mConnection closed")
 
+            # Log
+            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_share_request(): \033[0mConnection closed")
+            self.logger.info('Server.send_share_request(): Connection closed"')
     
+
     def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None: 
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 

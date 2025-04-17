@@ -223,3 +223,31 @@ def sign_file(priv_key_pem_str:str, file_data:bytes) -> str:
         ),
         hashes.SHA256()
     )
+
+
+def verify_signature(pub_key_pem_str: str, file_data: bytes, signature_str: str) -> bool:
+    """Verifies a Base64-encoded signature using the public key and file data."""
+    try:
+        # Decode the signature from Base64
+        signature_bytes:bytes = base64.b64decode(signature_str)
+
+        # Load the public key
+        pub_key = serialization.load_pem_public_key(pub_key_pem_str.encode())
+
+        # Verify the signature
+        pub_key.verify(
+            signature_bytes,
+            file_data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+
+        # No exception means valid signature
+        return True  
+
+    # Invalid signature (or wrong key)
+    except Exception as e:
+        return False  
