@@ -295,7 +295,7 @@ def gen_aes_key(passcode:str, output_path:str) -> None:
         json.dump(key_data, f)
 
 
-def load_aes_key(passcode:str, key_file_path:str) -> bytes:
+def load_aes_key(passcode:str, key_file_path:str) -> str:
     """Loads and decrypts an AES key from a .key file using the provided passcode.
 
     Args:
@@ -303,7 +303,7 @@ def load_aes_key(passcode:str, key_file_path:str) -> bytes:
         key_file_path (str): Path to the .key file.
 
     Returns:
-        bytes: The decrypted AES key.
+        str: The AES key as a b64 encoded string (44 chars long). To use as bytes, do base64.b64decode(load_aes_key(...))
     """
 
     # Read the json file

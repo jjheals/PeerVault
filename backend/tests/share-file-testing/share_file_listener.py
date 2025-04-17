@@ -12,7 +12,7 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, parent_dir)
 
 # Util and object imports
-from utils import load_key_pem
+from utils import load_key_pem, load_aes_key
 from objects import Server
 
 # --- Config --- #
@@ -38,12 +38,14 @@ COMMON_NAME:str = identity_config['IDENTITY']['common_name']    # Common name
 
 PUBLIC_KEY_PEM:str = load_key_pem('../TEST-keys/TEST-public.key', 'public')
 PRIV_KEY_PEM:str = load_key_pem('../TEST-keys/TEST-private.key', 'private', 'SomeSuperSecurePassphrase')
+SYMM_KEY:str = load_aes_key('SomeSuperSecurePassphrase', '../TEST-keys/TEST-symm.key')
 
 # --- Init --- #
 # Init a Server obj
 server:Server = Server(
     PUBLIC_KEY_PEM,         # pub_key_pem
     PRIV_KEY_PEM,           # priv_key_pem
+    SYMM_KEY,               # symm_aes_key
     COMMON_NAME,            # common_name
     IFACE,                  # iface
     PORT,                   # port
