@@ -5,7 +5,6 @@
 # BEFORE /ui/init-application/ is successfully hit will return an error because current_app.server will be 
 # None. 
 
-import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
@@ -15,10 +14,12 @@ import csv
 import pandas as pd
 import datetime
 from dateutil import parser
+import base64
 
-from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers
+from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers, \
+    generate_asymm_keys, gen_aes_key, load_aes_key
+
 from objects import Server 
-
 from .funcs import require_localhost
 
 
@@ -229,7 +230,6 @@ def signup():
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
-    print(request_body)
         
     # Extract the required keys
     new_common_name:str = request_body.get('common_name', None)
@@ -257,7 +257,7 @@ def signup():
     identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
-    current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()
+    current_app.enc_config['misc']['pass_hash'] = sha256(new_passphrase.encode()).hexdigest()
 
     # --- Saving new info --- #
     # Create the [new_peer_storage_path] if it does not exist
@@ -270,6 +270,21 @@ def signup():
     # Resave the enc config with the new passphrase 
     with open('config/encryption.conf', 'w') as file: 
         current_app.enc_config.write(file)
+
+    # Create asymm keys 
+    generate_asymm_keys(
+        current_app.enc_config['keys']['size'],
+        current_app.enc_config['keys']['exp'],
+        current_app.enc_config['paths']['priv_key_path'],
+        current_app.enc_config['paths']['pub_key_path'],
+        new_passphrase
+    )
+
+    # Create a symm key
+    gen_aes_key(
+        new_passphrase,
+        current_app.enc_config['paths']['symm_key_path']
+    )
 
     # --- Return --- #
     # Return the newly stored info
@@ -296,7 +311,7 @@ def init_application():
         RETURNS: 
             - 200 | successful: (dict) a JSON object that contains a "message": "success" if the passphrase is correct
             - 400 | bad request: if the user fails to supply the required data.
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost) OR if the passphrase is incorrect OR if the keys don't exist (not signed up).
             - 500 | internal server error: if there is some error in processing the request.
     """
 
@@ -312,13 +327,21 @@ def init_application():
         abort(403)
 
     # Load the keys 
-    pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['PUB_KEY_PATH'])
-    priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['PRIV_KEY_PEM'], given_passphrase)
+    try: 
+        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['PUB_KEY_PATH'])
+        priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['PRIV_KEY_PEM'], given_passphrase)
+        symm_key:str = load_aes_key(given_passphrase, current_app.enc_config['paths']['symm_key_path'])
+    except: 
+        # Exception (likely) means that the user hasn't signed up yet
+        return jsonify({
+            'error': 'There was an error loading the keys. Has the user signed up yet?'
+        }), 403
     
     # Init a Server obj 
     server:Server = Server(
         pub_key_pem,                                                # pub_key_pem
         priv_key_pem,                                               # priv_key_pem
+        base64.b64encode(symm_key).decode(),                        # symm_aes_key
         current_app.identity_config['IDENTITY']['common_name'],     # common_name
         current_app.network_config['network']['IFACE'],             # iface
         current_app.network_config['network']['PORT'],              # port

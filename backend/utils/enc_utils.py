@@ -1,12 +1,14 @@
 import os 
 import base64
 import re 
+import json 
 
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .general import now
 
@@ -251,3 +253,81 @@ def verify_signature(pub_key_pem_str: str, file_data: bytes, signature_str: str)
     # Invalid signature (or wrong key)
     except Exception as e:
         return False  
+
+
+def gen_aes_key(passcode:str, output_path:str) -> None:
+    """Generates a random AES key, encrypts it with a key derived from the passcode, and stores it to a .key file.
+    
+    Args:
+        passcode (str): Passphrase to encrypt the AES key.
+        output_path (str): Path to the output `.key` file.
+    """
+    # Step 1: Generate random 256-bit AES key
+    aes_key:bytes = os.urandom(32)  # 256 bits
+
+    # Step 2: Derive key from passcode
+    salt:bytes = os.urandom(16)
+
+    kdf:PBKDF2HMAC = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100_000,
+        backend=default_backend()
+    )
+
+    derived_key:bytes = kdf.derive(passcode.encode())
+
+    # Step 3: Encrypt AES key with AES-GCM
+    aesgcm:AESGCM = AESGCM(derived_key)
+    nonce:bytes = os.urandom(12)  # AESGCM standard nonce size
+    encrypted_key:bytes = aesgcm.encrypt(nonce, aes_key, None)
+
+    # Step 4: Create a dict to save
+    key_data:dict = {
+        'salt': base64.b64encode(salt).decode(),
+        'nonce': base64.b64encode(nonce).decode(),
+        'encrypted_key': base64.b64encode(encrypted_key).decode()
+    }
+
+    # Step 5: Save the key to the given file
+    with open(output_path, 'w') as f:
+        json.dump(key_data, f)
+
+
+def load_aes_key(passcode:str, key_file_path:str) -> bytes:
+    """Loads and decrypts an AES key from a .key file using the provided passcode.
+
+    Args:
+        passcode (str): The passphrase used to encrypt the AES key.
+        key_file_path (str): Path to the .key file.
+
+    Returns:
+        bytes: The decrypted AES key.
+    """
+
+    # Read the json file
+    with open(key_file_path, 'r') as f:
+        key_data = json.load(f)
+
+    # Decode the stored values
+    salt:bytes = base64.b64decode(key_data['salt'])
+    nonce:bytes = base64.b64decode(key_data['nonce'])
+    encrypted_key:bytes = base64.b64decode(key_data['encrypted_key'])
+
+    # Derive the key from the passcode using the stored salt
+    kdf:PBKDF2HMAC = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100_000,
+        backend=default_backend()
+    )
+
+    derived_key:bytes = kdf.derive(passcode.encode())
+
+    # Decrypt the AES key
+    aesgcm:AESGCM = AESGCM(derived_key)
+    aes_key:bytes = aesgcm.decrypt(nonce, encrypted_key, None)
+
+    return base64.b64encode(aes_key).decode()

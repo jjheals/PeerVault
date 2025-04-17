@@ -26,6 +26,7 @@ class Server(object):
     iface:str                   # The interface (address) the server is running on
     pub_key_pem:str             # This client's public key (with PEM headers)
     priv_key_pem:str            # This client's private key (with PEM headers)
+    symm_aes_key:str            # The symmetric key used for encrypting/decrypting STORED files (b64 encoded, for bytes do base64.b64decode(self.symm_aes_key))
     data_dir_path:str           # Path to the directory containing the CSVs (all-peers.csv, etc...)
     
     # STATIC ATTRIBUTES
@@ -45,6 +46,7 @@ class Server(object):
         self, 
         pub_key_pem:str, 
         priv_key_pem:str, 
+        symm_aes_key:str,
         common_name:str, 
         iface:str, 
         port:int,
@@ -55,6 +57,7 @@ class Server(object):
     ):
         self.pub_key_pem = pub_key_pem
         self.priv_key_pem = priv_key_pem
+        self.symm_aes_key = symm_aes_key
         self.common_name = common_name
         self.iface = iface
         self.port = port
