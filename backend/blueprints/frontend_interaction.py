@@ -512,7 +512,7 @@ def peer_cn_to_pub_key():
     # Check if results
     if not peer_pub_key: 
         return jsonify({
-            'error': 'Common name "{peer_cn}" does not match any known peers.'
+            'error': f'Common name "{peer_cn}" does not match any known peers.'
         }), 404
         
     # Return the requested information

@@ -150,10 +150,12 @@ class Server(object):
                 ))
                 
             except Exception as e: 
-                print('\033[93mNOTICE: \033[0m')
+                print(f'\033[91mERROR in Server.listen(): \033[0m{e.__class__} -', e)
+
 
     def mcast_listen(self) -> None:         
-        
+        """Starts a listener for incoming multicast messages."""
+
         # Create the socket
         sock = socket.socket(
             socket.AF_INET,         # Specify IPv4
@@ -185,36 +187,40 @@ class Server(object):
         )
 
         # Listen for incoming messages
+        # Log
         print("[Multicast Listener] Listening for peer announcements...")
+        self.logger.info('Starting multicast listener.')
 
+        # Listen while server is alive
         while self.server_alive:
-            data, addr = sock.recvfrom(1024)  # Receive message
+
+            # Receive message
+            data, addr = sock.recvfrom(1024)  
             peer_info = data.decode()
 
+            # Info print
             print(f"[Listener] New peer discovered: {peer_info}")
+            self.logger.info(f'New multicast message from {peer_info}')
+
 
             # TODO: handle the new peer 
             # DO SOMETHING ...
 
 
-    def handle_network_request(self, connection:socket.socket, addr:tuple[str, int], print_info:bool=False) -> None: 
+    def handle_network_request(self, connection:socket.socket, addr:tuple[str, int]) -> None: 
         """Takes in an incoming connection, the addr info (in the format (ip, port)), checks the requirements of the message, initiates an identity check if required,
         and passes the connection off to the appropriate function.
 
         Args:
             connection (socket.socket): incomming connection to handle.
             print_info (bool, optional): Specify whether to print info statements to the terminal. Defaults to False.
-        
-        NOTE: recommended to call TcpListener.listen() in a loop, e.g.: 
-        
-            while True: 
-                tcp_listener.listen()
+
         """
         
-        # Info print about the incoming connection
-        if print_info:
-            print(f'\033[0m[{now()}] \033[92mIncoming connection\033[0m')
-            print(f'\n\t\033[0mPeer (IP, PORT): {addr}')
+        # Log about the incoming connection
+        print(f'\033[0m[{now()}] \033[92mIncoming connection\033[0m')
+        print(f'\n\t\033[0mPeer (IP, PORT): {addr}')
+        self.logger.info(f'Incoming connection from peer (ip, port): {addr}')
 
         # Read the incoming data
         data = connection.recv(self.BUFF)
@@ -222,8 +228,9 @@ class Server(object):
         # Extract the JSON and conver to a python dict
         message_json:dict = json.loads(data.decode())
 
-        # Info print
-        if print_info: print(f'\t\033[0mExtracted message JSON: {message_json}')
+        # Log
+        print(f'\t\033[0mExtracted message JSON: {message_json}')
+        self.logger.info(f'Server handle network request got message JSON: {message_json}.')
 
         # Check for the required keys in the body
         code:int = message_json.get('code', None)
@@ -264,7 +271,13 @@ class Server(object):
                     )
                     
                 # If ID check failed, do not respond and do nothing else 
-                else: pass
+                else: 
+                    # Log
+                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for DISC code).')
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    
+                    # Do not respond
+                    pass
             
             # Handle identity check code (peer wants us to complete an identity check)
             case Server.INIT_IDC_CODE: 
@@ -290,7 +303,13 @@ class Server(object):
                     self.handle_share_request(connection)
                     
                 # If ID check failed, do not respond
-                else: pass
+                else: 
+                    # Log
+                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for SHARE_REQ code).')
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    
+                    # Do not respond
+                    pass
             
             # Handle store request code (peer wants to store a file with us)
             case Server.STORE_REQ_CODE: 
@@ -310,7 +329,13 @@ class Server(object):
                     )
                 
                 # If ID check failed, do not respond
-                else: pass
+                else: 
+                    # Log
+                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for STORE_REQ code).')
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    
+                    # Do not respond
+                    pass
             
             # Handle delete file code (peer wants to delete a file we are storing for them)
             case Server.DEL_FILE_CODE: 
@@ -330,7 +355,13 @@ class Server(object):
                     )
                 
                 # If ID check failed, do not respond
-                else: pass
+                else: 
+                    # Log
+                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for DEL_FILE code).')
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    
+                    # Do not respond
+                    pass
 
             # Handle update file code (peer wants to update a file we are storing for them)
             case Server.UPD_FILE_CODE: 
@@ -349,10 +380,21 @@ class Server(object):
                 )
                 
                 # If ID check failed, do not respond
-                else: pass
+                else: 
+                    # Log
+                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for UPDATE_FILE code).')
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    
+                    # Do not respond
+                    pass
 
             # Handle other code (invalid)
             case _: 
+
+                # Log 
+                print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" sent an unrecognized code "{code}" - not sending a response.')
+                self.logger.info(f'Peer "{addr[0]}" sent an invalid code "{code}" - not sending a response.')
+
                 # Do not respond 
                 pass
         
@@ -483,7 +525,6 @@ class Server(object):
             )
             
 
-    
     def handle_store_request(self, connection, client_public_key: str, file_information: dict) -> None:
         """Handles a request to store a file from a client and replys back to the client the results of the store.
 

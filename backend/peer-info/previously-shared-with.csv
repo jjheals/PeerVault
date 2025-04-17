@@ -17,3 +17,17 @@ peer_pub_key,direction,filename,size_gb,sha256,date_shared
 <some-public-key-F>,OUTBOUND,i-shared-with-f-2.pdf,4.1,<some-hash-IF2>,2025-01-09
 <some-public-key-E>,OUTBOUND,i-shared-with-e-1.pdf,2.0,<some-hash-IE1>,2025-01-15
 <some-public-key-G>,OUTBOUND,i-shared-with-g-2.pdf,0.2,<some-hash-IG2>,2025-01-17
+"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwPk25hZYoxymxIOoRWIk
+UVKn6rvqPvsM4zWfmmFQJ1iZBbz40WeOZEgvP0WimhfRyEGpfaRlGksSfEnC4srh
+Aw+specRVhQpQSGxlf3cXzpMwNHTtlyoh7il6vEQJdHTGpn1nwPPdw4gPNDVj8iY
+d6TU3ldnvtEwhX0d8jwd26mSQKOvHom1VM+pqO6gZcUA+e0DWmTYJbJs6BuJUx3T
++70gg0seowc/lFxSFTWCKP3mez0CkZY+VQ2S0GecaKq3fWlppeFLnfe2L0mxIoXc
+b/TSpCf+pA6+PPqS6eWCzNxVW+qabNMr2W4ioHZPq8S6d8ttlfwDQu2TarfdZ9Cp
+KwIDAQAB",INBOUND,CS Degree Requirements SHARED.pdf,0.0002685040235519,1db47a903ac5ffc0b8fe9cbd9a3979661de7224c71f4043ba78774d5ccea4179,2025-04-17
+"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwPk25hZYoxymxIOoRWIk
+UVKn6rvqPvsM4zWfmmFQJ1iZBbz40WeOZEgvP0WimhfRyEGpfaRlGksSfEnC4srh
+Aw+specRVhQpQSGxlf3cXzpMwNHTtlyoh7il6vEQJdHTGpn1nwPPdw4gPNDVj8iY
+d6TU3ldnvtEwhX0d8jwd26mSQKOvHom1VM+pqO6gZcUA+e0DWmTYJbJs6BuJUx3T
++70gg0seowc/lFxSFTWCKP3mez0CkZY+VQ2S0GecaKq3fWlppeFLnfe2L0mxIoXc
+b/TSpCf+pA6+PPqS6eWCzNxVW+qabNMr2W4ioHZPq8S6d8ttlfwDQu2TarfdZ9Cp
+KwIDAQAB",OUTBOUND,CS Degree Requirements SHARED.pdf,0.0002685040235519409,file signature...,2025-04-17
