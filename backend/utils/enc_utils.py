@@ -3,6 +3,9 @@ import base64
 import re 
 import json 
 
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -331,3 +334,59 @@ def load_aes_key(passcode:str, key_file_path:str) -> str:
     aes_key:bytes = aesgcm.decrypt(nonce, encrypted_key, None)
 
     return base64.b64encode(aes_key).decode()
+
+
+def encrypt_file_aes_bytes(file_content: bytes, key: str) -> bytes:
+    """
+    Encrypts the given file content using AES encryption with the provided key.
+
+    Args:
+        file_content (bytes): The content of the file to be encrypted.
+        key (str): The AES encryption key, base64-encoded.
+
+    Returns:
+        bytes: The encrypted file content.
+    """
+    # Decode the base64-encoded key
+    decoded_key = base64.b64decode(key)
+
+    # Create a new AES cipher in CBC mode with a random initialization vector (IV)
+    cipher = AES.new(decoded_key, AES.MODE_CBC)
+
+    # Pad the file content to make it a multiple of the block size
+    padded_content = pad(file_content, AES.block_size)
+
+    # Encrypt the padded content
+    encrypted_content = cipher.encrypt(padded_content)
+
+    # Prepend the IV to the encrypted content (needed for decryption)
+    return cipher.iv + encrypted_content
+
+
+def decrypt_file_aes_bytes(encrypted_content: bytes, key: bytes) -> bytes:
+    """
+    Decrypts file content encrypted using AES encryption.
+
+    Args:
+        encrypted_content (bytes): Encrypted file content.
+        key (bytes): Encryption key (must be 32 bytes for AES-256).
+
+    Returns:
+        bytes: Decrypted file content.
+    """
+    # Extract the IV (first 16 bytes)
+    iv = encrypted_content[:16]
+    ciphertext = encrypted_content[16:]
+
+    # Create AES cipher in CBC mode
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+
+    # Decrypt the ciphertext
+    padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+
+    # Remove padding
+    padding_length = padded_plaintext[-1]
+    plaintext = padded_plaintext[:-padding_length]
+
+    return plaintext

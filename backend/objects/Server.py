@@ -325,12 +325,9 @@ class Server(object):
                     addr[0]
                 )  
 
-                # If ID check pass, handle the discovery request
+                # If ID check pass, handle the store request
                 if id_check_result: 
-                    self.handle_store_request(
-                        # TODO: ADD PARAMS 
-                        # ...
-                    )
+                        self.handle_store_request(connection)
                 
                 # If ID check failed, do not respond
                 else: 
@@ -544,7 +541,7 @@ class Server(object):
             )
             
 
-    def handle_store_request(self, connection, client_public_key: str, file_information: dict) -> None:
+    def handle_store_request(self, connection) -> None:
         """Handles a request to store a file from a client and replys back to the client the results of the store.
 
         Parameters:
@@ -555,42 +552,68 @@ class Server(object):
         Returns:
             None
         """
-        # Get the current working directory
-        current_directory = os.getcwd()
-        
+        # Read exactly 4 bytes to get the length
+        raw_length = connection.recv(4)
+        if not raw_length:
+            raise ConnectionError("Did not receive length header")
+
+        message_length = struct.unpack('>I', raw_length)[0]
+
+        # Now read the full message
+        data = b''
+        while len(data) < message_length:
+            chunk = connection.recv(self.BUFF)
+            if not chunk:
+                break
+            data += chunk
+
+        # Decode JSON
+        response: dict = json.loads(data.decode())
+                
+        # Decrypt the message
+        response_plaintext_dict:dict = json.loads(decrypt_message(self.priv_key_pem, response))
+    
         # Extract the file name and file content from the file_information dictionary
-        file_name = file_information['file_name']
-        file_content = file_information["file"]
+        file_name:str = response_plaintext_dict["filename"]
+        encoded_file_content:str = response_plaintext_dict["encrypted_file"]
 
-        # Construct the target directory path using the current directory and the client's public key
-        target_directory = os.path.join(current_directory, "Stored_Files", client_public_key)
+        # Decode the file content 
+        decoded_file_content:str = base64.b64decode(encoded_file_content)
 
-        try:
-            # Try to change to the target directory
-            os.chdir(target_directory)
-            self.logger.info("Changed to directory: %s", os.getcwd())
-        except FileNotFoundError:
-            # Create the directory if it doesn't exist and change to it
-            os.makedirs(target_directory)
-            os.chdir(target_directory)
-            self.logger.info("Directory created and changed to: %s", os.getcwd())
-        except Exception as e:
-            # Handle other possible exceptions and log the error
-            self.logger.error("An error occurred: %s", e)
-            return
-        
+        # Extract the peer's pub key pem from the response dict
+        peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
+
+        # Construct the target directory path
+        target_directory:str = response_plaintext_dict['common_name']
+
+        # Create the target dir if it doesn't exist
+        os.makedirs(target_directory, exist_ok=True)
+
         # Write the file to the target directory and get the message
-        message:str = self.write_to_file(file_name, file_content)
+        message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
         
         # Prepare the outgoing message to be sent to the client
         outgoing_message: dict = {
-            'code': self.IDC_CODE,
-            'public_key': self.get_public_key,
-            'payload': self.encrypt_data(self, client_public_key, message)
+            'code': Server.DONE_CODE,
+            'public_key_pem': self.pub_key_pem,
+            'data': encrypt_message(peer_pub_key_pem, message)
         }
         
         # Send the encrypted message to the client
         connection.send(json.dumps(outgoing_message).encode())
+
+        if(message == "File written"):
+            
+            # Add a new row for the new shared file
+            new_csv_row(
+                os.path.join(self.data_dir_path, 'currently-storing-for.csv'),
+                {
+                    'peer_pub_key': strip_pem_headers(peer_pub_key_pem),
+                    'filename': file_name,
+                    'size_gb': bytes_to_gb(len(decoded_file_content)),
+                    'sha256': hash_bytes_sha256(decoded_file_content),
+                }
+            )
         
                     
     def handle_delete_request(self, connection, client_public_key: str, file_information: dict) -> None:
@@ -898,21 +921,124 @@ class Server(object):
             self.logger.info('Server.send_share_request(): Connection closed"')
     
 
-    def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None: 
+    def send_store_request(self, peer_ip_address: str, peer_port: int, plaintext_file: bytes, filename: str) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 
-        # TODO Step 0: Send basic packet with this client's public key, common name, mac last four, and send share req code (unencrypted packet)
-        # TODO ... respond to the incoming ID check 
-        # TODO ... if pass, continue | if fail, return error
+         # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        try:
 
-        # TODO Step 1: encrypt plaintext file
-        # TODO Step 2: compute filehash (of encrypted file)
-        # TODO Step 3: create digital signature 
-        # TODO Step 4: create message 
-        # TODO Step 5: encrypt message 
-        # TODO Step 6: Send encrypted message ... 
+            # TODO Step 0: Send basic packet with 
+            # this client's public key, 
+            # common name, 
+            # mac last four, 
+            # and send share req code (unencrypted packet)
 
-        raise NotImplementedError
+            # Connect to the server
+            client_socket.connect((peer_ip_address, peer_port))
+
+            # Log
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
+            
+            # Construct an initial message to send
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four,
+                'code': self.STORE_REQ_CODE
+            })
+
+            # Send the message
+            client_socket.send(message.encode())
+
+            # Receive handshake data from the server
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mreceived response from peer (presumed ID check)\033[0m')
+            response = json.loads(client_socket.recv(self.BUFF))
+            
+            # Complete the ID check
+            passcode = decrypt_message(self.priv_key_pem, response['data'])
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'code': self.RESP_IDC_CODE,
+                'data': encrypt_message(response['public_key_pem'], passcode)
+            })
+
+            # Send the ID check response
+            client_socket.send(message.encode())
+            
+            # TODO compute filehash 
+            # TODO create digital signature 
+            # DO SOMETHING ... 
+            # ... 
+
+            # Log
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mSigning file\033[0m')
+
+            #signature = sign_file(self.priv_key_pem, plaintext_file)
+
+            encrypted_file = base64.b64encode(plaintext_file).decode('utf-8')
+            signature:str = 'file signature...'
+
+            # Create a message with the file contents
+            message = json.dumps({
+                'common_name': self.common_name,
+                'public_key_pem': self.pub_key_pem,
+                'filename': filename,
+                'signature': signature,
+                'encrypted_file': encrypt_file_aes_bytes(
+                    base64.b64decode(plaintext_file), 
+                    self.symm_aes_key  # Convert the key to bytes
+                )
+            })
+
+            # Encrypt the message with the file data
+            enc_message:dict = encrypt_message(response['public_key_pem'], message)
+
+            # Prepare the message
+            message_bytes:bytes = json.dumps(enc_message).encode()
+            message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
+
+            # Send length first, then messagesymn_aes_key
+            client_socket.sendall(message_length + message_bytes)
+
+            # Wait for response
+            response = json.loads(client_socket.recv(self.BUFF))
+            result = decrypt_message(self.priv_key_pem, response['data'])
+
+            # Handle the response message
+            # Some unknown error occured on the receiving server
+            if(result == "Error occured"): raise Exception('An unknown error occured and receiving server was unable to process the request.')
+            
+            # File already exists on the recieving server
+            elif(result == "File already exists"): raise FileExistsError('Recieving server already has a shared file with the same name.')
+            
+            # Success result (result == 'File written')
+            else: 
+
+                # Log
+                print(f'\033[0m[{now()}] \033[92mSUCCESS: \033[0mSuccessfully shared file "{filename}" with peer IP "{peer_ip_address}"')
+
+                # Add a new row for the new shared file in the previously shared with CSV
+                new_csv_row(
+                os.path.join(self.data_dir_path, 'currently-storing-for.csv'),
+                {
+                    'peer_pub_key': strip_pem_headers(self.pub_key_pem),
+                    'filename': filename,
+                    'size_gb': bytes_to_gb(len(encrypted_file)),
+                    'sha256': hash_bytes_sha256(encrypted_file),
+                }
+            )
+        
+        # Handle exceptions
+        except Exception as e:
+            print(f"\033[91mERROR in Server.send_store_request(): \033[0m{e.__class__}", e)
+
+        # When everything is done, close the connection
+        finally:
+            # Close the connection
+            client_socket.close()
+            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_share_request(): \033[0mConnection closed")
 
     
     def send_delete_request(self, peer_ip_address:str, filename:str, encrypted_file_hash:str) -> None: 
