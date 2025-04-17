@@ -318,3 +318,6 @@ Codes - each packet sent to eachother will have a code for the first 3 bytes exe
             6 bytes mac address 
             256 public key 
             rest common name of user 
+
+
+halkfjdal
