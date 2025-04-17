@@ -17,7 +17,8 @@ import datetime as dt
 
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, \
     decrypt_message, now, update_peer_info, write_to_file, hash_bytes_sha256, \
-        sign_file, new_csv_row, bytes_to_gb, verify_signature
+        sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, \
+        decrypt_bytes_with_aes
 
 
 class Server(object):
@@ -568,7 +569,7 @@ class Server(object):
             data += chunk
 
         # Decode JSON
-        response: dict = json.loads(data.decode())
+        response:dict = json.loads(data.decode())
                 
         # Decrypt the message
         response_plaintext_dict:dict = json.loads(decrypt_message(self.priv_key_pem, response))
@@ -578,7 +579,7 @@ class Server(object):
         encoded_file_content:str = response_plaintext_dict["encrypted_file"]
 
         # Decode the file content 
-        decoded_file_content:str = base64.b64decode(encoded_file_content)
+        decoded_encrypted_file_content:str = base64.b64decode(encoded_file_content)
 
         # Extract the peer's pub key pem from the response dict
         peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
@@ -590,7 +591,7 @@ class Server(object):
         os.makedirs(target_directory, exist_ok=True)
 
         # Write the file to the target directory and get the message
-        message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
+        message:str = write_to_file(os.path.join(target_directory, file_name), decoded_encrypted_file_content)
         
         # Prepare the outgoing message to be sent to the client
         outgoing_message: dict = {
@@ -610,8 +611,8 @@ class Server(object):
                 {
                     'peer_pub_key': strip_pem_headers(peer_pub_key_pem),
                     'filename': file_name,
-                    'size_gb': bytes_to_gb(len(decoded_file_content)),
-                    'sha256': hash_bytes_sha256(decoded_file_content),
+                    'size_gb': bytes_to_gb(len(decoded_encrypted_file_content)),
+                    'sha256': hash_bytes_sha256(decoded_encrypted_file_content),
                 }
             )
         
@@ -967,18 +968,25 @@ class Server(object):
             # Send the ID check response
             client_socket.send(message.encode())
             
-            # TODO compute filehash 
-            # TODO create digital signature 
-            # DO SOMETHING ... 
-            # ... 
-
             # Log
-            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mSigning file\033[0m')
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mSigning file\033[0m')           
 
-            #signature = sign_file(self.priv_key_pem, plaintext_file)
+            # Encrypt the file
+            encrypted_file_data:dict = encrypt_bytes_with_aes(
+                plaintext_file,
+                base64.b64decode(self.symm_aes_key)
+            )
 
-            encrypted_file = base64.b64encode(plaintext_file).decode('utf-8')
-            signature:str = 'file signature...'
+            # Get the encrypted file content and nonce from the result
+            nonce:str = encrypted_file_data['nonce']
+            encrypted_file_contents:str = encrypted_file_data['ciphertext']
+
+            # Sign the encrypted file
+            signature:str = base64.b64encode(
+                sign_file(
+                    self.priv_key_pem, 
+                    base64.b64decode(encrypted_file_contents))
+            ).decode('utf-8')
 
             # Create a message with the file contents
             message = json.dumps({
@@ -986,10 +994,7 @@ class Server(object):
                 'public_key_pem': self.pub_key_pem,
                 'filename': filename,
                 'signature': signature,
-                'encrypted_file': encrypt_file_aes_bytes(
-                    base64.b64decode(plaintext_file), 
-                    self.symm_aes_key  # Convert the key to bytes
-                )
+                'encrypted_file': encrypted_file_contents
             })
 
             # Encrypt the message with the file data
@@ -1021,14 +1026,15 @@ class Server(object):
 
                 # Add a new row for the new shared file in the previously shared with CSV
                 new_csv_row(
-                os.path.join(self.data_dir_path, 'currently-storing-for.csv'),
-                {
-                    'peer_pub_key': strip_pem_headers(self.pub_key_pem),
-                    'filename': filename,
-                    'size_gb': bytes_to_gb(len(encrypted_file)),
-                    'sha256': hash_bytes_sha256(encrypted_file),
-                }
-            )
+                    os.path.join(self.data_dir_path, 'currently-storing-with.csv'),
+                    {
+                        'peer_pub_key': strip_pem_headers(self.pub_key_pem),
+                        'filename': filename,
+                        'size_gb': bytes_to_gb(len(encrypted_file_contents)),
+                        'sha256': hash_bytes_sha256(base64.b64decode(encrypted_file_contents)),
+                        'b64_nonce': nonce
+                    }
+                )
         
         # Handle exceptions
         except Exception as e:

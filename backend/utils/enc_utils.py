@@ -339,57 +339,47 @@ def load_aes_key(passcode:str, key_file_path:str) -> str:
     return base64.b64encode(aes_key).decode()
 
 
-def encrypt_file_aes_bytes(file_content: bytes, key: str) -> bytes:
-    """
-    Encrypts the given file content using AES encryption with the provided key.
+def encrypt_bytes_with_aes(file_bytes:bytes, aes_key:bytes) -> dict:
+    """Encrypts given bytes using AES-GCM and returns a dict containing the "nonce" and "ciphertext".
 
     Args:
-        file_content (bytes): The content of the file to be encrypted.
-        key (str): The AES encryption key, base64-encoded.
+        file_bytes (bytes): The plaintext data to encrypt.
+        aes_key (bytes): AES key (must be 32 bytes for AES-256).
 
     Returns:
-        bytes: The encrypted file content.
+        dict: dict with Base64-encoded nonce and ciphertext.
     """
-    # Decode the base64-encoded key
-    decoded_key = base64.b64decode(key)
 
-    # Create a new AES cipher in CBC mode with a random initialization vector (IV)
-    cipher = AES.new(decoded_key, AES.MODE_CBC)
+    # Init key and generate nonce
+    aesgcm:AESGCM = AESGCM(aes_key)
+    nonce:bytes = os.urandom(12)
 
-    # Pad the file content to make it a multiple of the block size
-    padded_content = pad(file_content, AES.block_size)
+    # Generate ciphertext
+    ciphertext:bytes = aesgcm.encrypt(nonce, file_bytes, None)
 
-    # Encrypt the padded content
-    encrypted_content = cipher.encrypt(padded_content)
+    # Return a dict with the b64 nonce and ciphertext
+    return {
+        'nonce': base64.b64encode(nonce).decode(),
+        'ciphertext': base64.b64encode(ciphertext).decode()
+    }
 
-    # Prepend the IV to the encrypted content (needed for decryption)
-    return cipher.iv + encrypted_content
 
-
-def decrypt_file_aes_bytes(encrypted_content: bytes, key: bytes) -> bytes:
-    """
-    Decrypts file content encrypted using AES encryption.
+def decrypt_bytes_with_aes(json_obj:dict, aes_key:bytes) -> bytes:
+    """Decrypts AES-GCM encrypted data from a Base64-encoded JSON string.
 
     Args:
-        encrypted_content (bytes): Encrypted file content.
-        key (bytes): Encryption key (must be 32 bytes for AES-256).
+        encrypted_json_str (str): JSON string containing Base64 'nonce' and 'ciphertext'.
+        aes_key (bytes): AES key (must be 32 bytes for AES-256).
 
     Returns:
-        bytes: Decrypted file content.
+        bytes: The decrypted plaintext.
     """
-    # Extract the IV (first 16 bytes)
-    iv = encrypted_content[:16]
-    ciphertext = encrypted_content[16:]
+    # Parse the JSON
+    nonce:bytes = base64.b64decode(json_obj['nonce'])
+    ciphertext:bytes = base64.b64decode(json_obj['ciphertext'])
 
-    # Create AES cipher in CBC mode
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-
-    # Decrypt the ciphertext
-    padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-
-    # Remove padding
-    padding_length = padded_plaintext[-1]
-    plaintext = padded_plaintext[:-padding_length]
+    # Decrypt
+    aesgcm:AESGCM = AESGCM(aes_key)
+    plaintext:bytes = aesgcm.decrypt(nonce, ciphertext, None)
 
     return plaintext
