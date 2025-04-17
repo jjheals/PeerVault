@@ -14,8 +14,9 @@ from hashlib import sha256
 import csv
 import pandas as pd
 import datetime
+from dateutil import parser
 
-from utils import filter_args, load_key_pem, get_mac_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers
+from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers
 from objects import Server 
 
 from .funcs import require_localhost
@@ -228,19 +229,18 @@ def signup():
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
+    print(request_body)
         
     # Extract the required keys
     new_common_name:str = request_body.get('common_name', None)
-    new_allocated_storage:int = request_body.get('allocated_storage', None)
+    new_allocated_storage:str = request_body.get('allocated_storage', None)
     new_peer_storage_path:str = request_body.get('peer_storage_path', None)
     new_passphrase:str = request_body.get('passphrase', None) 
 
     # Check that the required keys were given, and return bad request if wrong
     try:
-        
         # Check that keys are given 
         if not (new_common_name and new_allocated_storage and new_peer_storage_path and new_passphrase): raise AttributeError
-        
         # Make sure allocated_storage is an integer
         new_allocated_storage = int(new_allocated_storage)
     
@@ -251,12 +251,13 @@ def signup():
     # --- Updating identity --- #
     # Update the identity config with the new common name, mac, allocated storage, and peer storage path
     identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
-    identity_config['IDENTITY']['MAC'] = get_mac_address() 
-    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = new_allocated_storage
+    identity_config['IDENTITY']['MAC'] = get_mac_address()
+    identity_config['IDENTITY']['IP'] = get_IP_address()
+    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
     identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
-    current_app.enc_config['misc']['PASS_HASH'] = sha256(str(new_passphrase)).hexdigest()
+    current_app.enc_config['misc']['PASS_HASH'] = sha256(new_passphrase.encode()).hexdigest()
 
     # --- Saving new info --- #
     # Create the [new_peer_storage_path] if it does not exist
@@ -267,7 +268,7 @@ def signup():
         identity_config.write(file)
     
     # Resave the enc config with the new passphrase 
-    with open('config/encryption-config.conf', 'w') as file: 
+    with open('config/encryption.conf', 'w') as file: 
         current_app.enc_config.write(file)
 
     # --- Return --- #
@@ -591,6 +592,8 @@ def upload_data():
 def reupload_data():
     try:
         incoming_date_key = request.form.get("date", "")
+        incoming_date = parser.parse(incoming_date_key)
+        print("incoming:", incoming_date)
 
         # Read all rows from the CSV into a list
         with open('requests/outgoing.csv', "r", newline='') as file:
@@ -598,12 +601,15 @@ def reupload_data():
             rows = list(reader)  # Convert to list of dicts
             fieldnames = reader.fieldnames
 
+
         # Find the index of the row with the matching date
         index_to_remove = None
         for i, row in enumerate(rows):
-            if row["date"] == incoming_date_key:
+            incoming_date = incoming_date.replace(tzinfo=None, microsecond = 0) 
+            existing_date = parser.parse(row["date"]).replace(tzinfo=None, microsecond = 0)            
+           
+            if existing_date == incoming_date:
                 index_to_remove = i
-                break
 
         if index_to_remove is not None:
             del rows[index_to_remove]  # Remove the row
@@ -628,7 +634,6 @@ def reupload_data():
         with open('requests/outgoing.csv', 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(data)
-#             writer.writerows(rows)
 
         return jsonify({'status': 'success'})
     except Exception as e:

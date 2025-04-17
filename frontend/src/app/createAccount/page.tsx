@@ -17,6 +17,10 @@ export default function Home() {
     const [model, setModel] = React.useState(new Model())
     const [redraw, forceRedraw] = React.useState(0);
     const [username, setUsername] = React.useState("");
+    const [passphrase, setPassphrase] = React.useState("");
+    const [storage, setStorage] = React.useState("");
+    const [path, setPath] = React.useState("");
+
 
     function refresh() {
         forceRedraw(redraw + 1);
@@ -25,14 +29,22 @@ export default function Home() {
     const router = useRouter();
 
     const handleSignup = async () => {
-      if (!username.trim()) {
-          alert("Username cannot be empty!");
+      if (!username.trim() ||!passphrase.trim() || !storage.trim()|| !path.trim()) {
+          alert("All Fields are required!");
           return;
       }
       try {
-          const response = await instance.post("/ui/signup", { data: username });
-          console.log(response);
-          alert(response.data.message);
+        // new_common_name:str = request_body.get('common_name', None)
+        // new_allocated_storage:int = request_body.get('allocated_storage', None)
+        // new_peer_storage_path:str = request_body.get('peer_storage_path', None)
+        // new_passphrase:str = request_body.get('passphrase', None) 
+
+          const response = await instance.post("/ui/signup", { common_name: username,
+                                                                passphrase: passphrase,
+                                                                allocated_storage: storage,
+                                                                peer_storage_path: path });
+
+          alert("signup successful");
       } catch (error) {
           console.error("Signup failed:", error);
           alert("Signup failed. Please try again.");
@@ -54,11 +66,12 @@ export default function Home() {
 
         <div>
             <div className="subtitleText">Signup</div>
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter username" />
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" />
+            <input type="text" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Passphrase" />
+            <input type="int" value={storage} onChange={(e) => setStorage(e.target.value)} placeholder="Storage Amount" />
+            <input type="text" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Storage Path" />
             <button className="button" onClick={handleSignup}>Sign Up</button>
         </div>
-
-
       </div>
     )
 }
