@@ -12,13 +12,15 @@ import json
 import os
 import concurrent.futures 
 import threading as th 
+import pandas as pd
 import base64 
 import datetime as dt 
+from time import sleep
 
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, \
     decrypt_message, now, update_peer_info, write_to_file, hash_bytes_sha256, \
         sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, \
-        decrypt_bytes_with_aes
+        decrypt_bytes_with_aes, get_mac_address
 
 
 class Server(object):
@@ -40,9 +42,10 @@ class Server(object):
     UPD_FILE_CODE:str = "104"   # Code for requesting to update a stored file
     DONE_CODE:str = "900"       # Code for saying "everything is good, close the connection"
     FAIL_CODE:str = "999"       # Code for failing a verification process (e.g. dig signature)
-
     BUFF:int = 2048             # Buffer for requests
-
+    REQ_CHECK_SLEEP:int = 2     # Amount of time (in seconds) to wait before checking the status of outgoing requests
+    
+    
     def __init__(
         self, 
         pub_key_pem:str, 
@@ -66,8 +69,7 @@ class Server(object):
         self.mcast_port = mcast_port
         self.mcast_group = mcast_group
         self.data_dir_path = data_dir_path
-
-        self.mac_last_four = 'i hate this'
+        self.mac_last_four = get_mac_address()[-4:]
 
         # Init the connection
         self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -407,7 +409,136 @@ class Server(object):
     # ---- Methods that HANDLE INCOMING REQUESTS ---- #    
     # NOTE: the reverse methods of "Methods related to SENDING INFO TO OTHER PEERS"
 
-    def respond_identity_check(self, connection:socket.socket, client_address:str, client_public_key:str, ciphertext_message:dict) -> bool:
+    def queued_request_checker(self) -> None: 
+        """Incrementally checks the queued outgoing requests and sends them if the peer is online."""
+        
+        # Log
+        self.logger.info('Starting queued_request_checker().')
+        
+        # Run while the server is alive
+        while self.server_alive: 
+            
+            # Log 
+            self.logger.info('Checking status of outgoing requests.')
+                
+            # Read the (current) outgoing requests csv and peer info CSV
+            # NOTE: do this every iteration to make sure changes are read 
+            curr_queued_reqs_df:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
+            peer_info_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+            
+            # Iterate over the public keys for peers with pending outgoing requests
+            for idx,req_row in curr_queued_reqs_df.iterrows(): 
+                
+                # Extract the peer_pub_key col
+                peer_pub_key:str = req_row['peer_pub_key']
+                
+                # Get this peer's info from the peer info df
+                peer_info_row:pd.Series = peer_info_df.loc[peer_info_df['peer_pub_key'] == peer_pub_key].iloc[0]
+                    
+                # Check if this peer is online
+                if peer_info_row['online_status']: 
+                    
+                    # Log
+                    self.logger.info(f'Sending queued "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]}.')
+                        
+                    # Peer is online - extract the other needed attributes for the outgoing req
+                    req_type:str = req_row['upload_type']
+                    filename:str = req_row['file']
+                        
+                    # Act according to the request type
+                    match(req_type.lower()): 
+                        
+                        # SHARE request
+                        case 'share': 
+                            
+                            # Construct the path to the tmp file 
+                            tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+                    
+                            # Get the file contents
+                            with open(tmp_filepath, 'rb') as file: 
+                                file_contents:bytes = file.read()
+                        
+                            # Send the share request
+                            self.send_share_request(
+                                peer_info_row['most_recent_ip'],    # peer_ip_address
+                                file_contents,                      # plaintext_file
+                                filename                            # filename
+                            )
+                            
+                            # Delete the tmp file 
+                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            os.remove(tmp_filepath)
+                            
+                        # STORE request
+                        case 'store': 
+                            
+                            # Construct the path to the tmp file 
+                            tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+                    
+                            # Get the file contents
+                            with open(tmp_filepath, 'rb') as file: 
+                                file_contents:bytes = file.read()
+                        
+                            # Send the store request
+                            self.send_store_request(
+                                peer_info_row['most_recent_ip'],    # peer_ip_address
+                                file_contents,                      # plaintext_file
+                                filename                            # filename
+                            )
+
+                            # Delete the tmp file 
+                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            os.remove(tmp_filepath)
+                            
+                        # DELETE request
+                        case 'delete': 
+                            
+                            # Read the currently storing with CSV to get the encrypted file hash
+                            curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
+
+                            # Find the row with this user and this filename
+                            matched_row:pd.DataFrame = curr_storing_with_df.loc[
+                                (curr_storing_with_df['peer_pub_key'] == peer_pub_key) & 
+                                (curr_storing_with_df['filename'] == filename)
+                            ].iloc[0]
+                        
+                            # Send the share request
+                            self.send_delete_request(
+                                peer_info_row['most_recent_ip'],   # peer_ip_address
+                                filename,                          # filename
+                                matched_row['sha256'],             # encrypted_file_hash
+                            )
+                            
+                            # Log
+                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            
+                        # UPDATE request
+                        case 'update': 
+                            
+                            # Construct the path to the tmp file 
+                            tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+                    
+                            # Get the file contents
+                            with open(tmp_filepath, 'rb') as file: 
+                                file_contents:bytes = file.read()
+                        
+                            # Send the update request
+                            self.send_update_request(
+                                peer_info_row['most_recent_ip'],    # peer_ip_address
+                                filename,                           # filename
+                                file_contents                       # new_plaintext_file
+                            )
+
+                            # Delete the tmp file
+                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            os.remove(tmp_filepath)
+
+            # NOTE: now done iterating over queued requests 
+            # Sleep for Server.REQ_CHECK_SLEEP before next iteration
+            sleep(Server.REQ_CHECK_SLEEP)
+                
+                
+    def respond_identity_check(self, connection:socket.socket, client_address:str) -> bool:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
         # Load the incoming message JSON
@@ -542,7 +673,7 @@ class Server(object):
             )
             
 
-    def handle_store_request(self, connection) -> None:
+    def handle_store_request(self, connection:socket.socket) -> None:
         """Handles a request to store a file from a client and replys back to the client the results of the store.
 
         Parameters:
@@ -617,7 +748,7 @@ class Server(object):
             )
         
                     
-    def handle_delete_request(self, connection, client_public_key: str, file_information: dict) -> None:
+    def handle_delete_request(self, connection:socket.socket, client_public_key:str, file_information:dict) -> None:
         """Handles a request to delete a file from a client dirctory and replys back to the client the results of the delete.
 
         Parameters:
@@ -666,7 +797,7 @@ class Server(object):
         connection.send(json.dumps(outgoing_message).encode())
 
 
-    def handle_update_request(self, connection, client_public_key: str, file_information: dict) -> None:
+    def handle_update_request(self, connection:socket.socket, client_public_key:str, file_information:dict) -> None:
         """Handles a request to update a file from a client and replys back to the client the results of the update.
 
         Parameters:
@@ -807,7 +938,7 @@ class Server(object):
         return False
     
 
-    def send_share_request(self, peer_ip_address: str, peer_port: int, plaintext_file: bytes, filename: str) -> None:
+    def send_share_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a share request to the given client address, and shares the file if ID check is passed."""
 
         # Create a socket object
@@ -822,7 +953,8 @@ class Server(object):
             # and send share req code (unencrypted packet)
 
             # Connect to the server
-            client_socket.connect((peer_ip_address, peer_port))
+            # NOTE: all peers use the same port for their backend server
+            client_socket.connect((peer_ip_address, self.port))
 
             # Log
             print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
@@ -922,7 +1054,7 @@ class Server(object):
             self.logger.info('Server.send_share_request(): Connection closed"')
     
 
-    def send_store_request(self, peer_ip_address: str, peer_port: int, plaintext_file: bytes, filename: str) -> None:
+    def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 
          # Create a socket object
@@ -937,7 +1069,8 @@ class Server(object):
             # and send share req code (unencrypted packet)
 
             # Connect to the server
-            client_socket.connect((peer_ip_address, peer_port))
+            # NOTE: all peers use the same port for their backend server
+            client_socket.connect((peer_ip_address, self.port))
 
             # Log
             print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
@@ -1061,7 +1194,7 @@ class Server(object):
         raise NotImplementedError
 
 
-    def send_update_request(self, peer_ip_address:str, old_filename:str, new_filename:str, new_plaintext_file:bytes) -> None: 
+    def send_update_request(self, peer_ip_address:str, filename:str, new_plaintext_file:bytes) -> None: 
         """Sends an update request to the given client address, and tells the remote peer to update the file if ID check is passed."""
 
         # TODO Step 0: Send basic packet with this client's public key, common name, mac last four, and send share req code (unencrypted packet)
