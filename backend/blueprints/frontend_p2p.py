@@ -1,14 +1,18 @@
+"""
+TODO: 
+    - in /ui/share-file and /ui/store-file, implement the Server sending a mcast
+      msg to find a recipient if the peer_pub_key is blank (empty str)
+"""
+
 import json
 from flask import Blueprint, jsonify, g, current_app, request, abort
 import os 
 import pandas as pd
 import numpy as np 
-from configparser import ConfigParser
-from hashlib import sha256
-import csv
 import pandas as pd
+import datetime as dt 
 
-from utils import filter_args, load_key_pem, get_mac_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers, now, generate_asymm_keys
+from utils import new_csv_row, bytes_to_gb, hash_bytes_sha256
 from objects import Server 
 
 from .funcs import require_localhost
@@ -112,13 +116,31 @@ def share_file():
     # Peer is OFFLINE
     if not peer_online_status: 
         
-        # TODO: queue the request using some persistent storage (i.e. to disk) to send for when the peer is online
-        # DO SOMETHING ... 
-        # ...
+        # Queue the request
+        # Create a filepath to a tmp storage dir to save the file
+        tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+         
+        # Save the file to tmp storage 
+        with open(tmp_filepath, 'wb') as f:
+            f.write(file)
+            
+        # Add a row to the outgoing requests CSV
+        new_csv_row(
+            'requests/outgoing.csv',
+            {
+                'peer_pub_key': peer_pub_key,
+                'file': os.path.join('requests', 'tmp', filename),
+                'upload_type': 'Share', 
+                'size': bytes_to_gb(len(file_content)),
+                'date': dt.datetime.now().strftime('%d-%m-%Y'),
+                'sha256': hash_bytes_sha256(file)
+            }
+        )
 
+        # Return a status message to the frontend 
         return jsonify({
-            'status': 500,
-            'message': 'Peer is offline and message queue functionality is not complete.'
+            'status': 200,
+            'message': f'Request to share file with "{peer_cn}" is queued for the next time the peer is online.'
         })
     
     # Peer is ONLINE
@@ -240,13 +262,32 @@ def store_file():
     # Peer is OFFLINE
     if not peer_online_status: 
         
-        # TODO: queue the request using some persistent storage (i.e. to disk) to send for when the peer is online
-        # DO SOMETHING ... 
-        # ...
+                
+        # Queue the request
+        # Create a filepath to a tmp storage dir to save the file
+        tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+         
+        # Save the file to tmp storage 
+        with open(tmp_filepath, 'wb') as f:
+            f.write(file)
+            
+        # Add a row to the outgoing requests CSV
+        new_csv_row(
+            'requests/outgoing.csv',
+            {
+                'peer_pub_key': peer_pub_key,
+                'file': os.path.join('requests', 'tmp', filename),
+                'upload_type': 'Store', 
+                'size': bytes_to_gb(len(file_content)),
+                'date': dt.datetime.now().strftime('%d-%m-%Y'),
+                'sha256': hash_bytes_sha256(file)
+            }
+        )
 
+        # Return a status message to the frontend 
         return jsonify({
-            'status': 500,
-            'message': 'Peer is offline and message queue functionality is not complete.'
+            'status': 200,
+            'message': f'Request to share file with "{peer_cn}" is queued for the next time the peer is online.'
         })
     
     # Peer is ONLINE
@@ -271,7 +312,7 @@ def store_file():
         except Exception as e: 
             print('\033[91mERROR in fi_bp.store_file(): \033[0mthere was an error sending the file to be stored. Exception: ', e)
             return jsonify({'error': 'An error occured during file store request. Error: ' + str(e)}), 500
-            
+         
 
 @fe_p2p_bp.route('/ui/delete-file', methods=['POST'])
 @require_localhost
@@ -305,8 +346,9 @@ def delete_file():
     """
     
     # NOTE: check that current_app.server is not None 
-    # App is NOT initialized
     if not current_app.server: 
+        
+        # App is NOT initialized
         print('\033[91mERROR in fe_p2p_bp.delete_file(): \033[0mcurrent app Server is "None", i.e. application has not been initialized')
         return jsonify({'error': "Application backend has not been initialized - use /ui/init-application and provide the user's passcode."}), 400
     
@@ -367,14 +409,25 @@ def delete_file():
     # Check that the found peer is online
     # Peer is OFFLINE
     if not peer_online_status: 
-        
-        # TODO: queue the request using some persistent storage (i.e. to disk) to send for when the peer is online
-        # DO SOMETHING ... 
-        # ...
 
+            
+        # Add a row to the outgoing requests CSV
+        new_csv_row(
+            'requests/outgoing.csv',
+            {
+                'peer_pub_key': peer_pub_key,
+                'file': os.path.join('requests', 'tmp', filename),
+                'upload_type': 'Delete', 
+                'size': -1,
+                'date': dt.datetime.now().strftime('%d-%m-%Y'),
+                'sha256': ''
+            }
+        )
+
+        # Return a status message to the frontend 
         return jsonify({
-            'status': 500,
-            'message': 'Peer is offline and message queue functionality is not complete.'
+            'status': 200,
+            'message': f'Request to share file with "{peer_cn}" is queued for the next time the peer is online.'
         })
     
     # Peer is ONLINE
@@ -383,7 +436,7 @@ def delete_file():
         # Send a share request to the peer
         try: 
             
-            # Call server.send_share_request() to send the request
+            # Call server.send_delete_request() to send the request
             server.send_delete_request(
                 peer_ip,
                 filename,
