@@ -86,13 +86,9 @@ app.register_blueprint(fe_p2p_bp)   # Frontend P2P requests
 
 # ---- Run ---- #
 if __name__ == '__main__': 
-    
-    # TODO: Send a multicast peer discovery message on app startup
-    # DO SOMETHING ... 
-    # ... 
 
-    # Run on the interface specified in the multicast config
-    #http_server = WSGIServer((mcast_config['multicast-config']['LOCAL_IP'], PORT), app)
+    # Run on the interface specified in the network config so it is limited to that IP and not all
+    # network interfaces
     print(f'\033[0m[{now()}] \033[92mFlask app running')
-    http_server = WSGIServer(('0.0.0.0', PORT), app)
+    http_server = WSGIServer((network_config['network']['IFACE'], PORT), app)
     http_server.serve_forever()
