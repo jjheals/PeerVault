@@ -11,20 +11,19 @@ import struct
 import json
 import os
 import concurrent.futures 
-import threading as th 
 import pandas as pd
 import base64 
 import datetime as dt 
 from time import sleep
 
-from utils import strip_pem_headers, generate_random_passcode, encrypt_message, \
-    decrypt_message, now, update_peer_info, write_to_file, hash_bytes_sha256, \
-        sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, \
-        decrypt_bytes_with_aes, get_mac_address
+from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, update_peer_info, write_to_file,  \
+        hash_bytes_sha256, sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
+        get_mac_address
 
 
 class Server(object):
 
+    # DYNAMIC ATTRIBUTES
     common_name:str             # The common name for this client
     iface:str                   # The interface (address) the server is running on
     pub_key_pem:str             # This client's public key (with PEM headers)
