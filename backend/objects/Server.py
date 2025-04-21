@@ -1,16 +1,10 @@
-
-"""
-TODO: 
-    - Check dig signature in handle_*_request() funcs
-
-"""
-
 import logging 
 import socket
 import struct
 import json
 import os
-import concurrent.futures 
+import concurrent.futures
+import traceback 
 import pandas as pd
 import base64 
 import datetime as dt 
@@ -18,7 +12,7 @@ from time import sleep
 
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, update_peer_info, write_to_file,  \
         hash_bytes_sha256, sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
-        get_mac_address
+        get_mac_address, delete_csv_row
 
 
 class Server(object):
@@ -55,7 +49,8 @@ class Server(object):
         mcast_iface:str,
         mcast_port:int,
         mcast_group:str,
-        data_dir_path:str
+        data_dir_path:str,
+        peer_store_path:str
     ):
         self.pub_key_pem = pub_key_pem
         self.priv_key_pem = priv_key_pem
@@ -68,6 +63,7 @@ class Server(object):
         self.mcast_group = mcast_group
         self.data_dir_path = data_dir_path
         self.mac_last_four = get_mac_address()[-4:]
+        self.peer_store_path = peer_store_path
 
         # Init the connection
         self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -351,10 +347,7 @@ class Server(object):
 
                 # Delete the file from the system
                 if id_check_result: 
-                    self.handle_delete_request(
-                        # TODO: ADD PARAMS 
-                        # ...
-                    )
+                    self.handle_delete_request(connection)
                 
                 # If ID check failed, do not respond
                 else: 
@@ -497,7 +490,7 @@ class Server(object):
         incoming_message_json:dict = json.loads(connection.recv(self.BUFF))
 
         # Extract the info from the incoming message 
-        # Extract the public key
+        # Extract the public keyencrypted_file_hash:str
         peer_public_key:str = incoming_message_json['public_key_pem']
 
         # Extract the data 
@@ -671,7 +664,7 @@ class Server(object):
         target_directory:str = response_plaintext_dict['common_name']
 
         # Create the target dir if it doesn't exist
-        os.makedirs(target_directory, exist_ok=True)
+        os.makedirs(os.path.join(self.peer_store_path, target_directory), exist_ok=True)
 
         # Write the file to the target directory and get the message
         message:str = write_to_file(os.path.join(target_directory, file_name), decoded_encrypted_file_content)
@@ -700,53 +693,136 @@ class Server(object):
             )
         
                     
-    def handle_delete_request(self, connection:socket.socket, client_public_key:str, file_information:dict) -> None:
-        """Handles a request to delete a file from a client dirctory and replys back to the client the results of the delete.
+    def handle_delete_request(self, connection: socket.socket) -> None:
+        """
+        Handles a request to delete a file from a client and replies back to the client with the results of the delete.
 
         Parameters:
             connection: The connection object to communicate with the client.
-            client_public_key (str): The public key of the client, used to identify the storage directory.
-            file_information (dict): A dictionary containing the file name and file content.
-
         Returns:
             None
         """
-        # Get the current working directory
-        current_directory = os.getcwd()
-        
-        # Extract the file name and file content from the file_information dictionary
-        file_name = file_information['file_name']
-        file_content = file_information["file"]
+        # Read exactly 4 bytes to get the length
+        raw_length = connection.recv(4)
+        if not raw_length:
+            raise ConnectionError("Did not receive length header")
 
-        # Construct the target directory path using the current directory and the client's public key
-        target_directory = os.path.join(current_directory, "Stored_Files", client_public_key)
+        message_length = struct.unpack('>I', raw_length)[0]
 
+        # Now read the full message
+        data = b''
+        while len(data) < message_length:
+            chunk = connection.recv(self.BUFF)
+            if not chunk:
+                break
+            data += chunk
+
+        # Decode JSON
+        response: dict = json.loads(data.decode())
+
+        # Decrypt the message
+        response_plaintext_dict: dict = json.loads(decrypt_message(self.priv_key_pem, response))
+
+        # Extract the file name and file hash from the request
+        file_name: str = response_plaintext_dict["filename"]
+        encrypted_file_hash: str = response_plaintext_dict["encrypted_file_hash"]
+
+        # Extract the peer's public key PEM from the response dict
+        peer_pub_key_pem: str = response_plaintext_dict['public_key_pem']
+
+        # Construct the target directory path
+        target_directory: str = response_plaintext_dict['common_name']
+
+        # Read the CSV to find the stored hash for the file
+        csv_path = os.path.join(self.data_dir_path, 'currently-storing-for.csv')
+        curr_storing_with_df:pd.DataFrame = pd.read_csv(csv_path)
+
+        # Attempt to delete the file
         try:
-            # Try to change to the target directory
-            os.chdir(target_directory)
-            self.logger.info("Changed to directory: %s", os.getcwd())
+
+            print("encrypted_file_hash:\n", encrypted_file_hash)
+            print("\nfile_name:\n", file_name)
+            print("\nlist of hashes:\n", curr_storing_with_df['sha256'])
+            print("\nlist of filenames:\n", curr_storing_with_df['filename'])
+
+            matched_row = curr_storing_with_df.loc[
+                (curr_storing_with_df['sha256'] == encrypted_file_hash) &
+                (curr_storing_with_df['filename'] == file_name)
+            ]
+
+            # Check if the matched_row is empty
+            if matched_row.empty:
+                raise ValueError(f'No matching file "{file_name}" found for encrypted_file_hash: "{encrypted_file_hash}".')
+
+            # Access the first row of the matched row
+            matched_row = matched_row.iloc[0]
+
+
+            # Compare the hash
+            if matched_row['sha256'] != encrypted_file_hash:
+                # Send a failure message back to the peer
+                connection.send(json.dumps({
+                    'code': Server.FAIL_CODE,
+                    'public_key_pem': self.pub_key_pem,
+                    'data': encrypt_message(peer_pub_key_pem, 'Hash mismatch')
+                }).encode())
+
+                # Do nothing else
+                return
+
+            os.remove(os.path.join(self.peer_store_path, target_directory, file_name))
+
+            # Remove the entry from the CSV
+            delete_csv_row(
+                csv_path,
+                {
+                    'peer_pub_key'
+                    'filename'
+                },
+                {
+                    strip_pem_headers(peer_pub_key_pem),
+                    file_name
+                }
+            )
+
+            # Send success response
+            connection.send(json.dumps({
+                'code': Server.DONE_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'File deleted successfully.')
+            }).encode())
+
         except FileNotFoundError:
-            # Create the directory if it doesn't exist and change to it
-            os.makedirs(target_directory)
-            os.chdir(target_directory)
-            self.logger.info("Directory created and changed to: %s", os.getcwd())
+            print(f'\033[91mERROR: \033[0mFile "{file_name}" not found in "{target_directory}". (Error message 2)')
+            self.logger.error(f'File "{file_name}" not found in "{target_directory}".')
+            print(traceback.format_exc())
+
+            connection.send(json.dumps({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'File not found')
+            }).encode())
+        except ValueError:
+            print(f'\033[91mERROR: \033[0mNo matching file "{file_name}" found for peer. (Error message 3)')
+            self.logger.error(f'No matching file "{file_name}" found for peer.')
+            print(traceback.format_exc())
+
+
+            connection.send(json.dumps({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'File not found')
+            }).encode())
         except Exception as e:
-            # Handle other possible exceptions and log the error
-            self.logger.error("An error occurred: %s", e)
-            return
-        
-        # Write the file to the target directory and get the message
-        message:str = self.delete_file(file_name)
-        
-        # Prepare the outgoing message to be sent to the client
-        outgoing_message: dict = {
-            'code': self.IDC_CODE,
-            'public_key': self.get_public_key,
-            'payload': self.encrypt_data(self, client_public_key, message)
-        }
-        
-        # Send the encrypted message to the client
-        connection.send(json.dumps(outgoing_message).encode())
+            print(f'\033[91mERROR: \033[0mAn error occurred while deleting the file: {e}')
+            print(traceback.format_exc())
+            self.logger.error(f'An error occurred while deleting the file: {e}')
+
+            connection.send(json.dumps({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Error occurred')
+            }).encode())
 
 
     # ---- Methods related to SENDING INFO TO OTHER PEERS ---- #
@@ -860,7 +936,7 @@ class Server(object):
             client_socket.connect((peer_ip_address, self.port))
 
             # Log
-            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{self.port}"')
             
             # Construct an initial message to send
             message = json.dumps({
@@ -957,10 +1033,10 @@ class Server(object):
             self.logger.info('Server.send_share_request(): Connection closed"')
     
 
-    def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
+    def send_store_request(self, peer_pub_key:str, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 
-         # Create a socket object
+        # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         try:
@@ -976,7 +1052,7 @@ class Server(object):
             client_socket.connect((peer_ip_address, self.port))
 
             # Log
-            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{self.port}"')
             
             # Construct an initial message to send
             message = json.dumps({
@@ -1064,7 +1140,7 @@ class Server(object):
                 new_csv_row(
                     os.path.join(self.data_dir_path, 'currently-storing-with.csv'),
                     {
-                        'peer_pub_key': strip_pem_headers(self.pub_key_pem),
+                        'peer_pub_key': strip_pem_headers(peer_pub_key),
                         'filename': filename,
                         'size_gb': bytes_to_gb(len(encrypted_file_contents)),
                         'sha256': hash_bytes_sha256(base64.b64decode(encrypted_file_contents)),
@@ -1080,10 +1156,10 @@ class Server(object):
         finally:
             # Close the connection
             client_socket.close()
-            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_share_request(): \033[0mConnection closed")
+            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_store_request(): \033[0mConnection closed")
 
     
-    def send_delete_request(self, peer_ip_address:str, filename:str, encrypted_file_hash:str) -> None: 
+    def send_delete_request(self, peer_pub_key:str, peer_ip_address:str, filename:str, encrypted_file_hash:str) -> None: 
         """Sends a delete request to the given client address, and tells the remote peer to delete the file if ID check is passed."""
 
         # TODO Step 0: Send basic packet with this client's public key, common name, mac last four, and send share req code (unencrypted packet)
@@ -1094,4 +1170,108 @@ class Server(object):
         # TODO Step 2: encrypt message 
         # TODO Step 3: Send encrypted message ... 
 
-        raise NotImplementedError
+        # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        try:
+
+            # TODO Step 0: Send basic packet with 
+            # this client's public key, 
+            # common name, 
+            # mac last four, 
+            # and send share req code (unencrypted packet)
+
+            # Connect to the server
+            # NOTE: all peers use the same port for their backend server
+            client_socket.connect((peer_ip_address, self.port))
+
+            # Log
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending delete request to "{peer_ip_address}:{self.port}"')
+            
+            # Construct an initial message to send
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four,
+                'code': self.DEL_FILE_CODE
+            })
+
+            # Send the message
+            client_socket.send(message.encode())
+
+            # Receive handshake data from the server
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mreceived response from peer (presumed ID check)\033[0m')
+            response = json.loads(client_socket.recv(self.BUFF))
+            
+            # Complete the ID check
+            passcode = decrypt_message(self.priv_key_pem, response['data'])
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'code': self.RESP_IDC_CODE,
+                'data': encrypt_message(response['public_key_pem'], passcode)
+            })
+
+            # Send the ID check response
+            client_socket.send(message.encode())          
+
+            # Create a message with the file contents
+            message = json.dumps({
+                'common_name': self.common_name,
+                'public_key_pem': self.pub_key_pem[26:-25], # Note: it is adding the being key and ending key part 
+                'filename': filename,
+                'encrypted_file_hash': encrypted_file_hash
+            })
+
+            print("pub_key: ", self.pub_key_pem[26:-25])
+            print("filename:", filename)
+
+            # Encrypt the message with the file data
+            enc_message:dict = encrypt_message(response['public_key_pem'], message)
+
+            # Prepare the message
+            message_bytes:bytes = json.dumps(enc_message).encode()
+            message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
+
+            # Send length first, then messagesymn_aes_key
+            client_socket.sendall(message_length + message_bytes)
+
+            # Wait for response
+            response = json.loads(client_socket.recv(self.BUFF))
+            result = decrypt_message(self.priv_key_pem, response['data'])
+
+            print("This is result: ", result)
+
+            # Handle the response message
+            # Some unknown error occured on the receiving server
+            if(result == "Error occurred"): raise Exception('An unknown error occured and receiving server was unable to process the request.')
+            
+            # File already exists on the recieving server
+            elif(result == "File not found"): raise FileNotFoundError('Recieving server can not find a file with the same name.')
+            elif(result == "Hash mismatch"): raise Exception('Recieving server has a file with the same name, but the hash does not match.')
+            else: 
+
+                # Log
+                print(f'\033[0m[{now()}] \033[92mSUCCESS: \033[0mSuccessfully deleted file "{filename}" with peer IP "{peer_ip_address}"')
+
+                # Add a new row for the new shared file in the previously shared with CSV
+                delete_csv_row( 
+                    os.path.join(self.data_dir_path, 'currently-storing-with.csv'),
+                    {
+                        'peer_pub_key'
+                        'filename'
+                    },
+                    {
+                        peer_pub_key,
+                        filename
+                    }
+                )
+        
+        # Handle exceptions
+        except Exception as e:
+            print(f"\033[91mERROR in Server.send_delete_request(): \033[0m{e.__class__}", e)
+
+        # When everything is done, close the connection
+        finally:
+            # Close the connection
+            client_socket.close()
+            print(f"\033[0m[{now()}] \033[93mNOTICE from Server.send_delete_request(): \033[0mConnection closed")
