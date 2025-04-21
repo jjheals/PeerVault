@@ -348,7 +348,8 @@ def init_application():
         current_app.network_config['network']['IFACE'],             # mcast_iface
         current_app.network_config['multicast']['MCAST_PORT'],      # mcast_port
         current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
-        'peer-info/'                                                # data_dir_path
+        'peer-info/',                                               # data_dir_path
+        current_app.identity_config['PATHS']['peer_storage_path']
     )
     
     # TODO: call server.send_mcast_hello()
