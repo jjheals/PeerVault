@@ -12,7 +12,7 @@ from time import sleep
 
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, update_peer_info, write_to_file,  \
         hash_bytes_sha256, sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
-        get_mac_address
+        get_mac_address, cn_from_pub_key
 
 
 class Server(object):
@@ -362,7 +362,34 @@ class Server(object):
                     
                     # Do not respond
                     pass
+            
+            # Handle retrieve file code (peer wants the contents of a stored file)
+            case Server.RETR_FILE_CODE:
 
+                 # Do identity check
+                id_check_result:bool = self.initiate_identity_check(
+                    connection, 
+                    peer_pub_key_pem, 
+                    addr[0]
+                )  
+
+                # If ID check pass, handle the discovery request
+                if id_check_result: 
+                    self.handle_retrieve_request(
+                        connection,
+                        strip_pem_headers(peer_pub_key_pem),
+                        cn_from_pub_key(strip_pem_headers(peer_pub_key_pem)),
+                        message_json['filename']
+                    )
+                    
+                # If ID check failed, do not respond
+                else: 
+                    # Log
+                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for SHARE_REQ code).')
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    
+                    # Do not respond
+                    pass
             # Handle other code (invalid)
             case _: 
 
@@ -761,7 +788,7 @@ class Server(object):
         connection.send(json.dumps(outgoing_message).encode())
 
 
-    def handle_retrieve_request(self, connection:socket.socket, peer_public_key:str, peer_cn:str, filename:str) -> None: 
+    def handle_retrieve_request(self, connection:socket.socket, peer_pub_key_pem:str, peer_cn:str, filename:str) -> None: 
         """Handles incoming requests for retrieving the contents of a stored file. 
         
             Parameters: 
@@ -777,24 +804,36 @@ class Server(object):
         requested_file_path:str = os.path.join(self.peer_storage_dir, peer_cn, filename)
 
         # Make sure the path exists 
-        if not os.path.exists(requested_file_path): raise Exception(f'The given file path "{requested_file_path}" does not exist.')
+        if not os.path.exists(requested_file_path):
+
+            # Send back an error message
+            message_data:str = json.dumps({
+                'error': f'The given file name "{filename}" does not exist for peer "{peer_cn}"', 
+            })
+
+            # Prepare the outgoing message to be sent to the client
+            outgoing_message: dict = {
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, message_data)
+            }
+        
+            # Send the encrypted message to the client
+            connection.send(json.dumps(outgoing_message).encode())
 
         # Read the file to get the (encrypted) contents
         with open(requested_file_path, 'rb') as file:
             encrypted_file_contents:bytes = file.read()
-
-        # Create a message with the file contents
-        message = json.dumps({
+        
+        # Prepare the outgoing message to be sent to the client
+        outgoing_message: dict = {
+            'code': Server.DONE_CODE,
             'public_key_pem': self.pub_key_pem,
-            'filename': filename,
-            'encrypted_file': encrypted_file_contents,
-        })
-
-        # Encrypt the message with the file data
-        enc_message:dict = encrypt_message(peer_public_key, message)
+            'data': encrypt_message(peer_pub_key_pem, encrypted_file_contents)
+        }
 
         # Prepare the message
-        message_bytes:bytes = json.dumps(enc_message).encode()
+        message_bytes:bytes = json.dumps(outgoing_message).encode()
         message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
 
         # Send length first, then message
@@ -803,7 +842,7 @@ class Server(object):
         # Close the connection 
         connection.close()
 
-        
+
     # ---- Methods related to SENDING INFO TO OTHER PEERS ---- #
     # NOTE: the reverse methods of "Methods that HANDLE INCOMING REQUESTS" 
 
@@ -1140,7 +1179,7 @@ class Server(object):
         raise NotImplementedError
 
 
-    def retrieve_stored_file(self, peer_pub_key:str, peer_ip_address:str, filename:str, tmp_store_path:str) -> str: 
+    def send_retrieve_request(self, peer_pub_key:str, peer_ip_address:str, filename:str, tmp_store_path:str) -> str: 
         """Sends a request to retrieve a file that is currently stored with a peer and saves the contents of the file to the given 
         tmp_store_path, and returns the full file path of the stored file. NOTE: does not request the peer to delete the file,
         just retrieves the file from the peer, decrypts it, and returns the file contents."""
@@ -1193,12 +1232,35 @@ class Server(object):
             
             # Success 
             else: 
+                
+                 # Create a message with the file name we want
+                message = json.dumps({
+                    'public_key_pem': self.pub_key_pem,
+                    'filename': filename
+                })
 
-                # Log
-                self.logger.log(f'in retrieve_stored_file(): successfully retrieved file "{filename}" from "{peer_ip_address}".')
+                # Encrypt the message with the file data
+                enc_message:dict = encrypt_message(response['public_key_pem'], message)
+
+                # Prepare the message
+                message_bytes:bytes = json.dumps(enc_message).encode()
+                message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
+
+                # Send length first, then message
+                client_socket.sendall(message_length + message_bytes)
+
+                # Wait for response
+                response = json.loads(client_socket.recv(self.BUFF))
+                result = decrypt_message(self.priv_key_pem, response['data'])
+                
+                # Make sure req was successful 
+
 
                 # Extract the encrypted file contents
                 encrypted_file_contents:str = result['encrypted_file']
+
+                # Log
+                self.logger.log(f'in retrieve_stored_file(): successfully retrieved file "{filename}" from "{peer_ip_address}".')
 
                 # Read the currently storing with CSV to get the nonce for decrypting 
                 curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
