@@ -129,3 +129,21 @@ def new_csv_row(csv_path:str, new_entry:dict) -> None:
     
     except Exception as e: 
         print(f'\033[91mERROR in data_utils new_csv_row(): \033[0m{e.__class__}', e)
+
+
+def delete_csv_row(csv_path:str, primary_key_cols:tuple|list, primary_key_vals:tuple|list) -> None: 
+    """Deletes the row with the given primary key matches. NOTE: assumes only one match to be found."""
+
+    # Read the given csv
+    df:pd.DataFrame = pd.DataFrame(csv_path)
+
+    # Build a boolean mask where each column in primary_key_cols matches the corresponding value in primary_key_vals
+    mask:pd.Series = pd.Series([True] * len(df))
+    for col, val in zip(primary_key_cols, primary_key_vals):
+        mask &= (df[col] == val)
+
+    # Drop the row(s) that match the mask
+    df = df[~mask]
+
+    # Save back to CSV 
+    df.to_csv(csv_path, index=False)
