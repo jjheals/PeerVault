@@ -52,7 +52,8 @@ server:Server = Server(
     IFACE,                  # mcast_iface
     MCAST_PORT,             # mcast_port
     MCAST_GRP,              # mcast_group
-    '../../peer-info/'      # data_dir_path
+    '../../peer-info/',     # data_dir_path
+    '.'                     # peer_storage_path
 )
 
 
