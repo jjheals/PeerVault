@@ -1,10 +1,4 @@
 
-"""
-TODO: 
-    - Check dig signature in handle_*_request() funcs
-
-"""
-
 import logging 
 import socket
 import struct
@@ -664,9 +658,23 @@ class Server(object):
         # Decode the file content 
         decoded_encrypted_file_content:str = base64.b64decode(encoded_file_content)
 
-        # Extract the peer's pub key pem from the response dict
+        # Extract the peer's pub key pem and the digital signature from the response dict
         peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
+        signature_str:str = response_plaintext_dict['signature']
 
+        # Verify the digital signature
+        if not verify_signature(peer_pub_key_pem, decoded_encrypted_file_content, signature_str):
+
+            # Send a failure message back to the peer
+            connection.send({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Failed digital signature.')
+            })
+
+            # Do nothing else
+            return 
+        
         # Construct the target directory path
         target_directory:str = response_plaintext_dict['common_name']
 
@@ -849,18 +857,12 @@ class Server(object):
         
         try:
 
-            # TODO Step 0: Send basic packet with 
-            # this client's public key, 
-            # common name, 
-            # mac last four, 
-            # and send share req code (unencrypted packet)
-
             # Connect to the server
             # NOTE: all peers use the same port for their backend server
             client_socket.connect((peer_ip_address, self.port))
 
             # Log
-            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{self.port}"')
             
             # Construct an initial message to send
             message = json.dumps({
@@ -960,23 +962,17 @@ class Server(object):
     def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 
-         # Create a socket object
+        # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         try:
-
-            # TODO Step 0: Send basic packet with 
-            # this client's public key, 
-            # common name, 
-            # mac last four, 
-            # and send share req code (unencrypted packet)
 
             # Connect to the server
             # NOTE: all peers use the same port for their backend server
             client_socket.connect((peer_ip_address, self.port))
 
             # Log
-            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{peer_port}"')
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{self.port}"')
             
             # Construct an initial message to send
             message = json.dumps({
@@ -1095,3 +1091,96 @@ class Server(object):
         # TODO Step 3: Send encrypted message ... 
 
         raise NotImplementedError
+
+
+    def retrieve_stored_file(self, peer_pub_key:str, peer_ip_address:str, filename:str, tmp_store_path:str) -> str: 
+        """Sends a request to retrieve a file that is currently stored with a peer and saves the contents of the file to the given 
+        tmp_store_path, and returns the full file path of the stored file. NOTE: does not request the peer to delete the file,
+        just retrieves the file from the peer, decrypts it, and returns the file contents."""
+
+        # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        try:
+
+            # Connect to the server
+            # NOTE: all peers use the same port for their backend server
+            client_socket.connect((peer_ip_address, self.port))
+
+            # Log
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0msending share request to "{peer_ip_address}:{self.port}"')
+            
+            # Construct an initial message to send
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four,
+                'code': self.STORE_REQ_CODE
+            })
+
+            # Send the message
+            client_socket.send(message.encode())
+
+            # Receive handshake data from the server
+            print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mreceived response from peer (presumed ID check)\033[0m')
+            response = json.loads(client_socket.recv(self.BUFF))
+            
+            # Complete the ID check
+            passcode = decrypt_message(self.priv_key_pem, response['data'])
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'code': self.RESP_IDC_CODE,
+                'data': encrypt_message(response['public_key_pem'], passcode)
+            })
+
+            # Send the ID check response
+            client_socket.send(message.encode())
+
+            # Wait for response
+            response = json.loads(client_socket.recv(self.BUFF))
+            result = decrypt_message(self.priv_key_pem, response['data'])
+
+            # Handle the response message
+            # Some unknown error occured on the receiving server
+            if(result['error'] and result['error'] == "Error occured"): raise Exception('An unknown error occured and receiving server was unable to process the request.')
+            
+            # Success 
+            else: 
+
+                # Log
+                self.logger.log(f'in retrieve_stored_file(): successfully retrieved file "{filename}" from "{peer_ip_address}".')
+
+                # Extract the encrypted file contents
+                encrypted_file_contents:str = result['encrypted_file']
+
+                # Read the currently storing with CSV to get the nonce for decrypting 
+                curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
+
+                # Get the row that matches the peer pub key and filename 
+                matched_row:pd.DataFrame = curr_storing_with_df.loc[
+                    (curr_storing_with_df['peer_pub_key'] == peer_pub_key) & 
+                    (curr_storing_with_df['filename'] == filename)
+                ].iloc[0]
+
+                # Decode and decrypt the contents 
+                decrypted_file_contents:bytes = decrypt_bytes_with_aes(
+                    {
+                        'nonce': matched_row['nonce'],
+                        'ciphertext': encrypted_file_contents
+                    },
+                    self.symm_aes_key
+                )
+                
+                # Save the file
+                os.makedirs(tmp_store_path, exist_ok=True)
+
+                with open(os.path.join(tmp_store_path, filename)) as file: 
+                    file.write(decrypted_file_contents)
+
+                # Return the full path
+                return os.path.join(tmp_store_path, filename)
+            
+        # Handle exceptions
+        except Exception as e:
+            self.logger.error(f'in Server.retrieve_stored_file(): \033[0m{e.__class__}", {e}')
+            return ''

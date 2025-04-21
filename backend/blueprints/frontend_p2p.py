@@ -5,12 +5,13 @@ TODO:
 """
 
 import json
-from flask import Blueprint, jsonify, g, current_app, request, abort
+from flask import Blueprint, jsonify, g, current_app, request, abort, send_file
 import os 
 import pandas as pd
 import numpy as np 
 import pandas as pd
 import datetime as dt 
+from io import BytesIO
 
 from utils import new_csv_row, bytes_to_gb, hash_bytes_sha256
 from objects import Server 
@@ -382,11 +383,10 @@ def delete_file():
     # Get the row that matches this public key
     row:np.ndarray = all_peers_df.loc[all_peers_df['peer_pub_key'] == peer_pub_key]
     
-    # Get the most recent IP, online status, and hash if a match was found
+    # Get the most recent IP and online status
     if row and not row.empty:
         peer_ip:str = row.iloc[0]['most_recent_ip']
         peer_online_status:bool = row.iloc[0]['online']    
-        file_hash:str = row.iloc[0]['sha256']
         peer_cn:str = row.iloc[0]['common_name']            # NOTE: peer common name is only used for returning a status message
     else: 
         # No match was found, return HTTP 406 (Not Acceptable) 
@@ -410,7 +410,6 @@ def delete_file():
     # Peer is OFFLINE
     if not peer_online_status: 
 
-            
         # Add a row to the outgoing requests CSV
         new_csv_row(
             'requests/outgoing.csv',
@@ -438,9 +437,10 @@ def delete_file():
             
             # Call server.send_delete_request() to send the request
             server.send_delete_request(
+                peer_pub_key,
                 peer_ip,
                 filename,
-                file_hash
+                file_hash=matched_row.iloc[0]['sha256']
             )
             
             # Notify frontend that the request was successful
@@ -453,4 +453,137 @@ def delete_file():
             print(f'\033[91mERROR in fi_bp.store_file(): \033[0mthere was an error sending the delete request for file "{filename}" to peer "{peer_cn}". Exception: ', e)
             return jsonify({'error': 'An error occured during file store request. Error: ' + str(e)}), 500
             
-            
+
+@fe_p2p_bp.route('/ui/retrieve-stored-file', methods=['GET'])
+@require_localhost
+def retrieve_stored_file(): 
+    """
+        DESC: sends a request to the given peer to retrieve the contents of the given filename.
+
+        ARGUMENTS: 
+            peer_pub_key (str): the public key of the peer storing the file.
+            filename (str): the filename to retrieve.
+        
+        RETURNS: 
+            - 200 | successful: (blob) the requested file.
+            - 400 | bad request: if the user fails to supply the required data OR if the provided data is invalid, or if the server is not initialized.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if there is an error from the peer processing the request, which likely means they did not find the file.
+            - 406 | not acceptable: if a peer with the given public key is not found OR the given peer is not storing the given filename. 
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+    
+    # Make sure server is initialized
+    server:Server = current_app.server
+    if not server: abort(400)
+
+    # Extract the arguments from the request 
+    peer_pub_key:str = request.args.get('peer_pub_key', None)
+    filename:str = request.args.get('filename', None)
+
+    # Verify that the required args were given
+    if not (peer_pub_key and filename): 
+        return jsonify({
+            'error': 'Missing required arguments.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
+        }), 400
+    
+    # Read the currently storing with CSV to verify that the peer is actually storing the file
+    curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv') 
+
+    # Find the matching row
+    matched_row:pd.DataFrame = curr_storing_with_df.loc[
+        (curr_storing_with_df['peer_pub_key'] == peer_pub_key) & 
+        (curr_storing_with_df['filename'] == filename)
+    ]
+
+    # Check that we found a match
+    if not matched_row or matched_row.empty: 
+        return jsonify({
+            'error': 'The given peer is not storing the given file.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
+        }), 406
+    else: 
+
+        # If we got a match, extract the first row 
+        matched_row = matched_row.iloc[0]
+
+    # Read the all peers df to get the IP of this peer
+    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
+
+    # Get the row that matches this public key
+    peer_row:pd.DataFrame = all_peers_df.loc[all_peers_df['peer_pub_key'] == peer_pub_key]
+    
+    # Get the most recent IP and online status if a match was found
+    if peer_row and not peer_row.empty:
+        peer_ip:str = peer_row.iloc[0]['most_recent_ip']
+        peer_online_status:bool = peer_row.iloc[0]['online']    
+        peer_cn:str = peer_row.iloc[0]['common_name']            # NOTE: peer common name is only used for returning a status message
+    else:
+
+        # No matches mean that the peer doesn't exist 
+        return jsonify({
+            'error': 'There is no peer with the given public key.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
+        })
+    
+    # Check if the peer is online 
+    # Peer is ONLINE
+    if peer_online_status:
+        
+        # Send the request to retrieve the file
+        try: 
+            tmp_file_path:str = server.retrieve_stored_file(
+                peer_pub_key,
+                peer_ip,
+                filename,
+                current_app.identity_config['PATHS']['tmp_storage_path']
+            )
+
+            # Check if we got something back
+            if not tmp_file_path: raise Exception('The peer did not return any file contents.')
+
+        # Handle exceptions 
+        except Exception as e: 
+            return jsonify({
+                'error': 'An error occured while the peer was processing the request',
+                'message': f'{e.__class__} - {e}'
+            })
+        
+        # Send the file back to the frontend
+        return send_file(
+            tmp_file_path,          
+            as_attachment=True  # Force download prompt
+        )
+        
+    # Peer is OFFLINE
+    else: 
+
+        # Queue the message 
+        # Add a row to the outgoing requests CSV
+        new_csv_row(
+            'requests/outgoing.csv',
+            {
+                'peer_pub_key': peer_pub_key,
+                'file': filename,
+                'upload_type': 'Retrieve', 
+                'size': -1,
+                'date': dt.datetime.now().strftime('%d-%m-%Y'),
+                'sha256': matched_row['sha256']
+            }
+        )
+
+        # Return a status message to the frontend 
+        return jsonify({
+            'status': 200,
+            'message': f'Request to retrieve file from "{peer_cn}" is queued for the next time the peer is online.'
+        })

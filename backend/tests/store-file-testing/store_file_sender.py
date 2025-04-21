@@ -65,7 +65,6 @@ target_ip:str = input('\033[93mEnter the target IPv4 address: \033[0m')
 # Send the request
 server.send_store_request(
     target_ip,
-    5000,
     open('../../../test-data/test.txt', 'rb').read(),
     'test.txt'
 
