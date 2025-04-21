@@ -24,7 +24,8 @@ class Server(object):
     priv_key_pem:str            # This client's private key (with PEM headers)
     symm_aes_key:str            # The symmetric key used for encrypting/decrypting STORED files (b64 encoded, for bytes do base64.b64decode(self.symm_aes_key))
     data_dir_path:str           # Path to the directory containing the CSVs (all-peers.csv, etc...)
-    
+    peer_storage_dir:str        # Path to the directory that contains all peer's stored files (defined in identity config)
+
     # STATIC ATTRIBUTES
     DISC_CODE:str = "000"       # Code for a discovery message
     INIT_IDC_CODE:str = "011"   # Code for initiating an identity check
@@ -32,6 +33,7 @@ class Server(object):
     SHARE_REQ_CODE:str = "101"  # Code for requesting to share a file
     STORE_REQ_CODE:str = "102"  # Code for requesting to store a file
     DEL_FILE_CODE:str = "103"   # Code for requesting to delete a file
+    RETR_FILE_CODE:str = "104"  # Code for requesting to retrieve a file
     DONE_CODE:str = "900"       # Code for saying "everything is good, close the connection"
     FAIL_CODE:str = "999"       # Code for failing a verification process (e.g. dig signature)
     BUFF:int = 2048             # Buffer for requests
@@ -49,7 +51,8 @@ class Server(object):
         mcast_iface:str,
         mcast_port:int,
         mcast_group:str,
-        data_dir_path:str
+        data_dir_path:str,
+        peer_storage_dir:str
     ):
         self.pub_key_pem = pub_key_pem
         self.priv_key_pem = priv_key_pem
@@ -62,6 +65,7 @@ class Server(object):
         self.mcast_group = mcast_group
         self.data_dir_path = data_dir_path
         self.mac_last_four = get_mac_address()[-4:]
+        self.peer_storage_dir = peer_storage_dir
 
         # Init the connection
         self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -757,6 +761,49 @@ class Server(object):
         connection.send(json.dumps(outgoing_message).encode())
 
 
+    def handle_retrieve_request(self, connection:socket.socket, peer_public_key:str, peer_cn:str, filename:str) -> None: 
+        """Handles incoming requests for retrieving the contents of a stored file. 
+        
+            Parameters: 
+                connection (socket.socket): the socket connection.
+                peer_pub_key (str): public key of the peer that initiated the request.
+                filename (str): the name of the file that the peer is requesting back.
+
+            Returns: 
+                None: sends the file contents (or an error) back to the requesting peer over the given connection.
+        """
+
+        # Construct a path to the requested file
+        requested_file_path:str = os.path.join(self.peer_storage_dir, peer_cn, filename)
+
+        # Make sure the path exists 
+        if not os.path.exists(requested_file_path): raise Exception(f'The given file path "{requested_file_path}" does not exist.')
+
+        # Read the file to get the (encrypted) contents
+        with open(requested_file_path, 'rb') as file:
+            encrypted_file_contents:bytes = file.read()
+
+        # Create a message with the file contents
+        message = json.dumps({
+            'public_key_pem': self.pub_key_pem,
+            'filename': filename,
+            'encrypted_file': encrypted_file_contents,
+        })
+
+        # Encrypt the message with the file data
+        enc_message:dict = encrypt_message(peer_public_key, message)
+
+        # Prepare the message
+        message_bytes:bytes = json.dumps(enc_message).encode()
+        message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
+
+        # Send length first, then message
+        connection.sendall(message_length + message_bytes)
+
+        # Close the connection 
+        connection.close()
+
+        
     # ---- Methods related to SENDING INFO TO OTHER PEERS ---- #
     # NOTE: the reverse methods of "Methods that HANDLE INCOMING REQUESTS" 
 
@@ -1129,7 +1176,7 @@ class Server(object):
             passcode = decrypt_message(self.priv_key_pem, response['data'])
             message = json.dumps({
                 'public_key_pem': self.pub_key_pem,
-                'code': self.RESP_IDC_CODE,
+                'code': self.RETR_FILE_CODE,
                 'data': encrypt_message(response['public_key_pem'], passcode)
             })
 
