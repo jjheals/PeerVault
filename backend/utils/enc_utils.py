@@ -17,6 +17,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .general import now
+from .data_utils import normalize_string
 
 
 def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
@@ -206,11 +207,6 @@ def decrypt_message(private_key_pem:str, encrypted_data:dict) -> str:
     decoded_bytes = plaintext_bytes.decode()
 
     return decoded_bytes
-
-
-def strip_pem_headers(pem_str:str) -> str:
-    """Strips the leading and trailing "----- * KEY -----" from the given key PEM string."""
-    return re.sub(r'-----.*?-----', '', pem_str).strip()
 
 
 def sign_file(priv_key_pem_str:str, file_data:bytes) -> str:

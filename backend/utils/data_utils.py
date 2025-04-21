@@ -1,8 +1,7 @@
-import csv 
+import re 
 import pandas as pd 
 
 import pandas as pd 
-from .enc_utils import strip_pem_headers
 
 
 def update_peer_info(peer_public_key:str, csv_path:str, peer_info:dict[str, str|bool]) -> None: 
@@ -120,7 +119,7 @@ def new_csv_row(csv_path:str, new_entry:dict) -> None:
         df = pd.concat([
             df,
             pd.DataFrame({
-                k : [v] for k,v in new_entry.items()
+                k : [normalize_string(v)] if isinstance(v, str) else v for k,v in new_entry.items() 
             })
         ])
         
@@ -133,17 +132,56 @@ def new_csv_row(csv_path:str, new_entry:dict) -> None:
 
 def delete_csv_row(csv_path:str, primary_key_cols:tuple|list, primary_key_vals:tuple|list) -> None: 
     """Deletes the row with the given primary key matches. NOTE: assumes only one match to be found."""
+    
+    # Read the given csv and take the cols of interest
+    df:pd.DataFrame = pd.read_csv(csv_path)
 
-    # Read the given csv
-    df:pd.DataFrame = pd.DataFrame(csv_path)
-
-    # Build a boolean mask where each column in primary_key_cols matches the corresponding value in primary_key_vals
-    mask:pd.Series = pd.Series([True] * len(df))
+    # Construct condition
+    condition = pd.Series(True, index=df.index)
     for col, val in zip(primary_key_cols, primary_key_vals):
-        mask &= (df[col] == val)
 
-    # Drop the row(s) that match the mask
-    df = df[~mask]
+        # NOTE: normalize the values to remove newlines and other esc chars
+        condition &= df[col].astype(str).str.replace(r'\s+', '', regex=True) == str(val).replace('\n', '').replace('\r', '').replace(' ', '')
 
-    # Save back to CSV 
-    df.to_csv(csv_path, index=False)
+    # Find matching rows
+    matched_rows = df.loc[condition]
+    
+    print('matched_rows: ', matched_rows)
+
+    # Verify just one row matched
+    if len(matched_rows) != 1:
+        raise ValueError(f"IN delete_csv_row(): Expected exactly 1 matching row, found {len(matched_rows)}")
+
+    # Create a new df and resave
+    new_df:pd.DataFrame = df.loc[~condition]
+    new_df.to_csv(csv_path, index=False)
+
+
+def normalize_string(value: str, lowercase: bool = False) -> str:
+    """
+    Normalizes a string for comparison:
+    - Removes all whitespace characters (spaces, tabs, newlines, etc.)
+    - Optionally converts to lowercase
+
+    Parameters:
+        value (str): The string to normalize
+        lowercase (bool): Whether to convert to lowercase (default: False)
+
+    Returns:
+        str: The normalized string
+    """
+    if not isinstance(value, str):
+        value = str(value)
+
+    # Remove all whitespace (space, newline, tab, etc.)
+    normalized = re.sub(r'\s+', '', value)
+
+    if lowercase:
+        normalized = normalized.lower()
+
+    return normalized
+
+
+def strip_pem_headers(pem_str:str) -> str:
+    """Strips the leading and trailing "----- * KEY -----" from the given key PEM string."""
+    return normalize_string(re.sub(r'-----.*?-----', '', pem_str).strip())
