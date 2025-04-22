@@ -64,18 +64,6 @@ export default function Home() {
       });
     }, [redraw]);
 
-
-    function extractBase64Key(pubKey: string): string {
-      const trimmed = pubKey.trim();
-      
-      if (trimmed.startsWith("-----BEGIN PUBLIC KEY-----") && trimmed.endsWith("-----END PUBLIC KEY-----")) {
-        const lines = trimmed.split('\n');
-        return lines.slice(1, -1).join('');
-      }
-    
-      return trimmed;
-    }
-
     // Get the identity of the User on this device...
     React.useEffect(() =>{
       instance
@@ -83,7 +71,7 @@ export default function Home() {
       .then(function (response){
 
         if(response.data["common_name"] != ""){
-          response.data.pub_key = extractBase64Key(response.data.pub_key)
+          response.data.pub_key = response.data.pub_key
           setIdentity(response.data);
           console.log(response.data)
           setVerifiedUser(true);

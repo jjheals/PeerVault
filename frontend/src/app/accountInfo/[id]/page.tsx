@@ -23,17 +23,6 @@ export default function Home() {
   const [sharedStorage, setSharedStorage] = React.useState(0.0);
   // a list of json objects with a user name and the total amount of data stored in each of three categories
   const [userData, setUserData] = React.useState({});
-
-  function extractBase64Key(pubKey: string): string {
-    const trimmed = pubKey.trim();
-    
-    if (trimmed.startsWith("-----BEGIN PUBLIC KEY-----") && trimmed.endsWith("-----END PUBLIC KEY-----")) {
-      const lines = trimmed.split('\n');
-      return lines.slice(1, -1).join('');
-    }
-  
-    return trimmed;
-  }
   
   function retreiveIdentity(setIdentity:any) {
       instance
@@ -41,7 +30,7 @@ export default function Home() {
       .then(function (response) {
           let data = response.data;
           console.log(data);
-          setIdentity(new User(extractBase64Key(data.pub_key), data.common_name, data.mac, data.ip));
+          setIdentity(new User(data.pub_key, data.common_name, data.mac, data.ip));
       })
       .catch (function (error) {
           console.log("errored:", error)
@@ -62,7 +51,7 @@ export default function Home() {
     .then(function (response){
       const userDataMap = response.data.user_data;
       const matchingKey = Object.keys(userDataMap).find((key) => {
-        return extractBase64Key(key) === identity.pub_key;
+        return key === identity.pub_key;
       });
 
       if (matchingKey) {

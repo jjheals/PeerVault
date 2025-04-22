@@ -18,7 +18,7 @@ import base64
 import json
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers, \
-    generate_asymm_keys, gen_aes_key, load_aes_key
+    generate_asymm_keys, gen_aes_key, load_aes_key, strip_pem_headers, normalize_string
 
 from objects import Server 
 from .funcs import require_localhost
@@ -187,7 +187,7 @@ def whoami():
         
     # Create a dict, jsonify and return 
     return jsonify({
-        'pub_key': pub_key,
+        'pub_key': strip_pem_headers(pub_key),
         'common_name': identity_config['IDENTITY']['COMMON_NAME'],
         'mac': identity_config['IDENTITY']['MAC'],
         'ip': identity_config['IDENTITY']['IP'],

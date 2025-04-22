@@ -24,16 +24,42 @@ export default function Home() {
   const [redraw, forceRedraw] = React.useState(0);
   const [requestData, setRequestData] = React.useState([]);
 
-    React.useEffect(() =>{
-      instance
-      .get("/ui/get-pending-requests")
-      .then(function (response){
-        setRequestData(response.data.incoming_requests)
-      })
-      .catch (function (error) {
-        console.error("errored:", error)
-      });
-    }, [redraw]);
+  function refresh() {
+    forceRedraw(redraw + 1);
+  }
+
+  React.useEffect(() =>{
+    instance
+    .get("/ui/get-pending-requests")
+    .then(function (response){
+      setRequestData(response.data.incoming_requests)
+    })
+    .catch (function (error) {
+      console.error("errored:", error)
+    });
+  }, [redraw]);
+
+  function acceptRequest(req:any){
+    const formData = new FormData();
+
+    formData.append("peer_pub_key", req.peer_pub_key);
+    formData.append("file", req.file);
+    formData.append("send_method", req.upload_type);
+    formData.append("size", req.size);
+    formData.append("sha256", req.sha256);
+    formData.append("date", req.date)
+
+    instance
+    .post("/ui/reupload-data", formData, {headers: {"Content-Type": "multipart/form-data",},})
+    .then(function (response){
+      // ...
+    })
+    .catch (function (error) {
+      console.error("errored:", error)
+    });
+
+    refresh()
+  }
 
   const SentRequestTable: React.FC = () => {
         return (
