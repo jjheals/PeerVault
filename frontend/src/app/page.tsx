@@ -22,7 +22,7 @@ export default function Home() {
     const [files, setFiles] = React.useState<any[]>([]);
     const [recipient, setRecipient] = React.useState("");
     const [users, setUsers] = React.useState<any[]>([]);
-    const [identity, setIdentity] = React.useState("");
+    const [identity, setIdentity] = React.useState({});
     const [verifiedUser, setVerifiedUser] = React.useState(false)
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
@@ -65,6 +65,17 @@ export default function Home() {
     }, [redraw]);
 
 
+    function extractBase64Key(pubKey: string): string {
+      const trimmed = pubKey.trim();
+      
+      if (trimmed.startsWith("-----BEGIN PUBLIC KEY-----") && trimmed.endsWith("-----END PUBLIC KEY-----")) {
+        const lines = trimmed.split('\n');
+        return lines.slice(1, -1).join('');
+      }
+    
+      return trimmed;
+    }
+
     // Get the identity of the User on this device...
     React.useEffect(() =>{
       instance
@@ -72,7 +83,9 @@ export default function Home() {
       .then(function (response){
 
         if(response.data["common_name"] != ""){
-          setIdentity(response.data["common_name"]);
+          response.data.pub_key = extractBase64Key(response.data.pub_key)
+          setIdentity(response.data);
+          console.log(response.data)
           setVerifiedUser(true);
         }else{
           setVerifiedUser(false)
@@ -88,8 +101,8 @@ export default function Home() {
       instance
       .get("/ui/get-pending-requests")
       .then(function (response){
-        const outgoing = response.data["outgoingRequests"] || [];
-        const incoming = response.data["incomingRequests"] || [];
+        const outgoing = response.data["outgoing_requests"] || [];
+        const incoming = response.data["incoming_requests"] || [];
         setNumSendReq(outgoing.length);
         setNumIncomingReq(incoming.length);
       })
@@ -205,6 +218,7 @@ export default function Home() {
           publicKey: key,
           ...value, // Spread the rest of the data
         }));
+        console.log(userDataArray)
         setUserData(userDataArray)
       })
       .catch (function (error) {
@@ -300,14 +314,16 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {userData.map((user) => (
+              {userData
+                .filter(user => user.publicKey !== identity.pub_key)
+                .map((user) => (
                 <tr key={user.publicKey} className="hover:bg-gray-100">
                   <td className="border p-2">{user.common_name}</td>
-                  <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
-                  <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
-                  <td className="border p-2">{user.storage_data.shared} Bytes</td>
+                  <td className="border p-2">{user.storage_data.stored_remotely} GB</td>
+                  <td className="border p-2">{user.storage_data.stored_locally} GB</td>
+                  <td className="border p-2">{user.storage_data.shared} GB</td>
                   <td className="border p-2"> 
-                    <a href={`/history/${identity}/${user.common_name}`} className="hover" title="Detailed View">
+                    <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
                         <Image
                           className="dark"
                           src="/info-circle-svgrepo-com.svg"
@@ -381,7 +397,7 @@ export default function Home() {
                 ): null}
               </div>
               <div className="icon-padding"></div>
-              <a href={`/accountInfo/${identity}`} className="hover" title="Account Settings">
+              <a href={`/accountInfo/${identity.common_name}`} className="hover" title="Account Settings">
                   <Image
                     className="dark"
                     src="/settings-2-svgrepo-com.svg"
@@ -397,7 +413,7 @@ export default function Home() {
         
         {verifiedUser && (
             <div className = "subtitleText">              
-                Welcome, {identity}
+                Welcome, {identity.common_name}
             </div>
           )}
 

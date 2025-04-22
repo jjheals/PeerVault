@@ -77,40 +77,6 @@ export default function Home() {
     });
   }, [redraw, identity]);
 
-  // React.useEffect(() =>{
-  //   instance
-  //   .get("/ui/get-shared-storage")
-  //   .then(function (response){
-  //     setSharedStorage(response.data.storage);
-  //   })
-  //   .catch (function (error) {
-  //     console.log("errored:", error)
-  //   });
-  // }, [redraw]);
-
-  // React.useEffect(() =>{
-  //   instance
-  //   .get("/ui/get-remote-storage")
-  //   .then(function (response){
-  //     setRemoteStorage(response.data.storage);
-  //   })
-  //   .catch (function (error) {
-  //     console.log("errored:", error)
-  //   });
-  // }, [redraw]);
-
-  // React.useEffect(() =>{
-  //   instance
-  //   .get("/ui/get-local-storage")
-  //   .then(function (response){
-  //     setLocalStorage(response.data.storage);
-  //   })
-  //   .catch (function (error) {
-  //     console.log("errored:", error)
-  //   });
-  // }, [redraw]);
- 
-
   return (
   <div>
     <div className="header">
