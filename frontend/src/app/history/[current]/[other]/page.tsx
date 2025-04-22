@@ -28,7 +28,7 @@ export default function Home() {
  function retreiveHistory() {
 
     instance
-    .post("/ui/get-user-history", {
+    .post("/ui/get-user-history-specific", {
       other_user: other_user
     })
     .then(function (response) {

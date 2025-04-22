@@ -86,10 +86,12 @@ export default function Home() {
 
     React.useEffect(() =>{
       instance
-      .get("/ui/get-num-requests")
+      .get("/ui/get-pending-requests")
       .then(function (response){
-        setNumSendReq(response.data["outgoing"]);
-        setNumIncomingReq(response.data["incoming"]);
+        const outgoing = response.data["outgoingRequests"] || [];
+        const incoming = response.data["incomingRequests"] || [];
+        setNumSendReq(outgoing.length);
+        setNumIncomingReq(incoming.length);
       })
       .catch (function (error) {
         console.error("errored:", error)
@@ -197,9 +199,13 @@ export default function Home() {
 
     React.useEffect(() =>{
       instance
-      .get("/ui/get-shared-by-peer")
+      .get("/ui/get-interacted-with-peers")
       .then(function (response){
-        setUserData(response.data["user_data"])
+        const userDataArray = Object.entries(response.data["user_data"]).map(([key, value]) => ({
+          publicKey: key,
+          ...value, // Spread the rest of the data
+        }));
+        setUserData(userDataArray)
       })
       .catch (function (error) {
         console.error("errored:", error)
@@ -295,13 +301,13 @@ export default function Home() {
             </thead>
             <tbody>
               {userData.map((user) => (
-                <tr key={user.user} className="hover:bg-gray-100">
+                <tr key={user.publicKey} className="hover:bg-gray-100">
                   <td className="border p-2">{user.common_name}</td>
                   <td className="border p-2">{user.storage_data.stored_remotely} Bytes</td>
                   <td className="border p-2">{user.storage_data.stored_locally} Bytes</td>
                   <td className="border p-2">{user.storage_data.shared} Bytes</td>
                   <td className="border p-2"> 
-                    <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
+                    <a href={`/history/${identity}/${user.common_name}`} className="hover" title="Detailed View">
                         <Image
                           className="dark"
                           src="/info-circle-svgrepo-com.svg"

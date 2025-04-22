@@ -15,6 +15,7 @@ import pandas as pd
 import datetime
 from dateutil import parser
 import base64
+import json
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers, \
     generate_asymm_keys, gen_aes_key, load_aes_key
@@ -183,7 +184,6 @@ def whoami():
         current_app.enc_config['paths']['PUB_KEY_PATH'],
         'public'
     )
-    print(identity_config['IDENTITY']['COMMON_NAME'])
         
     # Create a dict, jsonify and return 
     return jsonify({
@@ -193,6 +193,19 @@ def whoami():
         'ip': identity_config['IDENTITY']['IP'],
     })
 
+@fi_bp.route('/ui/get-pub-key', methods=['POST'])
+@require_localhost
+def get_peer_public_key(): 
+
+    try:
+        request_body:dict = request.get_json()
+        peer_pub_key = pub_key_from_cn(request_body.get('peer_common_name', None))
+
+        return jsonify({
+            'peer_pub_key': peer_pub_key
+        })
+    except Exception as e:
+        print(e)
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
 @require_localhost
@@ -415,15 +428,22 @@ def get_interacted_with_peers():
     storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
     storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
     shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
+
+    storing_with_df['size_gb'] = storing_with_df['size_gb'].astype(float)
+    storing_for_df['size_gb'] = storing_for_df['size_gb'].astype(float)
+    shared_with_df['size_gb'] = shared_with_df['size_gb'].astype(float)
+
+    storing_with_size_per_peer = storing_with_df.groupby('peer_pub_key')['size_gb'].sum().to_dict()
+    storing_for_size_per_peer = storing_for_df.groupby('peer_pub_key')['size_gb'].sum().to_dict()
+    shared_with_size_per_peer = shared_with_df.groupby('peer_pub_key')['size_gb'].sum().to_dict()
     
-    # Create a map of peers -> num shared/stored with/for 
     peer_map:dict = {
         pub_key : { 
             'common_name': cn_from_pub_key(pub_key),
             'storage_data': {
-                'stored_remotely': (storing_with_df['peer_pub_key'] == pub_key).sum(),
-                'stored_locally': (storing_for_df['peer_pub_key'] == pub_key).sum(),
-                'shared': (shared_with_df['peer_pub_key'] == pub_key).sum()
+                'stored_remotely': float(storing_with_size_per_peer.get(pub_key, 0.0)),
+                'stored_locally': float(storing_for_size_per_peer.get(pub_key, 0.0)),
+                'shared': float(shared_with_size_per_peer.get(pub_key, 0.0))
             }     
         } 
         for pub_key in unique_peers
@@ -504,6 +524,27 @@ def get_user_history():
         'shared': filtered_shared_df.to_dict(orient='records')
     })
 
+@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
+@require_localhost
+def get_user_history_specific(): 
+    try:
+        request_body:dict = request.get_json()
+        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
+        print(other_user)
+
+        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+        filtered_data = data[data['peer_pub_key'] == other_user]
+
+        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
+        return jsonify({
+            'user_data': filtered_json_data
+        })
+    except Exception as e:
+        print(e)
 
 @fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
 @require_localhost

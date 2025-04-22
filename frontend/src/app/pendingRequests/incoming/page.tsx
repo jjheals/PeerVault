@@ -26,9 +26,9 @@ export default function Home() {
 
     React.useEffect(() =>{
       instance
-      .get("/ui/get-incoming-requests")
+      .get("/ui/get-pending-requests")
       .then(function (response){
-        setRequestData(response.data["all_requests"])
+        setRequestData(response.data.incoming_requests)
       })
       .catch (function (error) {
         console.error("errored:", error)

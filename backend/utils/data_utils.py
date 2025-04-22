@@ -104,9 +104,9 @@ def get_unique_peers() -> list:
         ], 
         ignore_index=True
     )
-
+    
     # Return a list of the unique peer pub keys
-    return list(data['peer_pub_key'].unique())
+    return list(data.unique())
     
 
 def new_csv_row(csv_path:str, new_entry:dict) -> None: 
