@@ -25,7 +25,8 @@ class Server(object):
     symm_aes_key:str                    # The symmetric key used for encrypting/decrypting STORED files (b64 encoded, for bytes do base64.b64decode(self.symm_aes_key))
     db_connection:DatabaseConnection    # Database connection to make queries 
     peer_storage_dir:str                # Path to the directory that contains all peer's stored files (defined in identity config)
-
+    logger:logging.Logger               # For logging
+    
     # STATIC ATTRIBUTES
     DISC_CODE:str = "000"       # Code for a discovery message
     INIT_IDC_CODE:str = "011"   # Code for initiating an identity check
@@ -73,7 +74,7 @@ class Server(object):
         self.server_alive = False
         
         # Set up logger 
-        self.logger = setup_logger('log_filepath', 'server_logger')
+        self.logger = setup_logger(log_filepath, 'server_logger')
         
         # Init a thread pool
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
