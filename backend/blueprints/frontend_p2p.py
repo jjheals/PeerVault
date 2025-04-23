@@ -4,19 +4,15 @@ TODO:
       msg to find a recipient if the peer_pub_key is blank (empty str)
 """
 
-import json
-from flask import Blueprint, jsonify, g, current_app, request, abort
+from flask import Blueprint, jsonify, g, current_app, request, abort, send_file
 import os 
-import pandas as pd
-import numpy as np 
-import pandas as pd
-import datetime as dt 
 
-from utils import new_csv_row, bytes_to_gb, hash_bytes_sha256
-from objects import Server 
+from utils import bytes_to_gb, hash_bytes_sha256
+from objects import Server, DatabaseConnection
 
 from .funcs import require_localhost
 from werkzeug.utils import secure_filename
+
 
 # ---- Config & init ---- #
 # Create blueprint
@@ -52,7 +48,7 @@ def share_file():
             - 200 | successful: (dict) a JSON object that contains the info of the peer that the file was sent to (or is pending to be sent to) 
             - 400 | bad request: if the user fails to supply the required data OR if the provided data is invalid.
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 406 | not acceptable: if a peer with the given public key is not found. 
+            - 404 | not found: if a peer with the given public key is not found. 
             - 500 | internal server error: if there is some error in processing the request.
     """
     
@@ -80,33 +76,30 @@ def share_file():
     
     # Return the pointer to the beginning of the file
     file.seek(0)
-    
-    # Init vars for the peer's IP and online status
-    peer_ip:str = None
-    peer_online_status:bool = None
+        
+    # Get the app's db connection
+    db_connection:DatabaseConnection = current_app.db_connection
     
     # Check if we're finding a recipient or if we were given a public key to send to
     if peer_pub_key: 
         
-        # Load the all peers df so we can convert the public key to an IP address
-        all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
-        
-        # Get the row that matches this public key
-        row:np.ndarray = all_peers_df.loc[all_peers_df['peer_pub_key'] == peer_pub_key]
-        
-        # Get the most recent IP and online status if a match was found
-        if row and not row.empty:
-            peer_ip:str = row.iloc[0]['most_recent_ip']
-            peer_online_status:bool = row.iloc[0]['online']    
-            peer_cn:str = row.iloc[0]['common_name']            # NOTE: peer common name is only used for returning a status message
-        else: 
-            # No match was found, return HTTP 406 (Not Acceptable) 
-            abort(406)
+        # Get the info for this peer
+        peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
+
+        # Check for a match
+        if not peer_info or not peer_info.get('most_recent_ip', ''): 
+            return jsonify({
+                'error': 'No peers found for the given public key.',
+                'given_args': {
+                    'peer_pub_key': peer_pub_key
+                }
+            }), 404
     
     # Find a recipient using multicast
     else: 
         # TODO: implement multicast message to find a recipient
         # DO SOMETHING ... 
+        
         return jsonify({
             'status': 200, 
             'message': 'Implementation for finding a recipient is not complete.'
@@ -114,7 +107,7 @@ def share_file():
 
     # Check that the found peer is online
     # Peer is OFFLINE
-    if not peer_online_status: 
+    if not peer_info['online']: 
         
         # Queue the request
         # Create a filepath to a tmp storage dir to save the file
@@ -124,23 +117,20 @@ def share_file():
         with open(tmp_filepath, 'wb') as f:
             f.write(file)
             
-        # Add a row to the outgoing requests CSV
-        new_csv_row(
-            'requests/outgoing.csv',
-            {
-                'peer_pub_key': peer_pub_key,
-                'file': os.path.join('requests', 'tmp', filename),
-                'upload_type': 'Share', 
-                'size': bytes_to_gb(len(file_content)),
-                'date': dt.datetime.now().strftime('%d-%m-%Y'),
-                'sha256': hash_bytes_sha256(file)
-            }
+        # Add a row to the PendingRequests table
+        db_connection.new_pending_request(
+            'outgoing',
+            'share',
+            peer_pub_key,
+            os.path.join('requests', 'tmp', filename),
+            bytes_to_gb(len(file_content)),
+            hash_bytes_sha256(file)
         )
 
         # Return a status message to the frontend 
         return jsonify({
             'status': 200,
-            'message': f'Request to share file with "{peer_cn}" is queued for the next time the peer is online.'
+            'message': f'Request to share file with "{peer_info["common_name"]}" is queued for the next time the peer is online.'
         })
     
     # Peer is ONLINE
@@ -151,7 +141,7 @@ def share_file():
             
             # Call server.send_share_request() to send the request
             current_app.server.send_share_request(
-                peer_ip,
+                peer_info['most_recent_ip'],
                 file_content,
                 filename
             )
@@ -159,7 +149,7 @@ def share_file():
             # Notify frontend that the request was successful
             return jsonify({
                 'status': 200,
-                'message': f'File shared with {peer_cn} successfully.'
+                'message': f'File shared with {peer_info["common_name"]} successfully.'
             })
         
         except Exception as e: 
@@ -226,28 +216,24 @@ def store_file():
     
     # Return the pointer to the beginning of the file
     file.seek(0)
-    
-    # Init vars for the peer's IP and online status
-    peer_ip:str = None
-    peer_online_status:bool = None
+
+    # Get the app's db connection
+    db_connection:DatabaseConnection = current_app.db_connection
     
     # Check if we're finding a recipient or if we were given a public key to send to
     if peer_pub_key: 
         
-        # Load the all peers df so we can convert the public key to an IP address
-        all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
-        
-        # Get the row that matches this public key
-        row:np.ndarray = all_peers_df.loc[all_peers_df['peer_pub_key'] == peer_pub_key]
-        
-        # Get the most recent IP and online status if a match was found
-        if row and not row.empty:
-            peer_ip:str = row.iloc[0]['most_recent_ip']
-            peer_online_status:bool = row.iloc[0]['online']    
-            peer_cn:str = row.iloc[0]['common_name']            # NOTE: peer common name is only used for returning a status message
-        else: 
-            # No match was found, return HTTP 406 (Not Acceptable) 
-            abort(406)
+        # Get the info for this peer
+        peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
+
+        # Check for a match
+        if not peer_info or not peer_info.get('most_recent_ip', ''): 
+            return jsonify({
+                'error': 'No peers found for the given public key.',
+                'given_args': {
+                    'peer_pub_key': peer_pub_key
+                }
+            }), 404
     
     # Find a recipient using multicast
     else: 
@@ -260,9 +246,8 @@ def store_file():
 
     # Check that the found peer is online
     # Peer is OFFLINE
-    if not peer_online_status: 
+    if not peer_info['online']: 
         
-                
         # Queue the request
         # Create a filepath to a tmp storage dir to save the file
         tmp_filepath:str = os.path.join('requests', 'tmp', filename)
@@ -271,23 +256,20 @@ def store_file():
         with open(tmp_filepath, 'wb') as f:
             f.write(file)
             
-        # Add a row to the outgoing requests CSV
-        new_csv_row(
-            'requests/outgoing.csv',
-            {
-                'peer_pub_key': peer_pub_key,
-                'file': os.path.join('requests', 'tmp', filename),
-                'upload_type': 'Store', 
-                'size': bytes_to_gb(len(file_content)),
-                'date': dt.datetime.now().strftime('%d-%m-%Y'),
-                'sha256': hash_bytes_sha256(file)
-            }
+        # Add a row to the PendingRequests table
+        db_connection.new_pending_request(
+            'outgoing',
+            'share',
+            peer_pub_key,
+            os.path.join('requests', 'tmp', filename),
+            bytes_to_gb(len(file_content)),
+            hash_bytes_sha256(file)
         )
 
         # Return a status message to the frontend 
         return jsonify({
             'status': 200,
-            'message': f'Request to share file with "{peer_cn}" is queued for the next time the peer is online.'
+            'message': f'Request to share file with "{peer_info["common_name"]}" is queued for the next time the peer is online.'
         })
     
     # Peer is ONLINE
@@ -298,7 +280,7 @@ def store_file():
             
             # Call server.send_share_request() to send the request
             server.send_store_request(
-                peer_ip,
+                peer_info["common_name"],
                 file_content,
                 filename
             )
@@ -306,7 +288,7 @@ def store_file():
             # Notify frontend that the request was successful
             return jsonify({
                 'status': 200,
-                'message': f'File stored with {peer_cn} successfully.'
+                'message': f'File stored with {peer_info["common_name"]} successfully.'
             })
         
         except Exception as e: 
@@ -355,6 +337,9 @@ def delete_file():
     # App IS initialized
     else: server:Server = current_app.server 
      
+    # Get the app's db connection
+    db_connection:DatabaseConnection = current_app.db_connection
+    
     # Extract req body
     request_json:dict = request.form.to_dict()
     
@@ -371,63 +356,38 @@ def delete_file():
         print('\033[91mERROR in fe_p2p_bp.delete_file(): \033[0m', e)
         abort(400)
     
-    # Init vars for the peer's IP and online status
-    peer_ip:str = None
-    peer_online_status:bool = None
-
-    # NOTE: we know the peer_pub_key was given in the request
-    # Load the all peers df so we can convert the public key to an IP address
-    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
-    
-    # Get the row that matches this public key
-    row:np.ndarray = all_peers_df.loc[all_peers_df['peer_pub_key'] == peer_pub_key]
-    
-    # Get the most recent IP, online status, and hash if a match was found
-    if row and not row.empty:
-        peer_ip:str = row.iloc[0]['most_recent_ip']
-        peer_online_status:bool = row.iloc[0]['online']    
-        file_hash:str = row.iloc[0]['sha256']
-        peer_cn:str = row.iloc[0]['common_name']            # NOTE: peer common name is only used for returning a status message
-    else: 
-        # No match was found, return HTTP 406 (Not Acceptable) 
-        abort(406)
-    
     # Make sure that this filename is actually currently being stored with the given peer
-    stored_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
-    
-    # Check that a row exists for this filename and this peer_pub_key
-    matched_row:pd.DataFrame = stored_with_df.loc[stored_with_df[['peer_pub_key', 'filename']] == [peer_pub_key, filename]] 
-    
-    # Make sure a match was found
-    if not matched_row: 
-        print(f'\033[91mERROR in fe_p2p_bp.delete_file(): \033[0mthere is no file named "{filename}" currently being stored with the peer "{peer_cn}".')
+    if not db_connection.check_stored_with_file_exists(peer_pub_key, filename): 
         return jsonify({
-            'status': 406,
-            'message': f'There is no file named "{filename}" currently being stored with the peer "{peer_cn}".'
+            'error': 'The given peer is not currently storing the given file.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
         })
-        
+    
+    # NOTE: we know the peer_pub_key was given in the request
+    # Get the info for this peer
+    peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
+    
     # Check that the found peer is online
     # Peer is OFFLINE
-    if not peer_online_status: 
+    if not peer_info['online']: 
 
-            
-        # Add a row to the outgoing requests CSV
-        new_csv_row(
-            'requests/outgoing.csv',
-            {
-                'peer_pub_key': peer_pub_key,
-                'file': os.path.join('requests', 'tmp', filename),
-                'upload_type': 'Delete', 
-                'size': -1,
-                'date': dt.datetime.now().strftime('%d-%m-%Y'),
-                'sha256': ''
-            }
+        # Add a row to the PendingRequests table
+        db_connection.new_pending_request(
+            'outgoing',
+            'delete',
+            peer_pub_key,
+            filename,
+            -1,
+            ''
         )
 
         # Return a status message to the frontend 
         return jsonify({
             'status': 200,
-            'message': f'Request to share file with "{peer_cn}" is queued for the next time the peer is online.'
+            'message': f'Request to share file with "{peer_info["common_name"]}" is queued for the next time the peer is online.'
         })
     
     # Peer is ONLINE
@@ -436,21 +396,154 @@ def delete_file():
         # Send a share request to the peer
         try: 
             
+            # Get the file hash from the DB
+            db_connection.cursor.execute(
+                'SELECT sha256 FROM CurrentlyStoringWith WHERE peer_pub_key = ? AND filename = ?', 
+                (peer_pub_key, filename)
+            )
+            
+            file_hash:str = db_connection.cursor.fetchone()[0]
+            
             # Call server.send_delete_request() to send the request
             server.send_delete_request(
-                peer_ip,
+                peer_pub_key,
+                peer_info['most_recent_ip'],
                 filename,
-                file_hash
+                file_hash=file_hash
             )
             
             # Notify frontend that the request was successful
             return jsonify({
                 'status': 200,
-                'message': f'File "{filename}" deleted from {peer_cn} successfully.'
+                'message': f'File "{filename}" deleted from {peer_info["common_name"]} successfully.'
             })
         
         except Exception as e: 
-            print(f'\033[91mERROR in fi_bp.store_file(): \033[0mthere was an error sending the delete request for file "{filename}" to peer "{peer_cn}". Exception: ', e)
+            print(f'\033[91mERROR in fi_bp.store_file(): \033[0mthere was an error sending the delete request for file "{filename}" to peer "{peer_info["common_name"]}". Exception: ', e)
             return jsonify({'error': 'An error occured during file store request. Error: ' + str(e)}), 500
             
-            
+
+@fe_p2p_bp.route('/ui/retrieve-stored-file', methods=['GET'])
+@require_localhost
+def retrieve_stored_file(): 
+    """
+        DESC: sends a request to the given peer to retrieve the contents of the given filename.
+
+        ARGUMENTS: 
+            peer_pub_key (str): the public key of the peer storing the file.
+            filename (str): the filename to retrieve.
+        
+        RETURNS: 
+            - 200 | successful: (blob) the requested file.
+            - 400 | bad request: if the user fails to supply the required data OR if the provided data is invalid, or if the server is not initialized.
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if there is an error from the peer processing the request, which likely means they did not find the file.
+            - 406 | not acceptable: if a peer with the given public key is not found OR the given peer is not storing the given filename. 
+            - 500 | internal server error: if there is some error in processing the request.
+    """
+    
+    # Make sure server is initialized
+    server:Server = current_app.server
+    if not server: abort(400)
+
+    # Get the app's db connection
+    db_connection:DatabaseConnection = current_app.db_connection
+    
+    # Extract the arguments from the request 
+    peer_pub_key:str = request.args.get('peer_pub_key', None)
+    filename:str = request.args.get('filename', None)
+
+    # Verify that the required args were given
+    if not (peer_pub_key and filename): 
+        return jsonify({
+            'error': 'Missing required arguments.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
+        }), 400
+    
+    # Make sure that this filename is actually currently being stored with the given peer
+    if not db_connection.check_stored_with_file_exists(peer_pub_key, filename): 
+        return jsonify({
+            'error': 'The given peer is not currently storing the given file.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
+        })
+
+    # Get the info for this peer
+    peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
+    
+    # Get the most recent IP and online status if a match was found
+    if peer_info and peer_info['most_recent_ip']:
+        peer_ip:str = peer_info['most_recent_ip']
+        peer_online_status:bool = peer_info['online']    
+        peer_cn:str = peer_info['common_name']            # NOTE: peer common name is only used for returning a status message
+    
+    # No matches mean that the peer doesn't exist 
+    else:
+        return jsonify({
+            'error': 'There is no peer with the given public key.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'filename': filename
+            }
+        })
+    
+    # Check if the peer is online 
+    # Peer is ONLINE
+    if peer_online_status:
+        
+        # Send the request to retrieve the file
+        try: 
+            tmp_file_path:str = server.retrieve_stored_file(
+                peer_pub_key,
+                peer_ip,
+                filename,
+                current_app.identity_config['PATHS']['tmp_storage_path']
+            )
+
+            # Check if we got something back
+            if not tmp_file_path: raise Exception('The peer did not return any file contents.')
+
+        # Handle exceptions 
+        except Exception as e: 
+            return jsonify({
+                'error': 'An error occured while the peer was processing the request',
+                'message': f'{e.__class__} - {e}'
+            })
+        
+        # Send the file back to the frontend
+        return send_file(
+            tmp_file_path,          
+            as_attachment=True  # Force download prompt
+        )
+        
+    # Peer is OFFLINE
+    else: 
+
+        # Get the file hash from the DB
+        db_connection.cursor.execute(
+            'SELECT sha256 FROM CurrentlyStoringWith WHERE peer_pub_key = ? AND filename = ?', 
+            (peer_pub_key, filename)
+        )
+        
+        file_hash:str = db_connection.cursor.fetchone()[0]
+        
+        # Add a row to the PendingRequests table
+        db_connection.new_pending_request(
+            'outgoing', 
+            'retrieve',
+            peer_pub_key,
+            filename,
+            -1,
+            file_hash
+        )
+
+        # Return a status message to the frontend 
+        return jsonify({
+            'status': 200,
+            'message': f'Request to retrieve file from "{peer_cn}" is queued for the next time the peer is online.'
+        })

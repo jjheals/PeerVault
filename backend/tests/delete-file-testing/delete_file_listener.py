@@ -1,5 +1,6 @@
 import os 
 from configparser import ConfigParser
+import threading as th 
 
 # Modify sys path to import utils 
 import sys
@@ -13,7 +14,6 @@ sys.path.insert(0, parent_dir)
 # Util and object imports
 from utils import load_key_pem, load_aes_key
 from objects import Server
-
 
 # --- Config --- #
 # Network config
@@ -38,7 +38,6 @@ COMMON_NAME:str = identity_config['IDENTITY']['common_name']    # Common name
 
 PUBLIC_KEY_PEM:str = load_key_pem('../TEST-keys/TEST-public.key', 'public')
 PRIV_KEY_PEM:str = load_key_pem('../TEST-keys/TEST-private.key', 'private', 'SomeSuperSecurePassphrase')
-
 SYMM_KEY:str = load_aes_key('SomeSuperSecurePassphrase', '../TEST-keys/TEST-symm.key')
 
 # --- Init --- #
@@ -53,23 +52,17 @@ server:Server = Server(
     IFACE,                  # mcast_iface
     MCAST_PORT,             # mcast_port
     MCAST_GRP,              # mcast_group
-    '../../peer-info/',     # data_dir_path
-    '.'                     # peer_storage_path
+    '../../peer-info/',      # data_dir_path
+    '.'   # peer_storage_dir
 )
 
 
 
-# --- Send a file --- #
-# Get the target IP address from CLI
-target_ip:str = input('\033[93mEnter the target IPv4 address: \033[0m')
+# --- Start tcp listener --- #
+server.server_alive = True
 
-# Send the request
-server.send_store_request(
-    target_ip,
-    open('../../../test-data/test.txt', 'rb').read(),
-    'test.txt'
+# Define thread for the listener
+listen_thread:th.Thread = th.Thread(target=server.listen)
 
-    # open('../../../test-data/CS Degree Requirements.pdf', 'rb').read(),
-    # 'CS Degree Requirements STORED.pdf'
-)
-
+# Start the listener threads
+listen_thread.start()

@@ -53,9 +53,14 @@ server:Server = Server(
     IFACE,                  # mcast_iface
     MCAST_PORT,             # mcast_port
     MCAST_GRP,              # mcast_group
+<<<<<<< HEAD
     '../../peer-info/',      # data_dir_path
     '/home/quentin-hall/Desktop/Capstone/delete_request/test-data'  # peer_storage_path
 
+=======
+    '../../peer-info/',     # data_dir_path
+    identity_config['PATHS']['peer_storage_path']   # peer_storage_dir
+>>>>>>> f5ad5484f9a4c4145745e094d26be51dc3b8435a
 )
 
 
@@ -68,7 +73,12 @@ target_ip:str = input('\033[93mEnter the target IPv4 address: \033[0m')
 server.send_delete_request(
     "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxXaJgt8rIUYgt56X1Zb/YIKIeLQ+jBN2gxWo1PzYVXKTH/zBdwXL7SA0LJ6WVfQSG8RIHDMul7TQgOB6dI25S8JhkIurT44lIKSgK9XfUnX11ZTp9gA/UeYiL5+UQrCgn3D2sYiXXFsUzaWel9JdE1U5wtiajNG/19z+Ltu8mk+L6cW32qHsI9+6aV6TgKKLT1Q/nmj/ldeTPL/4fsgp9msL40/5cJjnAYMlidtxRZpJQgFjGN660s/TYMvyf8N0DXSfEaVIySNvFry7NshybLySKsYXzaHTKN7uiVjDG0B435gkUP90gsh4a85fd5UY5doRCyI2NGgWqNXh02ze9wIDAQAB",
     target_ip,
+<<<<<<< HEAD
     'test.txt',
     '39f7739d82141c0229604ad917edfee0d1a258fbb1face62589cd6914b8226e4'
 )
 
+=======
+    'test.txt'
+)
+>>>>>>> f5ad5484f9a4c4145745e094d26be51dc3b8435a

@@ -7,3 +7,7 @@ backend/server.log
 *__pycache__
 */__pycache__/*
 backend/tests/share-file-testing/shared_files
+*.venv
+backend/db_testing.ipynb
+backend/data/
+backend/logs/

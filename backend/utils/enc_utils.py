@@ -1,13 +1,6 @@
 import os 
 import base64
-import re 
 import json 
-
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
-
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
 
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
@@ -206,11 +199,6 @@ def decrypt_message(private_key_pem:str, encrypted_data:dict) -> str:
     decoded_bytes = plaintext_bytes.decode()
 
     return decoded_bytes
-
-
-def strip_pem_headers(pem_str:str) -> str:
-    """Strips the leading and trailing "----- * KEY -----" from the given key PEM string."""
-    return re.sub(r'-----.*?-----', '', pem_str).strip()
 
 
 def sign_file(priv_key_pem_str:str, file_data:bytes) -> str:

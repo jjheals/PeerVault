@@ -9,13 +9,13 @@ from flask_compress import Compress
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from configparser import ConfigParser
-import os 
 
 # Blueprints
-from blueprints import fi_bp, p2p_bp, fe_p2p_bp
+from blueprints import fi_bp, fe_p2p_bp
 
 # Custom objs & util funcs
-from utils import generate_asymm_keys, now
+from utils import  now
+from objects import DatabaseConnection
 
 
 # ---- Load configs ---- #
@@ -62,6 +62,9 @@ app.enc_config = enc_config
 app.network_config = network_config
 app.identity_config = identity_config
 
+# Create a DB connection and add to the app
+app.db_connection = DatabaseConnection(flask_config['paths']['DB_PATH'])
+
 # NOTE: init app.server as None to start, and it is changed via the /ui/init-application endpoint
 app.server = None
 
@@ -80,7 +83,6 @@ def after_request(response):
 print(f'\033[0m[{now()}] \033[94mRegistering blueprints\033[0m')
 
 app.register_blueprint(fi_bp)       # Frontend interaction
-app.register_blueprint(p2p_bp)      # Peer-to-Peer interaction
 app.register_blueprint(fe_p2p_bp)   # Frontend P2P requests
 
 
