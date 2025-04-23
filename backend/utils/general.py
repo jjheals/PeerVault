@@ -8,6 +8,7 @@ import os
 from io import BytesIO
 import socket
 import logging
+from configparser import ConfigParser
 
 
 def now() -> str: 
@@ -39,6 +40,7 @@ def get_mac_address() -> str:
     """Returns the device's MAC address in the format "AB:CD:EF:GH:00"."""
     mac = uuid.getnode()
     return ':'.join(f'{(mac >> i) & 0xff:02x}' for i in range(0, 48, 8))
+
 
 def get_IP_address() -> str:
     """Returns the device's MAC address in the format "AB:CD:EF:GH:00"."""
@@ -168,3 +170,29 @@ def is_valid_date(date_str: str) -> bool:
         return True
     except ValueError:
         return False
+    
+    
+def load_configs(config_dir:str) -> dict[str, ConfigParser]: 
+    """Loads all the configs in the given [config_dir] and returns a dict where the keys are
+    the config names (i.e. filenames minus ".conf") and the values are a ConfigParser obj for
+    that file."""
+    
+    # Init a dict to return 
+    config_parsers:dict[str, ConfigParser] = {}
+    
+    # Iterate over all the .conf files in the given config_dir
+    for conf_file in os.listdir(config_dir): 
+        
+        # Skip non-conf files
+        if not conf_file.endswith('.conf'): continue 
+        
+        # Init a config parser and read the file
+        parser:ConfigParser = ConfigParser()
+        parser.read(os.path.join(config_dir, conf_file))
+        
+        # Remove the .conf from the filename and add to the dict of config parsers
+        parser_name:str = conf_file.split('.')[0]
+        config_parsers[parser_name] = parser
+
+    # Return the populated dict
+    return config_parsers
