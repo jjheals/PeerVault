@@ -7,9 +7,7 @@ import os
 import concurrent.futures 
 import pandas as pd
 import base64 
-import datetime as dt 
 from time import sleep
-from uuid import uuid1
 
 from .DatabaseConnection import DatabaseConnection
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, write_to_file,  \
