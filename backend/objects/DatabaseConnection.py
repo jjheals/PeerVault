@@ -638,6 +638,19 @@ class DatabaseConnection:
         return self.cursor.fetchone()[0] == 1
     
     
+    def check_stored_for_file_exists(self, peer_pub_key:str, filename:str) -> bool: 
+        """Checks that the given filename is actually being stored with the given peer."""
+        
+        # Execute the query
+        self.cursor.execute(
+            "SELECT EXISTS(SELECT 1 FROM CurrentlyStoringFor WHERE peer_pub_key = ? AND filename = ?)",
+            (peer_pub_key, filename)
+        )
+        
+        # Fetch results
+        return self.cursor.fetchone()[0] == 1
+    
+
     # ---- Functions that aggregate columns in various tables ---- # 
     
     def get_local_used_storage(self, peer_pub_key:str=None) -> float: 
