@@ -168,7 +168,54 @@ class DatabaseConnection:
         self.cxn.commit() 
         self.logger.info(f'Updated the date for PendingRequests ID {request_id} to "{new_date}"')
         
-        
+    
+    def check_pending_requests_status(self, target_direction:str, target_peer_online_status:bool=True) -> list[int]: 
+        """Takes in a [target_direction] and returns a list of request IDs where the peer's online status matches 
+        [target_peer_online_status] and with the given target direction. E.g. given target direction 'outgoing' 
+        and target peer online status 'True', returns a list of all pending outgoing requests where the associated
+        peer is online. """
+
+        # Construct query
+        query:str = """
+            SELECT PR.id
+            FROM PendingRequests PR
+            JOIN Peer P ON PR.peer_pub_key = P.peer_pub_key 
+            WHERE PR.direction = ? AND P.online = ?
+        """
+
+        # Execute the query
+        self.cursor.execute(
+            query,
+            (target_direction, int(target_peer_online_status))
+        )
+
+        # Fetch results
+        results:list[tuple] = self.cursor.fetchall()
+        return [r[0] for r in results] if results else []
+
+
+    def get_pending_request(self, request_id:int) -> dict: 
+        """Takes in a request ID and returns the row in the PendingRequests table for that request (as a dict)."""
+
+        # Construct and execute query
+        self.cursor.execute(
+            'SELECT * FROM PendingRequests WHERE id = ?',
+            (request_id,)
+        )
+
+        # Fetch results
+        result:tuple = self.cursor.fetchone()
+
+        # Return accordingly
+        if result and len(result > 0): 
+            return {
+                c : r 
+                for c,r in zip(self.get_table_columns('PendingRequests'), list(result)) 
+            } 
+        else: 
+            return None
+
+
     # ---- Functions for the [Peer] table ---- # 
     
     def new_peer(self, peer_pub_key:str, online:bool, most_recent_ip:str, common_name:str, 
