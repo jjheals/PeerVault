@@ -12,7 +12,7 @@ from time import sleep
 from .DatabaseConnection import DatabaseConnection
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, write_to_file,  \
         hash_bytes_sha256, sign_file, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
-        get_mac_address
+        get_mac_address, setup_logger
 
 
 class Server(object):
@@ -52,7 +52,8 @@ class Server(object):
         mcast_port:int,
         mcast_group:str,
         db_connection:DatabaseConnection,
-        peer_storage_dir:str
+        peer_storage_dir:str,
+        log_filepath:str='logs/server.log'
     ):
         self.pub_key_pem = pub_key_pem
         self.priv_key_pem = priv_key_pem
@@ -72,8 +73,7 @@ class Server(object):
         self.server_alive = False
         
         # Set up logger 
-        self.logger = logging.getLogger(__name__)
-        logging.basicConfig(filename='server.log', encoding='utf-8', level=logging.DEBUG)
+        self.logger = setup_logger('log_filepath', 'server_logger')
         
         # Init a thread pool
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
