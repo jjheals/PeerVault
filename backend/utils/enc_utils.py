@@ -129,10 +129,10 @@ def generate_asymm_keys(keysize:int, exp:int, prv_save_path:str, pub_save_path:s
     os.makedirs(os.path.dirname(prv_save_path), exist_ok=True)
     os.makedirs(os.path.dirname(pub_save_path), exist_ok=True)
 
-    with open(prv_save_path, 'rb+') as file:
+    with open(prv_save_path, 'wb+') as file:
         file.write(priv_key_str)
 
-    with open(pub_save_path, 'rb+') as file: 
+    with open(pub_save_path, 'wb+') as file: 
         file.write(pub_key_str)
 
 
@@ -285,7 +285,7 @@ def gen_aes_key(passcode:str, output_path:str) -> None:
     }
 
     # Step 5: Save the key to the given file
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w+') as f:
         json.dump(key_data, f)
 
 
