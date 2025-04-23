@@ -73,7 +73,7 @@ class Server(object):
         self.server_alive = False
         
         # Set up logger 
-        self.logger = setup_logger('log_filepath', 'server_logger')
+        self.logger = setup_logger(log_filepath, 'server_logger')
         
         # Init a thread pool
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
