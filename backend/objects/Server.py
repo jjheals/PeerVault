@@ -1,10 +1,10 @@
+
 import logging 
 import socket
 import struct
 import json
 import os
-import concurrent.futures
-import traceback 
+import concurrent.futures 
 import pandas as pd
 import base64 
 from time import sleep
@@ -620,7 +620,7 @@ class Server(object):
         incoming_message_json:dict = json.loads(connection.recv(self.BUFF))
 
         # Extract the info from the incoming message 
-        # Extract the public keyencrypted_file_hash:str
+        # Extract the public key
         peer_public_key:str = incoming_message_json['public_key_pem']
 
         # Extract the data 
@@ -804,7 +804,7 @@ class Server(object):
         target_directory:str = response_plaintext_dict['common_name']
 
         # Create the target dir if it doesn't exist
-        os.makedirs(os.path.join(self.peer_store_path, target_directory), exist_ok=True)
+        os.makedirs(target_directory, exist_ok=True)
 
         # Write the file to the target directory and get the message
         message:str = write_to_file(os.path.join(target_directory, file_name), decoded_encrypted_file_content)
@@ -1199,7 +1199,7 @@ class Server(object):
             self.logger.info('in send_share_request() - connection closed"')
     
 
-    def send_store_request(self, peer_pub_key:str, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
+    def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
 
         # Create a socket object
