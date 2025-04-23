@@ -208,6 +208,76 @@ class DatabaseConnection:
             return None
         
     
+    def update_peer_status(self, peer_pub_key:str, new_ip:str, new_online_status:bool=True) -> None: 
+        """Updates the online status and most recent IP for the given peer."""
+        
+        # Construct query 
+        query:str = """
+            UPDATE Peer 
+            SET most_recent_ip = ?, online = ?
+            WHERE peer_pub_key = ?
+        """
+        
+        try: 
+            # Execute the query
+            self.cursor.execute(
+                query,
+                (new_ip, new_online_status, peer_pub_key)
+            )
+            
+            # Commit changes
+            self.cxn.commit() 
+            
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in update_peer_status() - {e.__class__}: {e}')
+            return 
+        
+    
+    def check_peer_exists(self, peer_pub_key:str) -> bool: 
+        """Checks if a peer with the given public key exists."""
+        
+        try: 
+            # Execute the query
+            self.cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM Peer WHERE peer_pub_key = ?)",
+                (peer_pub_key,)
+            )
+            
+            # Fetch results
+            return self.cursor.fetchone()[0] == 1
+        
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in check_peer_exists() - {e.__class__}: {e}')
+            return 
+        
+    
+    def pub_key_from_ip(self, ip:str) -> str|None: 
+        """Returns the public key for the peer that currently (or most recently) has/had the given IP."""
+        
+        # Construct query
+        query:str = "SELECT peer_pub_key FROM Peer WHERE most_recent_ip = ?"
+        
+        try: 
+            # Execute query
+            self.cursor.execute(
+                query,
+                (ip,)
+            )
+            
+            # Fetch results
+            results:tuple = self.cursor.fetchone()
+            
+            if results: return results[0]
+            else: return None
+            
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in check_peer_exists() - {e.__class__}: {e}')
+            return None
+        
+           
     # ---- Functions for the [Currently* and PreviouslySharedWith] tables ---- #
     
     def new_shared_file(self, peer_pub_key:str, direction:str, filename:str, size_gb:float, 
@@ -446,4 +516,23 @@ class DatabaseConnection:
             return 
     
     
-    
+    def get_stored_file_nonce(self, peer_pub_key:str, filename:str) -> str: 
+        """Retrieves the [b64_nonce] from the [CurrentlyStoringWith] table for the given peer and filename."""
+        
+        try: 
+            # Construct and execute query
+            self.cursor.execute(
+                'SELECT b64_nonce FROM CurrentlyStoringWith WHERE peer_pub_key = ? AND filename = ?',
+                (peer_pub_key, filename)
+            )
+            
+            # Fetch results
+            results:tuple = self.cursor.fetchone()
+            
+            if results: return results[0]
+            else: return None
+        
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in get_stored_file_nonce() - {e.__class__}: {e}')
+            return None
