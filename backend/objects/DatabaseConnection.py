@@ -125,14 +125,50 @@ class DatabaseConnection:
             raise Exception('An error occured while inserting the new pending request.')
     
 
-    def remove_pending_request(self, req_id:int, direction:str) -> None: 
-        """Removes the row for the given [req_id] (request ID) from either the [PendingIncomingRequest] or 
-        [PendingOutgoingRequest] table. The given [direction] must be either 'incoming' or 'outgoing', other
-        values will raise a ValueError."""
+    def remove_pending_request(self, req_id:int) -> None: 
+        """Removes the row for the given [req_id] (request ID) from the [PendingRequests] table."""
         
-        return NotImplementedError
+        # Execute query
+        self.cursor.execute(
+            'DELETE FROM PendingRequests WHERE id = ?',
+            (req_id,)
+        )
+        
+        # Commit changes
+        self.cxn.commit()
+        self.logger.info(f'Deleted pending request ID {req_id}.')
+            
     
+    def get_request_id(self, peer_pub_key:str, filename:str, direction:str) -> int: 
+        """Returns the request ID for the request matching the given peer pub key, filename, and direction."""
+        
+        # Construct and execute query
+        self.cursor.execute(
+            'SELECT id FROM PendingRequests WHERE peer_pub_key = ? AND filename = ? AND direction = ?',
+            (peer_pub_key, filename, direction)
+        )
+        
+        # Fetch results
+        results:tuple = self.cursor.fetchone()
+        
+        if results: return results[0]
+        else: return -1
+        
     
+    def update_request_date(self, request_id:int, new_date:str) -> None: 
+        """Updates the request_date for the given request ID."""
+        
+        # Execute query
+        self.cursor.execute(
+            'UPDATE PendingRequests SET request_date = ? WHERE id = ?',
+            (new_date, request_id)
+        )
+        
+        # Commit changes 
+        self.cxn.commit() 
+        self.logger.info(f'Updated the date for PendingRequests ID {request_id} to "{new_date}"')
+        
+        
     # ---- Functions for the [Peer] table ---- # 
     
     def new_peer(self, peer_pub_key:str, online:bool, most_recent_ip:str, common_name:str, 
@@ -277,7 +313,129 @@ class DatabaseConnection:
             self.logger.error(f'in check_peer_exists() - {e.__class__}: {e}')
             return None
         
-           
+    
+    def get_matching_peers(self, peer_pub_key:str=None, online:bool=None, most_recent_ip:str=None, 
+                           common_name:str=None, mac_last_four:str=None) -> pd.DataFrame:
+        """Returns the [peer_pub_key]s of all peers that match the intersection (AND) of the given args."""
+        
+        # Get the cols for the Peer table
+        table_cols:list[str] = self.get_table_columns('Peer')
+        
+        # Construct query
+        query:str = f"SELECT {','.join(table_cols)} FROM Peer"
+        
+        # Generate the conditions and parameters
+        conditions:list[str] = []
+        params:list[str] = []
+
+        # For each of the args, add it to the conditions and params if given
+        if peer_pub_key and peer_pub_key is not None:
+            conditions.append("peer_pub_key = ?")
+            params.append(peer_pub_key)
+
+        if online is not None:
+            conditions.append("online = ?")
+            params.append(int(bool(online)))  # ensure boolean is stored as 0/1
+
+        if most_recent_ip and most_recent_ip is not None:
+            conditions.append("most_recent_ip = ?")
+            params.append(most_recent_ip)
+
+        if common_name and common_name is not None:
+            conditions.append("common_name = ?")
+            params.append(common_name)
+
+        if mac_last_four and mac_last_four is not None:
+            conditions.append("mac_last_four = ?")
+            params.append(mac_last_four)
+
+        # Check if we have any conditions to add
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        # Execute the query
+        self.cursor.execute(query, params)
+        
+        # Fetch results and return
+        return pd.DataFrame(
+            self.cursor.fetchall(),
+            columns=table_cols
+        )
+        
+
+    def cn_from_pub_key(self, pub_key: str) -> str|None:
+        """Returns the common name for the given public key."""
+        
+        # Execute query
+        self.cursor.execute("SELECT common_name FROM Peer WHERE peer_pub_key = ?", (pub_key,))
+        
+        # Fetch results and return
+        row = self.cursor.fetchone()
+        return row[0] if row else None
+
+
+    def pub_key_from_cn(self, common_name:str) -> list[str]: 
+        """Returns the public key for the given common name. NOTE: if more than one peer match the given 
+        common name, then all matched pub keys are returned, but if only one matches, then a list with a 
+        single value is returned."""
+        
+        # Execute query
+        self.cursor.execute(
+            "SELECT peer_pub_key FROM Peer WHERE common_name = ?",
+            (common_name,)
+        )
+        
+        # Fetch results and return
+        results:list[tuple] = self.cursor.fetchall()
+        return [r[0] for r in results] if results else []
+        
+        
+    def get_interacted_with_peers(self) -> dict:
+        """Returns a dict containing peer_pub_keys and interaction statistics (files stored remotely, 
+        stored locally, and shared), grouped by peer.
+        """
+
+        # Construct a query that aggregates interaction counts
+        query:str = """
+            SELECT
+                peer_pub_key,
+                SUM(stored_locally) AS stored_locally,
+                SUM(stored_remotely) AS stored_remotely,
+                SUM(shared) AS shared
+            FROM (
+                SELECT peer_pub_key, 1 AS stored_locally, 0 AS stored_remotely, 0 AS shared FROM CurrentlyStoringFor
+                UNION ALL
+                SELECT peer_pub_key, 0, 1, 0 FROM CurrentlyStoringWith
+                UNION ALL
+                SELECT peer_pub_key, 0, 0, 1 FROM PreviouslySharedWith
+            )
+            GROUP BY peer_pub_key
+        """
+
+        # Execute the query and get the results as a df
+        df:pd.DataFrame = pd.read_sql_query(query, self.cxn)
+
+        # Check for results
+        if df.empty:
+            return {}
+
+        # Construct result map
+        peer_map:dict = {
+            row['peer_pub_key']: {
+                'common_name': self.cn_from_pub_key(row['peer_pub_key']),
+                'storage_data': {
+                    'stored_locally': row['stored_locally'],
+                    'stored_remotely': row['stored_remotely'],
+                    'shared': row['shared']
+                }
+            }
+            for _, row in df.iterrows()
+        }
+
+        # Return the peer map
+        return peer_map
+
+
     # ---- Functions for the [Currently* and PreviouslySharedWith] tables ---- #
     
     def new_shared_file(self, peer_pub_key:str, direction:str, filename:str, size_gb:float, 
@@ -450,6 +608,36 @@ class DatabaseConnection:
             return 
     
     
+    def get_storing_with_info(self, peer_pub_keys:list[str]) -> pd.DataFrame: 
+        """Retrieves the contents of the [CurrentlyStoringWith] table for the given peer pub keys. If no
+        peer pub keys are given, then returns the entire table as a df."""
+
+        # Get the "CurrentlyStoringWith" table as a df
+        curr_storing_with_df:pd.DataFrame = self.table_as_df('CurrentlyStoringWith')
+        
+        # Check if given pub keys to filter 
+        if peer_pub_keys: 
+            
+            # Filter the df for the peer pub keys
+            curr_storing_with_df = curr_storing_with_df[curr_storing_with_df['peer_pub_key'].isin(peer_pub_keys)]
+        
+        # Return the df
+        return curr_storing_with_df
+    
+    
+    def check_stored_with_file_exists(self, peer_pub_key:str, filename:str) -> bool: 
+        """Checks that the given filename is actually being stored with the given peer."""
+        
+        # Execute the query
+        self.cursor.execute(
+            "SELECT EXISTS(SELECT 1 FROM CurrentlyStoringWith WHERE peer_pub_key = ? AND filename = ?)",
+            (peer_pub_key, filename)
+        )
+        
+        # Fetch results
+        return self.cursor.fetchone()[0] == 1
+    
+    
     # ---- Functions that aggregate columns in various tables ---- # 
     
     def get_local_used_storage(self, peer_pub_key:str=None) -> float: 
@@ -516,6 +704,57 @@ class DatabaseConnection:
             return 
     
     
+    def get_all_storage_info(self) -> dict[str, float]: 
+        """Returns a dict with three keys for "gb_shared", "gb_storing_for", and "gb_storing_with" for 
+        all peers."""
+        
+        # Execute the query
+        self.cursor.execute("""
+        SELECT 
+            (SELECT SUM(size_gb) FROM PreviouslySharedWith) AS gb_shared,
+            (SELECT SUM(size_gb) FROM CurrentlyStoringFor) AS gb_storing_for,
+            (SELECT SUM(size_gb) FROM CurrentlyStoringWith) AS gb_storing_with
+        """)
+    
+        # Fetch results
+        row:tuple = self.cursor.fetchone()
+
+        # Return the results
+        return {
+            'gb_shared': row[0] or 0.0,
+            'gb_storing_for': row[1] or 0.0,
+            'gb_storing_with': row[2] or 0.0
+        }
+        
+    
+    def get_user_history(self, peer_pub_key:str=None) -> dict[str, list[dict]]: 
+        """Returns the history of this client with the given peer."""
+        
+        # Prepare base queries for each relevant table
+        base_queries:dict[str, str] = {
+            'storing_for': "SELECT * FROM CurrentlyStoringFor",
+            'storing_with': "SELECT * FROM CurrentlyStoringWith",
+            'shared': "SELECT * FROM PreviouslySharedWith"
+        }
+
+        # Add WHERE clause if filtering by peer pub key
+        if peer_pub_key:
+            for key in base_queries:
+                base_queries[key] += " WHERE peer_pub_key = ?"
+
+        # Execute and load into DataFrames
+        storing_for_df = pd.read_sql_query(base_queries['storing_for'], self.cxn, params=(peer_pub_key,) if peer_pub_key else None)
+        storing_with_df = pd.read_sql_query(base_queries['storing_with'], self.cxn, params=(peer_pub_key,) if peer_pub_key else None)
+        shared_df = pd.read_sql_query(base_queries['shared'], self.cxn, params=(peer_pub_key,) if peer_pub_key else None)
+
+        # Return all as a dict
+        return {
+            'storing_for': storing_for_df.to_dict(orient='records'),
+            'storing_with': storing_with_df.to_dict(orient='records'),
+            'shared': shared_df.to_dict(orient='records')
+        }
+        
+        
     def get_stored_file_nonce(self, peer_pub_key:str, filename:str) -> str: 
         """Retrieves the [b64_nonce] from the [CurrentlyStoringWith] table for the given peer and filename."""
         
