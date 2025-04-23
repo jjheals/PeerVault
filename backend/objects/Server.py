@@ -9,6 +9,7 @@ import pandas as pd
 import base64 
 import datetime as dt 
 from time import sleep
+from uuid import uuid1
 
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, update_peer_info, write_to_file,  \
         hash_bytes_sha256, sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
@@ -939,6 +940,18 @@ class Server(object):
         print(f"\n\033[92mServer.send_mcast_hello() sent message: \033[0m\n{message}")
 
 
+    def find_store_recipient(self, file_size_gb:float) -> str: 
+        """
+        Sends a multicast message to find a recipient to store a file of the given size.
+        
+        Parameters: 
+            file_size_gb (int): the size of the file that we're trying to store.
+            
+        Returns: 
+            str: a UUID that can be used to look up this request later in the queued outoging reqs CSV.
+        """
+        
+        
     def initiate_identity_check(self, connection:socket.socket, peer_public_key_pem:str, client_address:str) -> bool:
         """Complete an identity check handshake with the given connection and client address.
         
