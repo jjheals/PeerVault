@@ -16,6 +16,7 @@ from blueprints import fi_bp, p2p_bp, fe_p2p_bp
 
 # Custom objs & util funcs
 from utils import generate_asymm_keys, now
+from objects import DatabaseConnection
 
 
 # ---- Load configs ---- #
@@ -61,6 +62,9 @@ app.flask_config = flask_config
 app.enc_config = enc_config
 app.network_config = network_config
 app.identity_config = identity_config
+
+# Create a DB connection and add to the app
+app.db_connection = DatabaseConnection(flask_config['paths']['DB_PATH'])
 
 # NOTE: init app.server as None to start, and it is changed via the /ui/init-application endpoint
 app.server = None
