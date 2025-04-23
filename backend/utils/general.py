@@ -159,3 +159,12 @@ def setup_logger(log_file_path:str, logger_name:str, min_level:int=logging.DEBUG
         
     # Return the logger
     return logger
+
+
+def is_valid_date(date_str: str) -> bool:
+    """Checks if a date string is in YYYY-MM-DD format and represents a valid calendar date."""
+    try:
+        dt.datetime.strptime(date_str, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
