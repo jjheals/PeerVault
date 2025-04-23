@@ -419,7 +419,7 @@ def delete_file():
             })
         
         except Exception as e: 
-            print(f'\033[91mERROR in fi_bp.store_file(): \033[0mthere was an error sending the delete request for file "{filename}" to peer "{peer_cn}". Exception: ', e)
+            print(f'\033[91mERROR in fi_bp.store_file(): \033[0mthere was an error sending the delete request for file "{filename}" to peer "{peer_info["common_name"]}". Exception: ', e)
             return jsonify({'error': 'An error occured during file store request. Error: ' + str(e)}), 500
             
 
