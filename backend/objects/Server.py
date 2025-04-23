@@ -12,9 +12,9 @@ from time import sleep
 from uuid import uuid1
 
 from .DatabaseConnection import DatabaseConnection
-from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, update_peer_info, write_to_file,  \
-        hash_bytes_sha256, sign_file, new_csv_row, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
-        get_mac_address, cn_from_pub_key, delete_csv_row
+from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, write_to_file,  \
+        hash_bytes_sha256, sign_file, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
+        get_mac_address
 
 
 class Server(object):
@@ -476,7 +476,7 @@ class Server(object):
                     self.handle_retrieve_request(
                         connection,
                         strip_pem_headers(peer_pub_key_pem),
-                        cn_from_pub_key(strip_pem_headers(peer_pub_key_pem)),
+                        self.db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem)),
                         message_json['filename']
                     )
                     
@@ -736,19 +736,15 @@ class Server(object):
         if(message == "File written"):
             
             # Add a new row for the new shared file
-            new_csv_row(
-                os.path.join(self.data_dir_path, 'previously-shared-with.csv'),
-                {
-                    'peer_pub_key': strip_pem_headers(peer_pub_key_pem),
-                    'direction': 'INBOUND',
-                    'filename': file_name,
-                    'size_gb': bytes_to_gb(len(decoded_file_content)),
-                    'sha256': hash_bytes_sha256(decoded_file_content),
-                    'date_shared': dt.datetime.now().strftime('%Y-%m-%d')
-                }
+            self.db_connection.new_shared_file(
+                strip_pem_headers(peer_pub_key_pem),
+                'inbound',
+                file_name,
+                bytes_to_gb(len(decoded_file_content)),
+                hash_bytes_sha256(decoded_file_content)
             )
-            
-
+           
+           
     def handle_store_request(self, connection:socket.socket) -> None:
         """Handles a request to store a file from a client and replys back to the client the results of the store.
 
@@ -827,16 +823,13 @@ class Server(object):
         if(message == "File written"):
             
             # Add a new row for the new shared file
-            new_csv_row(
-                os.path.join(self.data_dir_path, 'currently-storing-for.csv'),
-                {
-                    'peer_pub_key': strip_pem_headers(peer_pub_key_pem),
-                    'filename': file_name,
-                    'size_gb': bytes_to_gb(len(decoded_encrypted_file_content)),
-                    'sha256': hash_bytes_sha256(decoded_encrypted_file_content),
-                }
+            self.db_connection.new_storing_for_file(
+                strip_pem_headers(peer_pub_key_pem),
+                file_name,
+                bytes_to_gb(len(decoded_encrypted_file_content)),
+                hash_bytes_sha256(decoded_encrypted_file_content)
             )
-        
+            
                     
     def handle_delete_request(self, connection:socket.socket) -> None:
         """
@@ -900,10 +893,9 @@ class Server(object):
             matched_row = matched_row.iloc[0]
             
             # Remove the entry from the currently storing for CSV
-            delete_csv_row(
-                csv_path,
-                ['peer_pub_key', 'filename'],
-                [peer_pub_key, file_name]
+            self.db_connection.remove_storing_for_entry(
+                peer_pub_key,
+                file_name
             )
 
             # Delete the stored file 
