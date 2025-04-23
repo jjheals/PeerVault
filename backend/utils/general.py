@@ -7,6 +7,7 @@ from hashlib import sha256
 import os
 from io import BytesIO
 import socket
+import logging
 
 
 def now() -> str: 
@@ -130,3 +131,31 @@ def write_to_file(filename:str, content:bytes) -> str:
 def bytes_to_gb(num_bytes:int|float) -> float:
     """Takes in a number of bytes and converts to GB"""
     return num_bytes / (1024 ** 3)
+
+
+def setup_logger(log_file_path:str, logger_name:str, min_level:int=logging.DEBUG, log_format:str='%(asctime)s - %(levelname)s: %(message)s') -> logging.Logger:
+    """Sets up a logger to save logs to the given filepath."""
+    
+    # Init a logger and set the lowest level to DEBUG (so all logs are captured)
+    logger:logging.Logger = logging.getLogger(logger_name)
+    logger.setLevel(min_level)
+    
+    # Prevent double logging if root logger is used
+    logger.propagate = False  
+
+    # Avoid duplicate handlers if setup is called multiple times
+    if not logger.handlers:
+        
+        # Create the output dir if it doesn't exist
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+        # Create a file handler
+        file_handler:logging.FileHandler = logging.FileHandler(log_file_path, encoding='utf-8')
+        logger.addHandler(file_handler)
+        
+        # Set the format for logs 
+        formatter:logging.Formatter = logging.Formatter(log_format)
+        file_handler.setFormatter(formatter)
+        
+    # Return the logger
+    return logger
