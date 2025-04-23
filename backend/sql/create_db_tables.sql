@@ -64,6 +64,6 @@ CREATE TABLE PendingRequests(
     request_date TEXT NOT NULL,     -- Must be in [YYYY-MM-DD] format 
     CHECK (request_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
     CHECK (direction = 'incoming' OR direction = 'outgoing'),
-    CHECK (request_type IN ('store', 'share', 'delete')),
+    CHECK (request_type IN ('store', 'share', 'delete', 'retrieve')),
     FOREIGN KEY (peer_pub_key) REFERENCES Peer(peer_pub_key)
 );
