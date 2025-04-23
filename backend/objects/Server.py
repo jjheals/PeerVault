@@ -52,9 +52,13 @@ class Server(object):
         mcast_iface:str,
         mcast_port:int,
         mcast_group:str,
-        db_connection:DatabaseConnection,
+        send_db_connection:DatabaseConnection,
+        db_filepath:str,
         peer_storage_dir:str,
-        log_filepath:str='logs/server.log'
+        log_filepath:str='logs/server.log',
+        logger_name:str='server_logger',
+        db_log_filepath:str='logs/database.log',
+        db_logger_name:str='database_logger'
     ):
         self.pub_key_pem = pub_key_pem
         self.priv_key_pem = priv_key_pem
@@ -65,40 +69,32 @@ class Server(object):
         self.mcast_iface = mcast_iface
         self.mcast_port = mcast_port
         self.mcast_group = mcast_group
-        self.db_connection = db_connection
+        self.send_db_connection = send_db_connection
+        self.db_filepath = db_filepath
         self.mac_last_four = get_mac_address()[-4:]
         self.peer_storage_dir = peer_storage_dir
+        self.db_log_filepath = db_log_filepath
+        self.db_logger_name = db_logger_name
 
         # Init the connection
         self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_alive = False
         
         # Set up logger 
-        self.logger = setup_logger(log_filepath, 'server_logger')
+        self.logger = setup_logger(log_filepath, logger_name)
         
         # Init a thread pool
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
 
         # Info log
         self.logger.info("Server startup beginning")
+        
+        # Set the server as alive
+        self.server_alive = True
+        
+        # Info log
+        print('\033[92mServer init complete.\033[0m')
 
-        # Start to build the network connections
-        try:
-
-            # Bind the socket to the interface and port
-            self.socket_connection.bind((self.iface, self.port))
-            self.logger.info("Bound socket connection to address: %s and port %d", self.iface, self.port)
-
-            # Set the server as alive
-            self.server_alive = True
-            
-            # Info log
-            print('\033[92mServer init complete.\033[0m')
-
-        except Exception as e:
-            print('\033[91mERROR in Server.__init__(): \033[0mfailed to initialize server - ', e)
-            self.logger.error("Failed to initialize server: %s", e)
- 
 
     # ---- Methods related to SERVER INITIALIZATION and SHUTDOWN ---- #
 
@@ -130,6 +126,10 @@ class Server(object):
         Notes: A client will make one request to the server. If the server needs infomation like the public key from server then it will make it own request to that server 
         """
         
+        # Bind the socket to the interface and port
+        self.socket_connection.bind((self.iface, self.port))
+        self.logger.info("Bound socket connection to address: %s and port %d", self.iface, self.port)
+
         # Start listening for incoming connections
         self.socket_connection.listen(5)
         
@@ -147,6 +147,7 @@ class Server(object):
             self.logger.info("connection form IP address: %s", str(addr[0])) 
             
             try: 
+                
                 # Pass connection to handle network req func in a new thread        
                 self.thread_pool.submit(self.handle_network_request(
                     cxn, 
@@ -249,229 +250,91 @@ class Server(object):
             return      
         
         # Strip pem headers from the peer pub key
-        peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)
+        peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)       
+        
+        # For simplicity, do the identity check before checking the code
+        # NOTE: the only code that doesn't initiate an ID check is an INIT_IDC_CODE
+        if code != Server.INIT_IDC_CODE: 
+            
+            # Do identity check
+            id_check_result:bool = self.initiate_identity_check(
+                connection, 
+                peer_pub_key_pem, 
+                addr[0]
+            )  
+
+            # If ID check pass, update the peer's info
+            if id_check_result: 
+                
+                # Check if this peer exists already
+                # Peer exists, so update their status
+                if db_connection.check_peer_exists(peer_pub_key):
+                    db_connection.update_peer_status(       
+                        peer_pub_key,                     
+                        addr[0],
+                        new_online_status=True
+                    )
+                
+                # Peer doesn't exist, so create an entry for them
+                else: 
+                    db_connection.new_peer(
+                        peer_pub_key,           # peer_pub_key
+                        True,                   # online_status
+                        addr[0],                # most_recent_ip
+                        peer_common_name,       # common_name
+                        peer_mac_last_four      # mac_last_four
+                    )
                     
+            # If ID check failed, do not respond and do nothing else 
+            else: 
+                # Log
+                print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for DISC code).')
+                self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                
+                # Do not respond
+                pass
+            
+        # If it is an INIT_ID_CODE, then simply respond
+        else: 
+            self.respond_identity_check(
+                connection, 
+                addr[0], 
+                peer_pub_key_pem, 
+                data
+            )
+        
+        # Init a DB connection for this thread 
+        db_connection:DatabaseConnection = DatabaseConnection(
+            self.db_filepath,
+            log_filepath=self.db_log_filepath,
+            logger_name=self.db_logger_name
+        )     
+            
         # If all required attributes are present, handle the request code appropriately
         match code: 
             
             # Handle discovery code (new peer joined the network)
             case Server.DISC_CODE:
-
-                # Do identity check
-                id_check_result:bool = self.initiate_identity_check(
-                    connection, 
-                    peer_pub_key_pem, 
-                    addr[0]
-                )  
- 
-                # If ID check pass, update the peer's info
-                if id_check_result: 
-                    
-                    # Check if this peer exists already
-                    # Peer exists, so update their status
-                    if self.db_connection.check_peer_exists(peer_pub_key):
-                        self.db_connection.update_peer_status(                            
-                            addr[0],
-                            new_online_status=True
-                        )
-                    
-                    # Peer doesn't exist, so create an entry for them
-                    else: 
-                        self.db_connection.new_peer(
-                            peer_pub_key,           # peer_pub_key
-                            True,                   # online_status
-                            addr[0],                # most_recent_ip
-                            peer_common_name,       # common_name
-                            peer_mac_last_four      # mac_last_four
-                        )
-                    
-                # If ID check failed, do not respond and do nothing else 
-                else: 
-                    # Log
-                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for DISC code).')
-                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                    
-                    # Do not respond
-                    pass
-            
+                # NOTE: since we already did ID check and updated the peer's info, do nothing else here
+                pass
+                
             # Handle identity check code (peer wants us to complete an identity check)
             case Server.INIT_IDC_CODE: 
-                self.respond_identity_check(
-                    connection, 
-                    addr[0], 
-                    peer_pub_key_pem, 
-                    data
-                )
+                # NOTE: we already responded in the conditional before the match statement, so do
+                # nothing else here
+                pass
             
             # Handle share request code (peer wants to share a file with us)
-            case Server.SHARE_REQ_CODE: 
-
-                # Do identity check
-                id_check_result:bool = self.initiate_identity_check(
-                    connection, 
-                    peer_pub_key_pem, 
-                    addr[0]
-                )  
-
-                # If ID check pass, handle the discovery request
-                if id_check_result: 
+            case Server.SHARE_REQ_CODE: self.handle_share_request(connection, db_connection)
                     
-                    # NOTE: since we know the peer is online, we can update their status in the DB
-                    # or create an entry for them if they do not exist
-
-                    # Peer exists, so update their status
-                    if self.db_connection.check_peer_exists(peer_pub_key):
-                        self.db_connection.update_peer_status(                            
-                            addr[0],
-                            new_online_status=True
-                        )
-                    
-                    # Peer doesn't exist, so create an entry for them
-                    else: 
-                        self.db_connection.new_peer(
-                            peer_pub_key,           # peer_pub_key
-                            True,                   # online_status
-                            addr[0],                # most_recent_ip
-                            peer_common_name,       # common_name
-                            peer_mac_last_four      # mac_last_four
-                        )
-                    
-                    # Handle the incoming share request
-                    self.handle_share_request(connection)
-                    
-                # If ID check failed, do not respond
-                else: 
-                    # Log
-                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for SHARE_REQ code).')
-                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                    
-                    # Do not respond
-                    pass
-            
             # Handle store request code (peer wants to store a file with us)
-            case Server.STORE_REQ_CODE: 
-                
-                # Do identity check
-                id_check_result:bool = self.initiate_identity_check(
-                    connection, 
-                    peer_pub_key_pem, 
-                    addr[0]
-                )  
-
-                # If ID check pass, handle the store request
-                if id_check_result: 
-                    
-                    # NOTE: since we know the peer is online, we can update their status in the DB
-                    # or create an entry for them if they do not exist
-
-                    # Peer exists, so update their status
-                    if self.db_connection.check_peer_exists(peer_pub_key):
-                        self.db_connection.update_peer_status(                            
-                            addr[0],
-                            new_online_status=True
-                        )
-                    
-                    # Peer doesn't exist, so create an entry for them
-                    else: 
-                        self.db_connection.new_peer(
-                            peer_pub_key,           # peer_pub_key
-                            True,                   # online_status
-                            addr[0],                # most_recent_ip
-                            peer_common_name,       # common_name
-                            peer_mac_last_four      # mac_last_four
-                        )
-                    
-                    # Handle the incoming store request
-                    self.handle_store_request(connection)
-                
-                # If ID check failed, do not respond
-                else: 
-                    # Log
-                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for STORE_REQ code).')
-                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                    
-                    # Do not respond
-                    pass
+            case Server.STORE_REQ_CODE: self.handle_store_request(connection, db_connection)
             
             # Handle delete file code (peer wants to delete a file we are storing for them)
-            case Server.DEL_FILE_CODE: 
-                
-                # Do identity check
-                id_check_result:bool = self.initiate_identity_check(
-                    connection, 
-                    peer_pub_key_pem, 
-                    addr[0]
-                )  
-
-                # Delete the file from the system
-                if id_check_result: 
-                    
-                    # NOTE: since we know the peer is online, we can update their status in the DB
-                    # or create an entry for them if they do not exist
-
-                    # Peer exists, so update their status
-                    if self.db_connection.check_peer_exists(peer_pub_key):
-                        self.db_connection.update_peer_status(                            
-                            addr[0],
-                            new_online_status=True
-                        )
-                    
-                    # Peer doesn't exist, so create an entry for them
-                    else: 
-                        self.db_connection.new_peer(
-                            peer_pub_key,           # peer_pub_key
-                            True,                   # online_status
-                            addr[0],                # most_recent_ip
-                            peer_common_name,       # common_name
-                            peer_mac_last_four      # mac_last_four
-                        )
-                    
-                    # Handle the incoming delete request
-                    self.handle_delete_request(connection)
-                
-                # If ID check failed, do not respond
-                else: 
-                    # Log
-                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for DEL_FILE code).')
-                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                    
-                    # Do not respond
-                    pass
+            case Server.DEL_FILE_CODE: self.handle_delete_request(connection, db_connection)
             
             # Handle retrieve file code (peer wants the contents of a stored file)
             case Server.RETR_FILE_CODE:
-
-                 # Do identity check
-                id_check_result:bool = self.initiate_identity_check(
-                    connection, 
-                    peer_pub_key_pem, 
-                    addr[0]
-                )  
-
-                # If ID check pass, handle the retrieve request
-                if id_check_result: 
-                    
-                    # NOTE: since we know the peer is online, we can update their status in the DB
-                    # or create an entry for them if they do not exist
-
-                    # Peer exists, so update their status
-                    if self.db_connection.check_peer_exists(peer_pub_key):
-                        self.db_connection.update_peer_status(                            
-                            addr[0],
-                            new_online_status=True
-                        )
-                    
-                    # Peer doesn't exist, so create an entry for them
-                    else: 
-                        self.db_connection.new_peer(
-                            peer_pub_key,           # peer_pub_key
-                            True,                   # online_status
-                            addr[0],                # most_recent_ip
-                            peer_common_name,       # common_name
-                            peer_mac_last_four      # mac_last_four
-                        )
-                    
-                    # Handle the incoming retrieve request
                     self.handle_retrieve_request(
                         connection,
                         strip_pem_headers(peer_pub_key_pem),
@@ -479,15 +342,6 @@ class Server(object):
                         message_json['filename']
                     )
                     
-                # If ID check failed, do not respond
-                else: 
-                    # Log
-                    print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" failed the ID check (for SHARE_REQ code).')
-                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                    
-                    # Do not respond
-                    pass
-                
             # Handle other code (invalid)
             case _: 
 
@@ -674,7 +528,7 @@ class Server(object):
             return False
 
 
-    def handle_share_request(self, connection:socket.socket) -> None:  
+    def handle_share_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:  
         """Handles a request to share a file from a client and replys back to the client the results of the share.
 
         Parameters:
@@ -754,7 +608,7 @@ class Server(object):
         if(message == "File written"):
             
             # Add a new row for the new shared file
-            self.db_connection.new_shared_file(
+            db_connection.new_shared_file(
                 strip_pem_headers(peer_pub_key_pem),
                 'inbound',
                 file_name,
@@ -763,7 +617,7 @@ class Server(object):
             )
            
            
-    def handle_store_request(self, connection:socket.socket) -> None:
+    def handle_store_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:
         """Handles a request to store a file from a client and replys back to the client the results of the store.
 
         Parameters:
@@ -796,7 +650,7 @@ class Server(object):
         response_plaintext_dict:dict = json.loads(decrypt_message(self.priv_key_pem, response))
     
         # Extract the file name and file content from the file_information dictionary
-        file_name:str = response_plaintext_dict["filename"]
+        filename:str = response_plaintext_dict["filename"]
         encoded_file_content:str = response_plaintext_dict["encrypted_file"]
 
         # Decode the file content 
@@ -805,10 +659,14 @@ class Server(object):
         # Extract the peer's pub key pem and the digital signature from the response dict
         peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
         signature_str:str = response_plaintext_dict['signature']
-
+        peer_cn:str = db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem))    # CN is used for info prints and logs
+        
         # Verify the digital signature
         if not verify_signature(peer_pub_key_pem, decoded_encrypted_file_content, signature_str):
-
+            
+            # Log
+            self.logger.warning('in handle_store_request() - request failed the digital signature.')
+            
             # Send a failure message back to the peer
             connection.send({
                 'code': Server.FAIL_CODE,
@@ -820,13 +678,16 @@ class Server(object):
             return 
         
         # Construct the target directory path
-        target_directory:str = response_plaintext_dict['common_name']
+        target_directory:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'])
 
         # Create the target dir if it doesn't exist
         os.makedirs(target_directory, exist_ok=True)
 
         # Write the file to the target directory and get the message
-        message:str = write_to_file(os.path.join(target_directory, file_name), decoded_encrypted_file_content)
+        message:str = write_to_file(os.path.join(target_directory, filename), decoded_encrypted_file_content)
+        
+        # Log
+        self.logger.info(f'in handle_store_request() - sending response message "{message}" to "{peer_cn}"')
         
         # Prepare the outgoing message to be sent to the client
         outgoing_message: dict = {
@@ -838,18 +699,22 @@ class Server(object):
         # Send the encrypted message to the client
         connection.send(json.dumps(outgoing_message).encode())
 
+        # If the file write was a success, then add a new entry in the DB
         if(message == "File written"):
             
+            # Log
+            self.logger.info(f'in handle_store_request() - now storing file "{filename}" for "{peer_cn}"')
+            
             # Add a new row for the new shared file
-            self.db_connection.new_storing_for_file(
+            db_connection.new_storing_for_file(
                 strip_pem_headers(peer_pub_key_pem),
-                file_name,
+                filename,
                 bytes_to_gb(len(decoded_encrypted_file_content)),
                 hash_bytes_sha256(decoded_encrypted_file_content)
             )
             
                     
-    def handle_delete_request(self, connection:socket.socket) -> None:
+    def handle_delete_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:
         """
         Handles a request to delete a file from a client and replies back to the client with the results of the delete.
 
@@ -894,11 +759,11 @@ class Server(object):
         try:
 
              # Check that we're actually storing this file for this peer
-            if not self.db_connection.check_stored_for_file_exists(peer_pub_key, filename):
+            if not db_connection.check_stored_for_file_exists(peer_pub_key, filename):
                 raise FileNotFoundError(f'No matching file "{filename}" found for peer.')
             
             # Remove the entry from the currently storing for CSV
-            self.db_connection.remove_storing_for_entry(
+            db_connection.remove_storing_for_entry(
                 peer_pub_key,
                 filename
             )
@@ -1181,10 +1046,10 @@ class Server(object):
                 self.logger.info('in send_share_request() - successfully shared file "{filename}" with peer "{peer_ip_address}".')
                 
                 # Get the pub key for this IP address 
-                peer_pub_key:str = self.db_connection.pub_key_from_ip(peer_ip_address)
+                peer_pub_key:str = self.send_db_connection.pub_key_from_ip(peer_ip_address)
                 
                 # Add a new entry in the DB
-                self.db_connection.new_shared_file(
+                self.send_db_connection.new_shared_file(
                     peer_pub_key,
                     'outbound',
                     filename,
@@ -1305,10 +1170,10 @@ class Server(object):
                 self.logger.info(f'in send_store_request() - successfully sent "{filename}" to be stored with peer IP "{peer_ip_address}"')
 
                 # Get the peer's public key
-                peer_pub_key:str = self.db_connection.pub_key_from_ip(peer_ip_address)
+                peer_pub_key:str = self.send_db_connection.pub_key_from_ip(peer_ip_address)
                 
                 # Add a new DB entry
-                self.db_connection.new_storing_with_file(
+                self.send_db_connection.new_storing_with_file(
                     peer_pub_key,
                     filename,
                     bytes_to_gb(len(encrypted_file_contents)),
@@ -1401,7 +1266,7 @@ class Server(object):
                 self.logger.info('in send_delete_request() - successfully deleted "{filename}" from peer "{peer_ip_address}"')
 
                 # Remove this row from the DB table
-                self.db_connection.remove_storing_with_entry(
+                self.send_db_connection.remove_storing_with_entry(
                     peer_pub_key,
                     filename                    
                 )
@@ -1501,7 +1366,7 @@ class Server(object):
                 self.logger.log(f'in retrieve_stored_file(): successfully retrieved file "{filename}" from "{peer_ip_address}".')
 
                 # Get the nonce for decrypting
-                nonce:str = self.db_connection.get_stored_file_nonce(
+                nonce:str = self.send_db_connection.get_stored_file_nonce(
                     peer_pub_key,
                     filename
                 )
