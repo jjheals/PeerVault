@@ -516,30 +516,45 @@ class Server(object):
             
             # Log 
             self.logger.info('Checking status of outgoing requests.')
-                
-            # Read the (current) outgoing requests csv and peer info CSV
-            # NOTE: do this every iteration to make sure changes are read 
-            curr_queued_reqs_df:pd.DataFrame = pd.read_csv('requests/outgoing.csv')
-            peer_info_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
             
-            # Iterate over the public keys for peers with pending outgoing requests
-            for idx,req_row in curr_queued_reqs_df.iterrows(): 
-                
+            # Get the request IDs for any outgoing requests where the peer is online
+            matched_req_ids:list[int] = self.db_connection.check_pending_requests_status(
+                'outbound',
+                target_peer_online_status=True
+            )
+
+            # Check for results
+            if not matched_req_ids or len(matched_req_ids) == 0: 
+                # No results
+                self.logger.info('in queued_request_checker() - no queued outgoing requests have online peers.')
+                continue 
+
+            # Iterate over the matched request IDs
+            for req_id in matched_req_ids:
+
+                # Get the info for this request 
+                request_info:dict = self.db_connection.get_pending_request(req_id)
+
+                # Make sure we got results to avoid a KeyError
+                if not request_info: 
+                    self.logger.error(f'in queued_request_checker() - expected to get a matching request for {req_id} but got None.')
+                    continue 
+
                 # Extract the peer_pub_key col
-                peer_pub_key:str = req_row['peer_pub_key']
+                peer_pub_key:str = request_info['peer_pub_key']
                 
                 # Get this peer's info from the peer info df
-                peer_info_row:pd.Series = peer_info_df.loc[peer_info_df['peer_pub_key'] == peer_pub_key].iloc[0]
+                peer_info:dict = self.db_connection.peer_info_from_pub_key(peer_pub_key)
                     
                 # Check if this peer is online
-                if peer_info_row['online_status']: 
+                if peer_info['online']: 
                     
                     # Log
-                    self.logger.info(f'Sending queued "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]}.')
+                    self.logger.info(f'Sending queued "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]}.')
                         
                     # Peer is online - extract the other needed attributes for the outgoing req
-                    req_type:str = req_row['upload_type']
-                    filename:str = req_row['file']
+                    req_type:str = request_info['upload_type']
+                    filename:str = request_info['filename']
                         
                     # Act according to the request type
                     match(req_type.lower()): 
@@ -556,13 +571,13 @@ class Server(object):
                         
                             # Send the share request
                             self.send_share_request(
-                                peer_info_row['most_recent_ip'],    # peer_ip_address
-                                file_contents,                      # plaintext_file
-                                filename                            # filename
+                                peer_info['most_recent_ip'],    # peer_ip_address
+                                file_contents,                  # plaintext_file
+                                filename                        # filename
                             )
                             
                             # Delete the tmp file 
-                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
                             os.remove(tmp_filepath)
                             
                         # STORE request
@@ -577,13 +592,13 @@ class Server(object):
                         
                             # Send the store request
                             self.send_store_request(
-                                peer_info_row['most_recent_ip'],    # peer_ip_address
-                                file_contents,                      # plaintext_file
-                                filename                            # filename
+                                peer_info['most_recent_ip'],    # peer_ip_address
+                                file_contents,                  # plaintext_file
+                                filename                        # filename
                             )
 
                             # Delete the tmp file 
-                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
                             os.remove(tmp_filepath)
                             
                         # DELETE request
@@ -600,13 +615,17 @@ class Server(object):
                         
                             # Send the share request
                             self.send_delete_request(
-                                peer_info_row['most_recent_ip'],   # peer_ip_address
-                                filename,                          # filename
-                                matched_row['sha256'],             # encrypted_file_hash
+                                peer_info['most_recent_ip'],   # peer_ip_address
+                                filename,                      # filename
+                                matched_row['sha256'],         # encrypted_file_hash
                             )
                             
                             # Log
-                            self.logger.info(f'Sent "{req_row["upload_type"].upper()}" request to "{peer_info_row["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+
+                    # Delete the pending request now that we handled it 
+                    self.db_connection.remove_pending_request(req_id)
+                    self.logger.info(f'in queued_request_checker() - done handling {request_info["request_type"]} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
             # Sleep for Server.REQ_CHECK_SLEEP before next iteration
