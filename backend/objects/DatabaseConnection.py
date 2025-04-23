@@ -14,7 +14,7 @@ class DatabaseConnection:
     logger:logging.Logger   # Logger
     
     
-    def __init__(self, db_filepath:str, log_filepath:str='logs/database.log'): 
+    def __init__(self, db_filepath:str, log_filepath:str='logs/database.log', logger_name:str='database_logger'): 
         
         # Create log dir if it doesn't exist
         os.makedirs(os.path.dirname(log_filepath), exist_ok=True)
@@ -22,7 +22,7 @@ class DatabaseConnection:
         # Init logger first to log success/errors
         self.logger = setup_logger(
             log_filepath,
-            'database_logger'
+            logger_name
         )
         
         # Try to make a cxn to the DB
