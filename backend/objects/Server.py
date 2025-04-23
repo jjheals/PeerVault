@@ -731,7 +731,7 @@ class Server(object):
         # Send the encrypted message to the client
         connection.send(json.dumps(outgoing_message).encode())
         
-        # If the file was written successfully, add a new entry to the prev shared with CSV
+        # If the file was written successfully, add a new entry to the PreviouslySharedWith DB table
         if(message == "File written"):
             
             # Add a new row for the new shared file
@@ -861,40 +861,27 @@ class Server(object):
         # Decrypt the message
         response_plaintext_dict: dict = json.loads(decrypt_message(self.priv_key_pem, response))
 
-        # Extract the file name and file hash from the request
-        file_name: str = response_plaintext_dict["filename"]
+        # Extract the file name from the request
+        filename: str = response_plaintext_dict["filename"]
 
         # Extract the peer's public key PEM from the response dict
         peer_pub_key_pem: str = response_plaintext_dict['public_key_pem']   # Pub key WITH PEM headers
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)              # Pub key WITHOUT PEM headers
 
-        # Read the CSV to find the stored hash for the file
-        csv_path = os.path.join(self.data_dir_path, 'currently-storing-for.csv')
-        curr_storing_with_df:pd.DataFrame = pd.read_csv(csv_path)
-
         # Construct path to the stored file
-        target_filepath:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'], file_name)
+        target_filepath:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'], filename)
         
         # Attempt to delete the file
         try:
 
-            # Find the entry for this peer and filename in the currently storing with df 
-            matched_row:pd.DataFrame = curr_storing_with_df.loc[
-                (curr_storing_with_df['peer_pub_key'] == peer_pub_key) &
-                (curr_storing_with_df['filename'] == file_name)
-            ]
-
-            # Check if the matched_row is empty
-            if matched_row.empty:
-                raise FileNotFoundError(f'No matching file "{file_name}" found for peer.')
-
-            # Access the first row of the matched row
-            matched_row = matched_row.iloc[0]
+             # Check that we're actually storing this file for this peer
+            if not self.db_connection.check_stored_for_file_exists(peer_pub_key, filename):
+                raise FileNotFoundError(f'No matching file "{filename}" found for peer.')
             
             # Remove the entry from the currently storing for CSV
             self.db_connection.remove_storing_for_entry(
                 peer_pub_key,
-                file_name
+                filename
             )
 
             # Delete the stored file 
