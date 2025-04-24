@@ -380,7 +380,7 @@ class Server(object):
             
             # Get the request IDs for any outgoing requests where the peer is online
             matched_req_ids:list[int] = self.db_connection.check_pending_requests_status(
-                'outbound',
+                'outgoing',
                 target_peer_online_status=True
             )
 
@@ -617,7 +617,7 @@ class Server(object):
             # Add a new row for the new shared file
             db_connection.new_shared_file(
                 strip_pem_headers(peer_pub_key_pem),
-                'inbound',
+                'incoming',
                 file_name,
                 bytes_to_gb(len(decoded_file_content)),
                 hash_bytes_sha256(decoded_file_content)
@@ -1058,7 +1058,7 @@ class Server(object):
                 # Add a new entry in the DB
                 self.send_db_connection.new_shared_file(
                     peer_pub_key,
-                    'outbound',
+                    'outgoing',
                     filename,
                     bytes_to_gb(len(plaintext_file)),
                     hash_bytes_sha256(plaintext_file)
