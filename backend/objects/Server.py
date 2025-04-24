@@ -252,6 +252,13 @@ class Server(object):
         # Strip pem headers from the peer pub key
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)       
         
+         # Init a DB connection for this thread 
+        db_connection:DatabaseConnection = DatabaseConnection(
+            self.db_filepath,
+            log_filepath=self.db_log_filepath,
+            logger_name=self.db_logger_name
+        )     
+        
         # For simplicity, do the identity check before checking the code
         # NOTE: the only code that doesn't initiate an ID check is an INIT_IDC_CODE
         if code != Server.INIT_IDC_CODE: 
@@ -302,13 +309,6 @@ class Server(object):
                 peer_pub_key_pem, 
                 data
             )
-        
-        # Init a DB connection for this thread 
-        db_connection:DatabaseConnection = DatabaseConnection(
-            self.db_filepath,
-            log_filepath=self.db_log_filepath,
-            logger_name=self.db_logger_name
-        )     
             
         # If all required attributes are present, handle the request code appropriately
         match code: 
