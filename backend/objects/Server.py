@@ -93,13 +93,11 @@ class Server(object):
         # Init a thread pool
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=100) # will limit the server to only 100 threads processing data 
 
-        # Info log
-        self.logger.info("Server startup beginning")
-        
         # Set the server as alive
         self.server_alive = True
         
         # Info log
+        self.logger.info("Server initialized.")
         print('\033[92mServer init complete.\033[0m')
 
 
@@ -345,7 +343,7 @@ class Server(object):
                     self.handle_retrieve_request(
                         connection,
                         strip_pem_headers(peer_pub_key_pem),
-                        self.db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem)),
+                        db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem)),
                         message_json['filename']
                     )
                     
@@ -366,11 +364,18 @@ class Server(object):
     # ---- Methods that HANDLE INCOMING REQUESTS ---- #    
     # NOTE: the reverse methods of "Methods related to SENDING INFO TO OTHER PEERS"
 
-    def queued_request_checker(self) -> None: 
+    def handle_pending_outgoing_requests(self) -> None: 
         """Incrementally checks the queued outgoing requests and sends them if the peer is online."""
         
         # Log
-        self.logger.info('Starting queued_request_checker().')
+        self.logger.info('Starting handle_pending_outgoing_requests().')
+        
+        # Create a db connection for this thread 
+        db_connection:DatabaseConnection = DatabaseConnection(
+            self.db_filepath,
+            os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
+            logger_name='server_requests_db_logger'
+        )
         
         # Run while the server is alive
         while self.server_alive: 
@@ -379,7 +384,7 @@ class Server(object):
             self.logger.info('Checking status of outgoing requests.')
             
             # Get the request IDs for any outgoing requests where the peer is online
-            matched_req_ids:list[int] = self.db_connection.check_pending_requests_status(
+            matched_req_ids:list[int] = db_connection.check_pending_requests_status(
                 'outgoing',
                 target_peer_online_status=True
             )
@@ -394,18 +399,19 @@ class Server(object):
             for req_id in matched_req_ids:
 
                 # Get the info for this request 
-                request_info:dict = self.db_connection.get_pending_request(req_id)
+                request_info:dict = db_connection.get_pending_request(req_id)
 
                 # Make sure we got results to avoid a KeyError
                 if not request_info: 
                     self.logger.error(f'in queued_request_checker() - expected to get a matching request for {req_id} but got None.')
                     continue 
-
-                # Extract the peer_pub_key col
-                peer_pub_key:str = request_info['peer_pub_key']
                 
-                # Get this peer's info from the peer info df
-                peer_info:dict = self.db_connection.peer_info_from_pub_key(peer_pub_key)
+                # Log
+                self.logger.info(f'in queued_request_checker() - processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
+
+                # Extract the peer_pub_key and get this peer's info from the Peer table
+                peer_pub_key:str = request_info['peer_pub_key']
+                peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
                     
                 # Check if this peer is online
                 if peer_info['online']: 
@@ -465,27 +471,19 @@ class Server(object):
                         # DELETE request
                         case 'delete': 
                             
-                            # Read the currently storing with CSV to get the encrypted file hash
-                            curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
-
-                            # Find the row with this user and this filename
-                            matched_row:pd.DataFrame = curr_storing_with_df.loc[
-                                (curr_storing_with_df['peer_pub_key'] == peer_pub_key) & 
-                                (curr_storing_with_df['filename'] == filename)
-                            ].iloc[0]
-                        
+                            # Get the file hash
                             # Send the share request
                             self.send_delete_request(
                                 peer_info['most_recent_ip'],   # peer_ip_address
                                 filename,                      # filename
-                                matched_row['sha256'],         # encrypted_file_hash
+                                request_info['sha256'],         # encrypted_file_hash
                             )
                             
                             # Log
                             self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
 
                     # Delete the pending request now that we handled it 
-                    self.db_connection.remove_pending_request(req_id)
+                    db_connection.remove_pending_request(req_id)
                     self.logger.info(f'in queued_request_checker() - done handling {request_info["request_type"]} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
