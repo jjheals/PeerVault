@@ -64,9 +64,9 @@ response2:requests.Response = requests.request(
     'POST',
     'http://localhost:8000/ui/init-application/',
     headers={'Content-Type': 'application/json'},
-    data={
+    data=json.dumps({
         'passphrase': PASSPHRASE
-    }
+    })
 )
 
 print('\n\033[93mINIT APP response: \033[0m\n\n', response2.text)
