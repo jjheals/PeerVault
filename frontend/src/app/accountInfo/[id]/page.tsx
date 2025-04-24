@@ -22,7 +22,7 @@ export default function Home() {
   const [remoteStorage, setRemoteStorage] = React.useState(0.0);
   const [sharedStorage, setSharedStorage] = React.useState(0.0);
   // a list of json objects with a user name and the total amount of data stored in each of three categories
-  const [userData, setUserData] = React.useState([]);
+  const [userData, setUserData] = React.useState({});
   
   function retreiveIdentity(setIdentity:any) {
       instance
@@ -44,49 +44,27 @@ export default function Home() {
   }, [redraw]);
 
   React.useEffect(() =>{
+    if (!identity) return;
+
     instance
-    .get("/ui/get-shared-by-peer")
+    .get("/ui/get-interacted-with-peers")
     .then(function (response){
-      setUserData(response.data["user_data"])
+      const userDataMap = response.data.user_data;
+      const matchingKey = Object.keys(userDataMap).find((key) => {
+        return key === identity.pub_key;
+      });
+
+      if (matchingKey) {
+        setUserData(userDataMap[matchingKey]['storage_data']);
+        console.log(userDataMap[matchingKey]['storage_data'])
+      } else {
+        console.warn("No matching key found for pub_key:", identity.pub_key);
+      }
     })
     .catch (function (error) {
       console.error("errored:", error)
     });
-  }, [redraw]);
-
-  React.useEffect(() =>{
-    instance
-    .get("/ui/get-shared-storage")
-    .then(function (response){
-      setSharedStorage(response.data.storage);
-    })
-    .catch (function (error) {
-      console.log("errored:", error)
-    });
-  }, [redraw]);
-
-  React.useEffect(() =>{
-    instance
-    .get("/ui/get-remote-storage")
-    .then(function (response){
-      setRemoteStorage(response.data.storage);
-    })
-    .catch (function (error) {
-      console.log("errored:", error)
-    });
-  }, [redraw]);
-
-  React.useEffect(() =>{
-    instance
-    .get("/ui/get-local-storage")
-    .then(function (response){
-      setLocalStorage(response.data.storage);
-    })
-    .catch (function (error) {
-      console.log("errored:", error)
-    });
-  }, [redraw]);
- 
+  }, [redraw, identity]);
 
   return (
   <div>
@@ -133,11 +111,11 @@ export default function Home() {
       <div className="subtitleText">Quick Facts</div>
       <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
         <div className="font-semibold">Total Amount Stored Locally: </div>
-        <div>{localStorage} Bytes</div>
+        <div>{userData['stored_locally']} GB</div>
         <div className="font-semibold">Total Amount Stored Remotely: </div>
-        <div>{remoteStorage} Bytes</div>
+        <div>{userData['stored_remotely']} GB</div>
         <div className="font-semibold">Total Amount Shared: </div>
-        <div>{sharedStorage} Bytes</div>
+        <div>{userData['shared']} GB</div>
         
       </div>
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
