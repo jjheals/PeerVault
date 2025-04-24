@@ -1,4 +1,11 @@
 
+"""
+TODO: 
+    - better exception handling so that connections don't hang if an error occurs
+    - better logging for successes/failures
+    - remove print logs and move to just using Server.logger (self.logger)
+"""
+
 import logging 
 import socket
 import struct
