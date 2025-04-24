@@ -5,3 +5,4 @@ gevent
 pandas
 cryptography
 pycryptodome
+requests
