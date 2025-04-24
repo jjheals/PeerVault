@@ -130,11 +130,11 @@ def get_stored_with_info():
     
     # Get the matched peers from the db
     matched_peers_df:pd.DataFrame = db_connection.get_matching_peers(
-        peer_pub_key=given_args['peer_pub_key'],
-        online=given_args['online'],
-        most_recent_ip=given_args['most_recent_ip'],
-        common_name=given_args['common_name'],
-        mac_last_four=given_args['mac_last_four']
+        peer_pub_key=given_args.get('peer_pub_key', None),
+        online=given_args.get('online', None),
+        most_recent_ip=given_args.get('most_recent_ip', None),
+        common_name=given_args.get('common_name', None),
+        mac_last_four=given_args.get('mac_last_four', None)
     )
     
     # Use the matched pub keys to get the storing with info for these peers (or all peers)
