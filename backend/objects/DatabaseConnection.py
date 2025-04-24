@@ -207,7 +207,7 @@ class DatabaseConnection:
         result:tuple = self.cursor.fetchone()
 
         # Return accordingly
-        if result and len(result > 0): 
+        if result: 
             return {
                 c : r 
                 for c,r in zip(self.get_table_columns('PendingRequests'), list(result)) 
