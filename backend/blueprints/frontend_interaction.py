@@ -10,17 +10,14 @@ import os
 import pandas as pd
 from configparser import ConfigParser
 from hashlib import sha256
-import csv
 import pandas as pd
-import datetime
-from dateutil import parser
 import base64
-import json
+import datetime as dt 
 
-from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, cn_from_pub_key, pub_key_from_cn, get_unique_peers, \
-    generate_asymm_keys, gen_aes_key, load_aes_key, strip_pem_headers, normalize_string
+from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
+    load_aes_key, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
 
-from objects import Server 
+from objects import Server, DatabaseConnection
 from .funcs import require_localhost
 
 
@@ -39,7 +36,6 @@ def get_peer_list():
         ARGS: 
             
             online (int<0|1>) - filter by if the peers are active or not
-            friended (str<Y,N,W>) - filter by the status of friended from peers 
             peer_pub_key (str) - filter by public key
             most_recent_ip (str) - filter by the most recently known IP for peers
             common_name (str) - filter by common name 
@@ -65,7 +61,6 @@ def get_peer_list():
         'online': int,
         'common_name': str,
         'peer_pub_key': str,
-        'friended': str,
         'most_recent_ip': str,
         'mac_last_four': str
     }        
@@ -73,18 +68,17 @@ def get_peer_list():
     # Filter the request's args to just those that match the formats in expected_args
     given_args:dict = filter_args(expected_args, request)
 
-    # Read the current all-peers.csv file as a df
-    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
-        
-    # Filter the df using AND logic
-    filtered_peers_df:pd.DataFrame = all_peers_df.copy()
-    
-    for arg,val in given_args.items(): 
-        if val != '' and val != None: 
-            filtered_peers_df = filtered_peers_df[filtered_peers_df[arg] == val]
+    # Get the matching peers
+    matched_peers_df:pd.DataFrame = current_app.db_connection.get_matching_peers(
+        peer_pub_key=given_args['peer_pub_key'],
+        online=given_args['online'],
+        most_recent_ip=given_args['most_recent_ip'],
+        common_name=given_args['common_name'],
+        mac_last_four=given_args['mac_last_four']
+    )
         
     # Return the filtered list of peers
-    return jsonify(filtered_peers_df.to_dict(orient='records'))
+    return jsonify(matched_peers_df.to_dict(orient='records'))
 
 
 @fi_bp.route('/ui/get-stored-with-info', methods=['GET'])
@@ -96,7 +90,6 @@ def get_stored_with_info():
         ARGS: 
             
             online (int<0|1>) - filter by if the peers are active or not
-            allowed_to_receive (int<-1|0|1) - filter by the status of allowed_to_receive from peers 
             public_key (str) - filter by public key
             most_recent_ip (str) - filter by the most recently known IP for peers
             common_name (str) - filter by common name 
@@ -125,7 +118,6 @@ def get_stored_with_info():
         'online': int,
         'common_name': str,
         'peer_public_key': str,
-        'allowed_to_receive': int,
         'most_recent_ip': str,
         'mac_last_four': str
     }        
@@ -133,31 +125,27 @@ def get_stored_with_info():
     # Filter the request's args to just those that match the formats in expected_args
     given_args:dict = filter_args(expected_args, request)
     
-    # Read the current all-peers.csv file as a df
-    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
-
-    # Filter the all_peers_df using AND logic
-    filtered_peers_df:pd.DataFrame = all_peers_df.copy()
+    # Get the DB connection from the app
+    db_connection:DatabaseConnection = current_app.db_connection 
     
-    for arg,val in given_args.items(): 
-        if val != '' and val != None: 
-            filtered_peers_df = filtered_peers_df[filtered_peers_df[arg] == val]
+    # Get the matched peers from the db
+    matched_peers_df:pd.DataFrame = db_connection.get_matching_peers(
+        peer_pub_key=given_args['peer_pub_key'],
+        online=given_args['online'],
+        most_recent_ip=given_args['most_recent_ip'],
+        common_name=given_args['common_name'],
+        mac_last_four=given_args['mac_last_four']
+    )
     
-    # Read the current "currently-storing-with.csv" file as a df
-    curr_storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
-
-    # Join the filtered_peers_df with the curr_storing_with_df on "peer_pub_key"
-    joined_filtered_df:pd.DataFrame = pd.merge(
-        filtered_peers_df[['peer_pub_key', 'common_name']],
-        curr_storing_with_df,
-        how='right',
-        on='peer_pub_key'
+    # Use the matched pub keys to get the storing with info for these peers (or all peers)
+    matched_storing_with_df:pd.DataFrame = db_connection.get_storing_with_info(
+        list(matched_peers_df['peer_pub_key'].values)
     )
     
     # Return the filtered entries
     return jsonify({
-        'matched-peers': filtered_peers_df.to_dict(orient='records'),
-        'matched-files': joined_filtered_df.to_dict(orient='records')
+        'matched-peers': matched_peers_df.to_dict(orient='records'),
+        'matched-files': matched_storing_with_df.to_dict(orient='records')
     })
 
 
@@ -171,6 +159,7 @@ def whoami():
         RETURNS: 
             - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
             ['pub_key', 'allocated_storage', 'common_name', 'mac'].
+            - 400 | bad request: if the user is not signed up (i.e. keys don't exist).
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
@@ -178,34 +167,29 @@ def whoami():
     # Load the identity config file 
     identity_config:ConfigParser = ConfigParser()
     identity_config.read('config/identity.conf')
-                
-    # Load this user's public key
-    pub_key:str = load_key_pem(
-        current_app.enc_config['paths']['PUB_KEY_PATH'],
-        'public'
-    )
-        
-    # Create a dict, jsonify and return 
-    return jsonify({
-        'pub_key': strip_pem_headers(pub_key),
-        'common_name': identity_config['IDENTITY']['COMMON_NAME'],
-        'mac': identity_config['IDENTITY']['MAC'],
-        'ip': identity_config['IDENTITY']['IP'],
-    })
-
-@fi_bp.route('/ui/get-pub-key', methods=['POST'])
-@require_localhost
-def get_peer_public_key(): 
-
-    try:
-        request_body:dict = request.get_json()
-        peer_pub_key = pub_key_from_cn(request_body.get('peer_common_name', None))
-
+    
+    try: 
+        # Load this user's public key
+        pub_key:str = load_key_pem(
+            current_app.enc_config['paths']['PUB_KEY_PATH'],
+            'public'
+        )
+            
+        # Create a dict, jsonify and return 
         return jsonify({
-            'peer_pub_key': peer_pub_key
+            'pub_key': strip_pem_headers(pub_key),
+            'common_name': identity_config['IDENTITY']['common_name'],
+            'mac': identity_config['IDENTITY']['mac'],
+            'ip': identity_config['IDENTITY']['ip'],
         })
+    
+    # Handle exceptions
     except Exception as e:
-        print(e)
+        return jsonify({
+            'error': 'Error loading keys. Is the user signed up?',
+            'message': f'{e.__class__}: {e}'
+        }), 400
+
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
 @require_localhost
@@ -239,7 +223,7 @@ def signup():
     identity_config.read('config/identity.conf')
             
     # Check if there is already a common name for this user (i.e. they already have an account)
-    if identity_config['IDENTITY']['COMMON_NAME']: abort(409)
+    if identity_config['IDENTITY']['common_name']: abort(409)
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
@@ -255,19 +239,32 @@ def signup():
         # Check that keys are given 
         if not (new_common_name and new_allocated_storage and new_peer_storage_path and new_passphrase): raise AttributeError
         # Make sure allocated_storage is an integer
-        new_allocated_storage = int(new_allocated_storage)
+        new_allocated_storage = float(new_allocated_storage)
     
     except: 
         # Bad request (missing/invalid info) 
-        abort(400) 
+        msg = {
+            'error': 'Invalid or missing data.',
+            'given_params': {
+                'common_name': new_common_name,
+                'allocated_storage': new_allocated_storage,
+                'peer_storage_path': new_peer_storage_path,
+                'passphrase': new_passphrase
+            }
+        }
+
+        print('ERROR: ')
+        print(msg)
+
+        return jsonify(msg), 400
     
     # --- Updating identity --- #
     # Update the identity config with the new common name, mac, allocated storage, and peer storage path
-    identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
-    identity_config['IDENTITY']['MAC'] = get_mac_address()
-    identity_config['IDENTITY']['IP'] = get_IP_address()
-    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
-    identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
+    identity_config['IDENTITY']['common_name'] = new_common_name
+    identity_config['IDENTITY']['mac'] = get_mac_address()
+    identity_config['IDENTITY']['ip'] = get_IP_address()
+    identity_config['SETTINGS']['allocated_storage'] = str(new_allocated_storage)
+    identity_config['PATHS']['peer_storage_path'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
     current_app.enc_config['misc']['pass_hash'] = sha256(new_passphrase.encode()).hexdigest()
@@ -286,8 +283,8 @@ def signup():
 
     # Create asymm keys 
     generate_asymm_keys(
-        current_app.enc_config['keys']['size'],
-        current_app.enc_config['keys']['exp'],
+        int(current_app.enc_config['keys']['size']),
+        int(current_app.enc_config['keys']['exp']),
         current_app.enc_config['paths']['priv_key_path'],
         current_app.enc_config['paths']['pub_key_path'],
         new_passphrase
@@ -335,34 +332,56 @@ def init_application():
     # Check that the required info is given
     if not given_passphrase: abort(400)
 
+    print('given_passphrase: ', given_passphrase)
+    print('given_passphrase hash: ', sha256(given_passphrase.encode()).hexdigest())
+    print('stored hash: ', current_app.enc_config['misc']['pass_hash'])
+    
     # Check the given passphrase with the stored hash
-    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
+    if current_app.enc_config['misc']['pass_hash'] != sha256(given_passphrase.encode()).hexdigest(): 
         abort(403)
 
     # Load the keys 
     try: 
-        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['PUB_KEY_PATH'])
-        priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['PRIV_KEY_PEM'], given_passphrase)
-        symm_key:str = load_aes_key(given_passphrase, current_app.enc_config['paths']['symm_key_path'])
-    except: 
+        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['pub_key_path'], 'public')
+        priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['priv_key_path'], 'private', given_passphrase)
+        symm_key_b64:str = load_aes_key(given_passphrase, current_app.enc_config['paths']['symm_key_path'])
+        
+    # Handle exceptions
+    except Exception as e:
+        
+        # Log 
+        current_app.logger.warning(f'Caught exception loading keys in init_application() - {e.__class__}: {e}') 
+        
         # Exception (likely) means that the user hasn't signed up yet
         return jsonify({
-            'error': 'There was an error loading the keys. Has the user signed up yet?'
+            'error': 'There was an error loading the keys. Has the user signed up yet?',
         }), 403
+    
+    # Construct paths for the server
+    server_log_filepath:str = os.path.join(current_app.flask_config['paths']['LOGS_DIR'], 'server.log')
+    server_db_log_filepath:str = os.path.join(current_app.flask_config['paths']['LOGS_DIR'], 'server-database.log')
     
     # Init a Server obj 
     server:Server = Server(
         pub_key_pem,                                                # pub_key_pem
         priv_key_pem,                                               # priv_key_pem
-        base64.b64encode(symm_key).decode(),                        # symm_aes_key
+        symm_key_b64,                                               # symm_aes_key
         current_app.identity_config['IDENTITY']['common_name'],     # common_name
         current_app.network_config['network']['IFACE'],             # iface
         current_app.network_config['network']['PORT'],              # port
         current_app.network_config['network']['IFACE'],             # mcast_iface
         current_app.network_config['multicast']['MCAST_PORT'],      # mcast_port
         current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
-        'peer-info/',                                               # data_dir_path
-        current_app.identity_config['PATHS']['peer_storage_path']
+        DatabaseConnection(                                         # send_db_connection
+            current_app.flask_config['paths']['DB_PATH'],
+            log_filepath=server_db_log_filepath,
+            logger_name='server_db_logger'
+        ),                                 
+        current_app.flask_config['paths']['DB_PATH'],           # db_filepath
+        current_app.identity_config['PATHS']['peer_storage_path'], # peer_storage_dir
+        log_filepath=server_log_filepath,                          # log_filepath
+        db_log_filepath=server_db_log_filepath,                    # db_log_filepath
+        db_logger_name='server_db_logger'                          # db_logger_name
     )
     
     # TODO: call server.send_mcast_hello()
@@ -395,11 +414,14 @@ def get_all_info():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
+    # Get the app db connection
+    db_connection:DatabaseConnection = current_app.db_connection
+    
     # Read each of the CSVs into dataframes
-    all_peers_df:pd.DataFrame = pd.read_csv('peer-info/all-peers.csv')
-    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
-    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
-    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
+    all_peers_df:pd.DataFrame = db_connection.table_as_df('Peer')
+    storing_for_df:pd.DataFrame = db_connection.table_as_df('CurrentlyStoringFor')
+    storing_with_df:pd.DataFrame = db_connection.table_as_df('CurrentlyStoringWith')
+    shared_with_df:pd.DataFrame = db_connection.table_as_df('PreviouslySharedWith')
 
     # TODO: group the file lists BY user? and send a list of user 
     # DO SOMETHING ... 
@@ -420,38 +442,10 @@ def get_interacted_with_peers():
     """ 
     
     """
-    
-    # Get the unique public keys that this client has interacted with
-    unique_peers:list[str] = get_unique_peers()
 
-    # Get the data as dfs 
-    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
-    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv')
-    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv')
-
-    storing_with_df['size_gb'] = storing_with_df['size_gb'].astype(float)
-    storing_for_df['size_gb'] = storing_for_df['size_gb'].astype(float)
-    shared_with_df['size_gb'] = shared_with_df['size_gb'].astype(float)
-
-    storing_with_size_per_peer = storing_with_df.groupby('peer_pub_key')['size_gb'].sum().to_dict()
-    storing_for_size_per_peer = storing_for_df.groupby('peer_pub_key')['size_gb'].sum().to_dict()
-    shared_with_size_per_peer = shared_with_df.groupby('peer_pub_key')['size_gb'].sum().to_dict()
-    
-    peer_map:dict = {
-        pub_key : { 
-            'common_name': cn_from_pub_key(pub_key),
-            'storage_data': {
-                'stored_remotely': float(storing_with_size_per_peer.get(pub_key, 0.0)),
-                'stored_locally': float(storing_for_size_per_peer.get(pub_key, 0.0)),
-                'shared': float(shared_with_size_per_peer.get(pub_key, 0.0))
-            }     
-        } 
-        for pub_key in unique_peers
-    }
-
-    # Return the results
+    # Use the app's DB connection to get the map of interacted with peers
     return jsonify({
-        'user_data': peer_map
+        'user_data': current_app.get_interacted_with_peers()
     })
 
 
@@ -467,17 +461,8 @@ def get_storage_info():
             - 500 | internal server error: if there is some internal error processing the request.
     """
 
-    # Read the storage and shared with csvs
-    shared_with_df:pd.DataFrame = pd.read_csv('peer-info/previously-shared-with.csv') 
-    storing_with_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-with.csv') 
-    storing_for_df:pd.DataFrame = pd.read_csv('peer-info/currently-storing-for.csv')
-    
-    # Sum the 'size_gb' cols and return 
-    return jsonify({
-        'gb_shared': shared_with_df['size_gb'].sum(),
-        'gb_storing_for': storing_for_df['size_gb'].sum(),
-        'gb_storing_with': storing_with_df['size_gb'].sum()
-    })
+    # Use the app's DB connection to get the storage info for all relevant tables
+    return jsonify(current_app.db_connection.get_all_storage_info())
 
 
 @fi_bp.route('/ui/get-user-history', methods=['GET'])
@@ -498,53 +483,9 @@ def get_user_history():
     # Get the arguments from the request
     peer_pub_key:str = request.args.get('peer_pub_key', None)
     
-    # Load the required data
-    storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-    storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-    shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+    # Use the app's db connection to retrieve the requested data
+    return jsonify(current_app.db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
-    # Check if given a peer to filter by 
-    if peer_pub_key: 
-
-        # Filter each of the dfs to the given peer pub key
-        filtered_storing_for_df:pd.DataFrame = storing_for_df.loc[storing_for_df['peer_pub_key'] == peer_pub_key]
-        filtered_storing_with_df:pd.DataFrame = storing_with_df.loc[storing_with_df['peer_pub_key'] == peer_pub_key]
-        filtered_shared_df:pd.DataFrame = shared_with_df.loc[shared_with_df['peer_pub_key'] == peer_pub_key]
-
-    # If not given a pub key to filter, then use all the data 
-    else: 
-        filtered_storing_for_df:pd.DataFrame = storing_for_df
-        filtered_storing_with_df:pd.DataFrame = storing_with_df
-        filtered_shared_df:pd.DataFrame = shared_with_df
-
-    # Return the requested data
-    return jsonify({
-        'storing_for': filtered_storing_for_df.to_dict(orient='records'),
-        'storing_with': filtered_storing_with_df.to_dict(orient='records'),
-        'shared': filtered_shared_df.to_dict(orient='records')
-    })
-
-@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
-@require_localhost
-def get_user_history_specific(): 
-    try:
-        request_body:dict = request.get_json()
-        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
-        print(other_user)
-
-        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
-
-        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
-        filtered_data = data[data['peer_pub_key'] == other_user]
-
-        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
-        return jsonify({
-            'user_data': filtered_json_data
-        })
-    except Exception as e:
-        print(e)
 
 @fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
 @require_localhost
@@ -573,17 +514,17 @@ def peer_cn_to_pub_key():
         }), 400
         
     # Convert the CN to pub key
-    peer_pub_key:str = pub_key_from_cn(peer_cn)
+    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
 
     # Check if results
-    if not peer_pub_key: 
+    if not matched_pub_keys: 
         return jsonify({
             'error': f'Common name "{peer_cn}" does not match any known peers.'
         }), 404
         
     # Return the requested information
     return jsonify({
-        'peer_pub_key': peer_pub_key
+        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
     })
 
 
@@ -617,91 +558,117 @@ def get_pending_requests():
             - 500 | internal server error: if there is some internal error processing the request.
     """
     
-    # Read the incoming and outgoing CSVs as DFs and return them as a list of dict
+    # Use the app's DB connection to get the pending requests as a df 
+    pending_requests_df:pd.DataFrame = current_app.db_connection.table_as_df('PendingRequests') 
+    
+    # Filter into incoming and outgoing requests and return
     return jsonify({
-        'incoming_requests': pd.read_csv('requests/incoming.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
-        'outgoing_requests': pd.read_csv('requests/outgoing.csv').sort_values(by='date', ascending=False).to_dict(orient='records'),
+        'incoming_requests': pending_requests_df.loc[pending_requests_df['direction'] == 'incoming'].to_dict(orient='records'),
+        'outgoing_requests': pending_requests_df.loc[pending_requests_df['direction'] == 'outgoing'].to_dict(orient='records')
     })
 
 
 @fi_bp.route('/ui/upload-data', methods=['POST'])
 @require_localhost
 def upload_data(): 
+    
+    # Get the app's db connection
+    db_connection:DatabaseConnection = current_app.db_connection
+    
+    # Extract the args from the form
+    peer_pub_key:str = request.form.get('peer_pub_key', "")
+    send_method:str = request.form.get('send_method', "")
+    uploaded_files:list = request.files.getlist('files')
+        
+    # Check that required info is given
+    if not peer_pub_key or not send_method or len(uploaded_files) == 0: 
+        return jsonify({
+            'error': 'Failed to supply the required arguments.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'send_method': send_method,
+                'num_uploaded_files': len(uploaded_files)
+            }
+        })
+    
     try:
-        peer_pub_key = request.form.get('peer_pub_key', "")
-        send_method = request.form.get('send_method', "")
-        uploaded_files = request.files.getlist('files')
-
+        # Iterate over the files
         for file in uploaded_files:
-            file_name = file.filename
-            date = datetime.datetime.now()
-            fileBytes = file.read()
-            size = len(fileBytes)        
-            hash_256 = sha256(fileBytes).hexdigest()
-
-
-        data = [peer_pub_key, file_name, send_method, size, date, hash_256]
-
-        # Open the file in append mode ('a'), create if not exists
-        with open('requests/outgoing.csv', 'a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(data)
-
+            
+            # Get the file contents, then the size and hash
+            file_bytes:bytes = file.read()
+            file_size_gb:float = bytes_to_gb(len(file_bytes))
+            file_hash:str = hash_bytes_sha256(file_bytes)
+                        
+            # Add a row in the PendingRequests table for this file
+            db_connection.new_pending_request(
+                'outgoing',         # direction
+                send_method,        # request_type
+                peer_pub_key,       # peer_pub_key
+                file.filename,      # filename
+                file_size_gb,       # size_gb
+                file_hash           # sha256
+            )
+        
+        # Return status
         return jsonify({'status': 'success'})    
+    
     except Exception as e:
-        print(e)
-       
+        return jsonify({
+            'error': e
+        }), 500
+        
         
 @fi_bp.route('/ui/reupload-data', methods=['POST'])
 @require_localhost
 def reupload_data():
+    
+    # NOTE: only need the [peer_pub_key] and [filename] to match an outgoing request
+    # Extract the given data
+    peer_pub_key = request.form.get("peer_pub_key", "")
+    filename = request.form.get("file", "")
+    
+    # Check that required info is given 
+    if not all([peer_pub_key, filename]):
+        return jsonify({
+            'error': 'Failed to supply the required data.',
+            'given_args': {
+                'peer_pub_key': peer_pub_key,
+                'file': filename
+            }
+        }), 400
+    
+    # Get the app's db connection
+    db_connection:DatabaseConnection = current_app.db_connection
+    
     try:
-        incoming_date_key = request.form.get("date", "")
-        incoming_date = parser.parse(incoming_date_key)
-        print("incoming:", incoming_date)
+    
+        # Get the ID of the pending request that matches the given information (outgoing reqs only)
+        req_id:int = db_connection.get_request_id(
+            peer_pub_key,     # peer_pub_key
+            filename,         # filename
+            'outgoing'        # direction (static, outgoing)
+        )
 
-        # Read all rows from the CSV into a list
-        with open('requests/outgoing.csv', "r", newline='') as file:
-            reader = csv.DictReader(file)
-            rows = list(reader)  # Convert to list of dicts
-            fieldnames = reader.fieldnames
-
-
-        # Find the index of the row with the matching date
-        index_to_remove = None
-        for i, row in enumerate(rows):
-            incoming_date = incoming_date.replace(tzinfo=None, microsecond = 0) 
-            existing_date = parser.parse(row["date"]).replace(tzinfo=None, microsecond = 0)            
-           
-            if existing_date == incoming_date:
-                index_to_remove = i
-
-        if index_to_remove is not None:
-            del rows[index_to_remove]  # Remove the row
-
-        # Overwrite the CSV with only the header (truncate previous data)
-        with open('requests/outgoing.csv', 'w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)  # Re-write all other rows
-
-        # create the new request
-        peer_pub_key = request.form.get("peer_pub_key", "")
-        file_name = request.form.get("file", "")
-        send_method = request.form.get("send_method", "")
-        size = request.form.get("size", "")
-        new_date = datetime.datetime.now()
-        hash_256 = request.form.get("sha256", "")
-
-        data = [peer_pub_key, file_name, send_method, size, new_date, hash_256]
-
-        # add the updated line AND all old lines
-        with open('requests/outgoing.csv', 'a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(data)
-
+        # Check that we got a match
+        if req_id == -1: 
+            return jsonify({
+                'error': 'No requests match the given information',
+                'given_args': {
+                    'peer_pub_key': peer_pub_key,
+                    'file': filename
+                }
+            }), 404
+            
+        # Update the date of the request to the new date
+        db_connection.update_request_date(
+            req_id,
+            dt.datetime.now().strftime('%Y-%m-%d')
+        )
+        
+        # Return status
         return jsonify({'status': 'success'})
+    
     except Exception as e:
         print(f"Error in reupload_data: {e}")
         return jsonify({"error": str(e)})
-

@@ -1,9 +1,17 @@
-backend/keys/
-backend/__pycache__
-backend/*/__pycache__
-backend/server.log
-*.log
-*.vscode/
+
+# Caches
 *__pycache__
-*/__pycache__/*
-backend/tests/share-file-testing/shared_files
+*.vscode/
+
+# Keys, data, and logs
+backend/keys/
+*.db
+*.log
+
+# Virtual environments
+*.venv
+*venv
+*.conda
+
+# Test notebooks
+backend/db_testing.ipynb
