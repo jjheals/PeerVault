@@ -159,6 +159,7 @@ def whoami():
         RETURNS: 
             - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
             ['pub_key', 'allocated_storage', 'common_name', 'mac'].
+            - 400 | bad request: if the user is not signed up (i.e. keys don't exist).
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
@@ -166,20 +167,28 @@ def whoami():
     # Load the identity config file 
     identity_config:ConfigParser = ConfigParser()
     identity_config.read('config/identity.conf')
-                
-    # Load this user's public key
-    pub_key:str = load_key_pem(
-        current_app.enc_config['paths']['PUB_KEY_PATH'],
-        'public'
-    )
-        
-    # Create a dict, jsonify and return 
-    return jsonify({
-        'pub_key': strip_pem_headers(pub_key),
-        'common_name': identity_config['IDENTITY']['COMMON_NAME'],
-        'mac': identity_config['IDENTITY']['MAC'],
-        'ip': identity_config['IDENTITY']['IP'],
-    })
+    
+    try: 
+        # Load this user's public key
+        pub_key:str = load_key_pem(
+            current_app.enc_config['paths']['PUB_KEY_PATH'],
+            'public'
+        )
+            
+        # Create a dict, jsonify and return 
+        return jsonify({
+            'pub_key': strip_pem_headers(pub_key),
+            'common_name': identity_config['IDENTITY']['common_name'],
+            'mac': identity_config['IDENTITY']['mac'],
+            'ip': identity_config['IDENTITY']['ip'],
+        })
+    
+    # Handle exceptions
+    except Exception as e:
+        return jsonify({
+            'error': 'Error loading keys. Is the user signed up?',
+            'message': f'{e.__class__}: {e}'
+        }), 400
 
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
