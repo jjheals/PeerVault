@@ -1,4 +1,9 @@
 
+""" 
+get-peer-list
+get-pending-requests
+get-interacted-with-peers
+"""
 # NOTE: anytime current_app.server is used, CHECK that current_app.server is not null. This enforces that
 # the endpoint /ui/init-application/ is (successfully) hit BEFORE anything else happens, because initializing 
 # the Server for the app requires the passphrase to load the priv key, thus any use of current_app.server 
@@ -56,6 +61,7 @@ def get_peer_list():
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | server error: if some unexpected error occurs during server-side processing of the request.
     '''
+
     # Define expected args for easy checks of given args and their types
     expected_args:dict = {
         'online': int,
@@ -296,6 +302,9 @@ def signup():
         current_app.enc_config['paths']['symm_key_path']
     )
 
+    # Update the current app w the new identity config
+    current_app.identity_config = identity_config
+
     # --- Return --- #
     # Return the newly stored info
     return jsonify({
@@ -445,7 +454,7 @@ def get_interacted_with_peers():
 
     # Use the app's DB connection to get the map of interacted with peers
     return jsonify({
-        'user_data': current_app.get_interacted_with_peers()
+        'user_data': current_app.db_connection.get_interacted_with_peers()
     })
 
 
