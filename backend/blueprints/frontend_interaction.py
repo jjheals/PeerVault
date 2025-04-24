@@ -12,10 +12,11 @@ from configparser import ConfigParser
 from hashlib import sha256
 import pandas as pd
 import base64
+import json
 import datetime as dt 
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
-    load_aes_key, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
+    load_aes_key, strip_pem_headers, normalize_string, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
 
 from objects import Server, DatabaseConnection
 from .funcs import require_localhost
@@ -190,6 +191,19 @@ def whoami():
             'message': f'{e.__class__}: {e}'
         }), 400
 
+@fi_bp.route('/ui/get-pub-key', methods=['POST'])
+@require_localhost
+def get_peer_public_key(): 
+
+    try:
+        request_body:dict = request.get_json()
+        peer_pub_key = pub_key_from_cn(request_body.get('peer_common_name', None))
+
+        return jsonify({
+            'peer_pub_key': peer_pub_key
+        })
+    except Exception as e:
+        print(e)
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
 @require_localhost
@@ -445,7 +459,7 @@ def get_interacted_with_peers():
 
     # Use the app's DB connection to get the map of interacted with peers
     return jsonify({
-        'user_data': current_app.get_interacted_with_peers()
+        'user_data': current_app.db_connection.get_interacted_with_peers()
     })
 
 
@@ -486,6 +500,60 @@ def get_user_history():
     # Use the app's db connection to retrieve the requested data
     return jsonify(current_app.db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
+@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
+@require_localhost
+def get_user_history_specific(): 
+    try:
+        request_body:dict = request.get_json()
+        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
+        print(other_user)
+
+        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+    # Check if given a peer to filter by 
+    if peer_pub_key: 
+
+        # Filter each of the dfs to the given peer pub key
+        filtered_storing_for_df:pd.DataFrame = storing_for_df.loc[storing_for_df['peer_pub_key'] == peer_pub_key]
+        filtered_storing_with_df:pd.DataFrame = storing_with_df.loc[storing_with_df['peer_pub_key'] == peer_pub_key]
+        filtered_shared_df:pd.DataFrame = shared_with_df.loc[shared_with_df['peer_pub_key'] == peer_pub_key]
+
+    # If not given a pub key to filter, then use all the data 
+    else: 
+        filtered_storing_for_df:pd.DataFrame = storing_for_df
+        filtered_storing_with_df:pd.DataFrame = storing_with_df
+        filtered_shared_df:pd.DataFrame = shared_with_df
+
+    # Return the requested data
+    return jsonify({
+        'storing_for': filtered_storing_for_df.to_dict(orient='records'),
+        'storing_with': filtered_storing_with_df.to_dict(orient='records'),
+        'shared': filtered_shared_df.to_dict(orient='records')
+    })
+
+@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
+@require_localhost
+def get_user_history_specific(): 
+    try:
+        request_body:dict = request.get_json()
+        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
+        print(other_user)
+
+        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
+        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
+        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
+
+        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
+        filtered_data = data[data['peer_pub_key'] == other_user]
+
+        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
+        return jsonify({
+            'user_data': filtered_json_data
+        })
+    except Exception as e:
+        print(e)
 
 @fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
 @require_localhost
