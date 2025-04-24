@@ -29,14 +29,16 @@ DB_PATH:str = os.path.join(parent_dir, config['paths']['DB_PATH'])
 LOGS_DIR:str = os.path.join(parent_dir, config['paths']['LOGS_DIR'])
 
 
-
 # --- Create the DB --- # 
 print(f'\n\033[0m[{now()}] \033[93mCreating database at "{DB_PATH}"\033[0m')
+
+# Remove the current DB if it exists
+if os.path.exists(DB_PATH): os.remove(DB_PATH)
 
 # Init a db connection
 db_connection:DatabaseConnection = DatabaseConnection(
     DB_PATH,
-    log_filepath=os.path.join(LOGS_DIR, 'database.log')    
+    log_filepath=os.path.join(LOGS_DIR, 'setup-database.log')    
 )
 
 # Execute the sql script
