@@ -14,10 +14,8 @@ import pandas as pd
 import base64
 import datetime as dt 
 import json
-
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
     load_aes_key, strip_pem_headers, bytes_to_gb, hash_bytes_sha256, cn_from_pub_key, pub_key_from_cn, get_unique_peers,  normalize_string
-
 from objects import Server, DatabaseConnection
 from .funcs import require_localhost
 
@@ -334,14 +332,14 @@ def init_application():
 
     # Load the keys 
     try: 
-        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['pub_key_path'], 'public')
         priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['priv_key_path'], 'private', given_passphrase)
+        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['pub_key_path'], 'public')
         symm_key_b64:str = load_aes_key(given_passphrase, current_app.enc_config['paths']['symm_key_path'])
-        
     # Handle exceptions
     except Exception as e:
-        
+    
         # Log 
+        print("Caught exception loading keys in init_application()")
         current_app.logger.warning(f'Caught exception loading keys in init_application() - {e.__class__}: {e}') 
         
         # Exception (likely) means that the user hasn't signed up yet

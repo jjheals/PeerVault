@@ -17,7 +17,7 @@ def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
 
     # Check that the filepath exists and is valid
     if not (os.path.exists(filepath) and filepath.endswith('.key')):
-        print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe given filepath "{filepath}" does not exist or is invalid.')
+        print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mThe given filepath "{filepath}" does not exist or is invalid.')
         return None
 
     # Read the key file
@@ -29,7 +29,7 @@ def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
             
             # Make sure a passphrase is given 
             if not passphrase: 
-                print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe private key is not an RSA key.')
+                print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mThe private key is not an RSA key.')
                 return None
             
             # Read the key
@@ -41,7 +41,7 @@ def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
 
                 # Ensure it's an RSA key
                 if not isinstance(key, rsa.RSAPrivateKey):
-                    print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe private key is not an RSA key.')
+                    print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mThe private key is not an RSA key.')
                     return None
 
                 # Convert the key to a string and return
@@ -52,7 +52,7 @@ def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
                 ).decode()
             
             except Exception as e:
-                print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mFailed to load private key - {e}')
+                print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mFailed to load private key - {e}')
                 return None
 
         # Read RSA public key
@@ -62,7 +62,7 @@ def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
 
                 # Ensure it's an RSA key
                 if not isinstance(key, rsa.RSAPublicKey):
-                    print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe public key is not an RSA key.')
+                    print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mThe public key is not an RSA key.')
                     return None
 
                 # Convert the key to a string and return
@@ -72,12 +72,12 @@ def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
                     ).decode()
 
             except Exception as e:
-                print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mFailed to load public key - {e}')
+                print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mFailed to load public key - {e}')
                 return None
 
         # Invalid type
         else:
-            print(f'\033[0m[{now()}] \033[91mERROR in load_key(): \033[0mThe given type "{type}" is not valid.')
+            print(f'\033[0m[{now()}] \033[91mERROR in load_key_pem(): \033[0mThe given type "{type}" is not valid.')
             return None
 
             
