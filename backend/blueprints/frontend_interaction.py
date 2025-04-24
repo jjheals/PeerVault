@@ -261,8 +261,8 @@ def signup():
 
     # Create asymm keys 
     generate_asymm_keys(
-        current_app.enc_config['keys']['size'],
-        current_app.enc_config['keys']['exp'],
+        int(current_app.enc_config['keys']['size']),
+        int(current_app.enc_config['keys']['exp']),
         current_app.enc_config['paths']['priv_key_path'],
         current_app.enc_config['paths']['pub_key_path'],
         new_passphrase
@@ -310,34 +310,56 @@ def init_application():
     # Check that the required info is given
     if not given_passphrase: abort(400)
 
+    print('given_passphrase: ', given_passphrase)
+    print('given_passphrase hash: ', sha256(given_passphrase.encode()).hexdigest())
+    print('stored hash: ', current_app.enc_config['misc']['pass_hash'])
+    
     # Check the given passphrase with the stored hash
-    if current_app.enc_config['misc']['PASS_HASH'] != sha256(given_passphrase): 
+    if current_app.enc_config['misc']['pass_hash'] != sha256(given_passphrase.encode()).hexdigest(): 
         abort(403)
 
     # Load the keys 
     try: 
-        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['PUB_KEY_PATH'])
-        priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['PRIV_KEY_PEM'], given_passphrase)
-        symm_key:str = load_aes_key(given_passphrase, current_app.enc_config['paths']['symm_key_path'])
-    except: 
+        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['pub_key_path'], 'public')
+        priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['priv_key_path'], 'private', given_passphrase)
+        symm_key_b64:str = load_aes_key(given_passphrase, current_app.enc_config['paths']['symm_key_path'])
+        
+    # Handle exceptions
+    except Exception as e:
+        
+        # Log 
+        current_app.logger.warning(f'Caught exception loading keys in init_application() - {e.__class__}: {e}') 
+        
         # Exception (likely) means that the user hasn't signed up yet
         return jsonify({
-            'error': 'There was an error loading the keys. Has the user signed up yet?'
+            'error': 'There was an error loading the keys. Has the user signed up yet?',
         }), 403
+    
+    # Construct paths for the server
+    server_log_filepath:str = os.path.join(current_app.flask_config['paths']['LOGS_DIR'], 'server.log')
+    server_db_log_filepath:str = os.path.join(current_app.flask_config['paths']['LOGS_DIR'], 'server-database.log')
     
     # Init a Server obj 
     server:Server = Server(
         pub_key_pem,                                                # pub_key_pem
         priv_key_pem,                                               # priv_key_pem
-        base64.b64encode(symm_key).decode(),                        # symm_aes_key
+        symm_key_b64,                                               # symm_aes_key
         current_app.identity_config['IDENTITY']['common_name'],     # common_name
         current_app.network_config['network']['IFACE'],             # iface
         current_app.network_config['network']['PORT'],              # port
         current_app.network_config['network']['IFACE'],             # mcast_iface
         current_app.network_config['multicast']['MCAST_PORT'],      # mcast_port
         current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
-        current_app.db_connection,                                  # db_connection
-        current_app.identity_config['PATHS']['peer_storage_path']
+        DatabaseConnection(                                         # send_db_connection
+            current_app.flask_config['paths']['DB_PATH'],
+            log_filepath=server_db_log_filepath,
+            logger_name='server_db_logger'
+        ),                                 
+        current_app.flask_config['paths']['DB_PATH'],           # db_filepath
+        current_app.identity_config['PATHS']['peer_storage_path'], # peer_storage_dir
+        log_filepath=server_log_filepath,                          # log_filepath
+        db_log_filepath=server_db_log_filepath,                    # db_log_filepath
+        db_logger_name='server_db_logger'                          # db_logger_name
     )
     
     # TODO: call server.send_mcast_hello()
