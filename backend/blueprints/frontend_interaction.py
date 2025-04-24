@@ -214,7 +214,7 @@ def signup():
     identity_config.read('config/identity.conf')
             
     # Check if there is already a common name for this user (i.e. they already have an account)
-    if identity_config['IDENTITY']['COMMON_NAME']: abort(409)
+    if identity_config['IDENTITY']['common_name']: abort(409)
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
@@ -230,19 +230,32 @@ def signup():
         # Check that keys are given 
         if not (new_common_name and new_allocated_storage and new_peer_storage_path and new_passphrase): raise AttributeError
         # Make sure allocated_storage is an integer
-        new_allocated_storage = int(new_allocated_storage)
+        new_allocated_storage = float(new_allocated_storage)
     
     except: 
         # Bad request (missing/invalid info) 
-        abort(400) 
+        msg = {
+            'error': 'Invalid or missing data.',
+            'given_params': {
+                'common_name': new_common_name,
+                'allocated_storage': new_allocated_storage,
+                'peer_storage_path': new_peer_storage_path,
+                'passphrase': new_passphrase
+            }
+        }
+
+        print('ERROR: ')
+        print(msg)
+
+        return jsonify(msg), 400
     
     # --- Updating identity --- #
     # Update the identity config with the new common name, mac, allocated storage, and peer storage path
-    identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
-    identity_config['IDENTITY']['MAC'] = get_mac_address()
-    identity_config['IDENTITY']['IP'] = get_IP_address()
-    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
-    identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
+    identity_config['IDENTITY']['common_name'] = new_common_name
+    identity_config['IDENTITY']['mac'] = get_mac_address()
+    identity_config['IDENTITY']['ip'] = get_IP_address()
+    identity_config['SETTINGS']['allocated_storage'] = str(new_allocated_storage)
+    identity_config['PATHS']['peer_storage_path'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
     current_app.enc_config['misc']['pass_hash'] = sha256(new_passphrase.encode()).hexdigest()
