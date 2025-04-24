@@ -9,10 +9,9 @@ backend/keys/
 *.log
 
 # Virtual environments
-.venv
-venv
-*/.venv
-*/venv
+*.venv
+*venv
+*.conda
 
 # Test notebooks
 backend/db_testing.ipynb
