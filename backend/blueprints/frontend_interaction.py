@@ -191,19 +191,47 @@ def whoami():
             'message': f'{e.__class__}: {e}'
         }), 400
 
+
 @fi_bp.route('/ui/get-pub-key', methods=['POST'])
 @require_localhost
 def get_peer_public_key(): 
-
-    try:
-        request_body:dict = request.get_json()
-        peer_pub_key = pub_key_from_cn(request_body.get('peer_common_name', None))
-
+    """
+        DESC: returns the public key for the given peer common name.
+        
+        ARGUMENTS: 
+            peer_common_name (str): the common name of the peer. 
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if the given common name does not exist in the DB.
+            - 500 | internal server error: if there is some internal error processing the request.
+            
+    """
+    
+    # Get the peer_common_name from the request 
+    peer_cn:str = request.args.get('peer_common_name', None) 
+    
+    # Check that a CN was given 
+    if not peer_cn: 
         return jsonify({
-            'peer_pub_key': peer_pub_key
-        })
-    except Exception as e:
-        print(e)
+            'error': 'Not given a peer_common_name.'
+        }), 400
+        
+    # Convert the CN to pub key
+    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
+
+    # Check if results
+    if not matched_pub_keys: 
+        return jsonify({
+            'error': f'Common name "{peer_cn}" does not match any known peers.'
+        }), 404
+        
+    # Return the requested information
+    return jsonify({
+        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
+    })
+
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
 @require_localhost
@@ -500,100 +528,29 @@ def get_user_history():
     # Use the app's db connection to retrieve the requested data
     return jsonify(current_app.db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
+
 @fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
 @require_localhost
 def get_user_history_specific(): 
-    try:
-        request_body:dict = request.get_json()
-        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
-        print(other_user)
-
-        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
-
-    # Check if given a peer to filter by 
-    if peer_pub_key: 
-
-        # Filter each of the dfs to the given peer pub key
-        filtered_storing_for_df:pd.DataFrame = storing_for_df.loc[storing_for_df['peer_pub_key'] == peer_pub_key]
-        filtered_storing_with_df:pd.DataFrame = storing_with_df.loc[storing_with_df['peer_pub_key'] == peer_pub_key]
-        filtered_shared_df:pd.DataFrame = shared_with_df.loc[shared_with_df['peer_pub_key'] == peer_pub_key]
-
-    # If not given a pub key to filter, then use all the data 
+    """ 
+    
+    """
+    
+    # Get the app's DB connection
+    db_connection:DatabaseConnection = current_app.db_connection
+    
+    # Extract the request body and the "other_user" from the request body
+    request_body:dict = request.get_json()
+    peer_cn:str = request_body.get('other_user', None)
+    
+    # Check if given another user and convert to a PK if necessary
+    if peer_cn: 
+        peer_pub_key:str = db_connection.pub_key_from_cn(peer_cn)
     else: 
-        filtered_storing_for_df:pd.DataFrame = storing_for_df
-        filtered_storing_with_df:pd.DataFrame = storing_with_df
-        filtered_shared_df:pd.DataFrame = shared_with_df
-
-    # Return the requested data
-    return jsonify({
-        'storing_for': filtered_storing_for_df.to_dict(orient='records'),
-        'storing_with': filtered_storing_with_df.to_dict(orient='records'),
-        'shared': filtered_shared_df.to_dict(orient='records')
-    })
-
-@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
-@require_localhost
-def get_user_history_specific(): 
-    try:
-        request_body:dict = request.get_json()
-        other_user:str = pub_key_from_cn(request_body.get('other_user', None))
-        print(other_user)
-
-        storing_for_df = pd.read_csv('peer-info/currently-storing-for.csv')
-        storing_with_df = pd.read_csv('peer-info/currently-storing-with.csv')
-        shared_with_df = pd.read_csv('peer-info/previously-shared-with.csv')
-
-        data = pd.concat([storing_for_df, storing_with_df, shared_with_df], ignore_index=True)
-        filtered_data = data[data['peer_pub_key'] == other_user]
-
-        filtered_json_data = json.loads(filtered_data.to_json(orient='records'))
-        return jsonify({
-            'user_data': filtered_json_data
-        })
-    except Exception as e:
-        print(e)
-
-@fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
-@require_localhost
-def peer_cn_to_pub_key(): 
-    """
-        DESC: returns the public key for the given peer common name.
+        peer_pub_key:str = None
         
-        ARGUMENTS: 
-            peer_common_name (str): the common name of the peer. 
-            
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 404 | not found: if the given common name does not exist in the DB.
-            - 500 | internal server error: if there is some internal error processing the request.
-            
-    """
-    
-    # Get the peer_common_name from the request 
-    peer_cn:str = request.args.get('peer_common_name', None) 
-    
-    # Check that a CN was given 
-    if not peer_cn: 
-        return jsonify({
-            'error': 'Not given a peer_common_name.'
-        }), 400
-        
-    # Convert the CN to pub key
-    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
-
-    # Check if results
-    if not matched_pub_keys: 
-        return jsonify({
-            'error': f'Common name "{peer_cn}" does not match any known peers.'
-        }), 404
-        
-    # Return the requested information
-    return jsonify({
-        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
-    })
+    # Get the storage history for this user and return
+    return jsonify(db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
 
 @fi_bp.route('/ui/get-pending-requests', methods=['GET'])
