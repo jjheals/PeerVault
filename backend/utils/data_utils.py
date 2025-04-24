@@ -1,8 +1,6 @@
 import re 
 import pandas as pd 
 
-import pandas as pd 
-
 
 def update_peer_info(peer_public_key:str, csv_path:str, peer_info:dict[str, str|bool]) -> None: 
     """Takes in a public key and path to the all-peers.csv file, and updates the info for the given public key in the 
