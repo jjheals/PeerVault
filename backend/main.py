@@ -42,6 +42,9 @@ CORS(
     supports_credentials=True
 )  
 
+# Set strict slashes to False to allow paths with trailing "/" 
+app.url_map.strict_slashes = False
+
 # Add all the configs to the app so they are accessible in the blueprints
 app.flask_config = configs['flask']
 app.enc_config = configs['encryption']
