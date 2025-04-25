@@ -16,5 +16,3 @@ backend/keys/
 # Test notebooks
 backend/db_testing.ipynb
 
-# Config files
-backend/config/
