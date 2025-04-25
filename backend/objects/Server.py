@@ -15,6 +15,8 @@ import concurrent.futures
 import pandas as pd
 import base64 
 from time import sleep
+from datetime import datetime
+
 
 from .DatabaseConnection import DatabaseConnection
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, write_to_file,  \
@@ -314,7 +316,7 @@ class Server(object):
                 peer_pub_key_pem, 
                 data
             )
-            
+
         # If all required attributes are present, handle the request code appropriately
         match code: 
             
@@ -490,7 +492,22 @@ class Server(object):
             # Sleep for Server.REQ_CHECK_SLEEP before next iteration
             sleep(Server.REQ_CHECK_SLEEP)
                 
-                
+    def handle_pending_incoming_requests(self) -> None:
+        # Log
+        self.logger.info('Starting handle_pending_outgoing_requests().')
+        
+        # Create a db connection for this thread 
+        db_connection:DatabaseConnection = DatabaseConnection(
+            self.db_filepath,
+            os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
+            logger_name='server_requests_db_logger'
+        )
+
+        # Run while the server is alive 
+
+
+
+
     def respond_identity_check(self, connection:socket.socket, client_address:str) -> bool:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
@@ -589,37 +606,60 @@ class Server(object):
 
             # Do nothing else
             return 
-
-        # Construct the target directory path
-        target_directory:str = 'shared_files'
-
-        # Create the target dir if it doesn't exist
-        os.makedirs(target_directory, exist_ok=True)
-
-        # Write the file to the target directory and get the message
-        message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
         
-        # Prepare the outgoing message to be sent to the client
-        outgoing_message: dict = {
-            'code': Server.DONE_CODE,
-            'public_key_pem': self.pub_key_pem,
-            'data': encrypt_message(peer_pub_key_pem, message)
-        }
-        
-        # Send the encrypted message to the client
-        connection.send(json.dumps(outgoing_message).encode())
-        
-        # If the file was written successfully, add a new entry to the PreviouslySharedWith DB table
-        if(message == "File written"):
+        pending_request_id:int =db_connection.get_request_id(peer_pub_key_pem, file_name, "incoming")
+        if(pending_request_id == -1):
+            db_connection.new_pending_request("incoming", "share", strip_pem_headers(peer_pub_key_pem), 
+                                              file_name, len(decoded_file_content), signature_str,
+                                              False, datetime.now().strftime("%Y-%m-%d"))
+            connection.send({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Request not accepted by the user')
+            })
+
+        elif (db_connection.get_pending_request(pending_request_id)["accepted"] == False):
+            # the request exists but was not accepted, so we do nothing 
+            connection.send({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Request not accepted by the user')
+            })
+
+        else:
+            # the request exists and was accepted, so we need to remove it from the DB and do the request 
+
+            # Construct the target directory path
+            target_directory:str = 'shared_files'
+
+            # Create the target dir if it doesn't exist
+            os.makedirs(target_directory, exist_ok=True)
+
+            # Write the file to the target directory and get the message
+            message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
             
-            # Add a new row for the new shared file
-            db_connection.new_shared_file(
-                strip_pem_headers(peer_pub_key_pem),
-                'incoming',
-                file_name,
-                bytes_to_gb(len(decoded_file_content)),
-                hash_bytes_sha256(decoded_file_content)
-            )
+            # Prepare the outgoing message to be sent to the client
+            outgoing_message: dict = {
+                'code': Server.DONE_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, message)
+            }
+            
+            # Send the encrypted message to the client
+            connection.send(json.dumps(outgoing_message).encode())
+            
+            # If the file was written successfully, add a new entry to the PreviouslySharedWith DB table
+            if(message == "File written"):
+                
+                # Add a new row for the new shared file
+                db_connection.new_shared_file(
+                    strip_pem_headers(peer_pub_key_pem),
+                    'incoming',
+                    file_name,
+                    bytes_to_gb(len(decoded_file_content)),
+                    hash_bytes_sha256(decoded_file_content)
+                )
+            db_connection.remove_pending_request(pending_request_id)
            
            
     def handle_store_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:
@@ -682,41 +722,63 @@ class Server(object):
             # Do nothing else
             return 
         
-        # Construct the target directory path
-        target_directory:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'])
+        pending_request_id:int =db_connection.get_request_id(peer_pub_key_pem, filename, "incoming")
+        if(pending_request_id == -1):
+            db_connection.new_pending_request("incoming", "store", strip_pem_headers(peer_pub_key_pem), 
+                                              filename, len(decoded_encrypted_file_content), signature_str,
+                                              False, datetime.now().strftime("%Y-%m-%d"))
+            connection.send({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Request not accepted by the user')
+            })
 
-        # Create the target dir if it doesn't exist
-        os.makedirs(target_directory, exist_ok=True)
+        elif (db_connection.get_pending_request(pending_request_id)["accepted"] == False):
+            # the request exists but was not accepted, so we do nothing 
+            connection.send({
+                'code': Server.FAIL_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, 'Request not accepted by the user')
+            })
 
-        # Write the file to the target directory and get the message
-        message:str = write_to_file(os.path.join(target_directory, filename), decoded_encrypted_file_content)
-        
-        # Log
-        self.logger.info(f'in handle_store_request() - sending response message "{message}" to "{peer_cn}"')
-        
-        # Prepare the outgoing message to be sent to the client
-        outgoing_message: dict = {
-            'code': Server.DONE_CODE,
-            'public_key_pem': self.pub_key_pem,
-            'data': encrypt_message(peer_pub_key_pem, message)
-        }
-        
-        # Send the encrypted message to the client
-        connection.send(json.dumps(outgoing_message).encode())
+        else:
+            # Construct the target directory path
+            target_directory:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'])
 
-        # If the file write was a success, then add a new entry in the DB
-        if(message == "File written"):
+            # Create the target dir if it doesn't exist
+            os.makedirs(target_directory, exist_ok=True)
+
+            # Write the file to the target directory and get the message
+            message:str = write_to_file(os.path.join(target_directory, filename), decoded_encrypted_file_content)
             
             # Log
-            self.logger.info(f'in handle_store_request() - now storing file "{filename}" for "{peer_cn}"')
+            self.logger.info(f'in handle_store_request() - sending response message "{message}" to "{peer_cn}"')
             
-            # Add a new row for the new shared file
-            db_connection.new_storing_for_file(
-                strip_pem_headers(peer_pub_key_pem),
-                filename,
-                bytes_to_gb(len(decoded_encrypted_file_content)),
-                hash_bytes_sha256(decoded_encrypted_file_content)
-            )
+            # Prepare the outgoing message to be sent to the client
+            outgoing_message: dict = {
+                'code': Server.DONE_CODE,
+                'public_key_pem': self.pub_key_pem,
+                'data': encrypt_message(peer_pub_key_pem, message)
+            }
+            
+            # Send the encrypted message to the client
+            connection.send(json.dumps(outgoing_message).encode())
+
+            # If the file write was a success, then add a new entry in the DB
+            if(message == "File written"):
+                
+                # Log
+                self.logger.info(f'in handle_store_request() - now storing file "{filename}" for "{peer_cn}"')
+                
+                # Add a new row for the new shared file
+                db_connection.new_storing_for_file(
+                    strip_pem_headers(peer_pub_key_pem),
+                    filename,
+                    bytes_to_gb(len(decoded_encrypted_file_content)),
+                    hash_bytes_sha256(decoded_encrypted_file_content)
+                )
+            db_connection.remove_pending_request(pending_request_id)
+
             
                     
     def handle_delete_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:

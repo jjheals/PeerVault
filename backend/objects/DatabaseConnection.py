@@ -85,7 +85,7 @@ class DatabaseConnection:
     # ---- Functions for the PendingRequests table ---- #
     
     def new_pending_request(self, direction:str, request_type:str, peer_pub_key:str, filename:str, size_gb:float,
-                            sha256:str) -> None: 
+                            sha256:str, accpeted:bool) -> None: 
         """Creates a new entry in either the [PendingIncomingRequest] or [PendingOutgoingRequest] table 
         with the given information. The given [direction] must be either 'incoming' or 'outgoing', other
         values will raise a ValueError. NOTE: assumes the request date is TODAY."""
@@ -97,7 +97,7 @@ class DatabaseConnection:
         
         # Create query (NOTE: 7 placeholders)
         query:str = f"""
-            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, request_date) 
+            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date) 
             VALUES(?, ?, ?, ?, ?, ?, ?) 
         """
         
@@ -112,6 +112,7 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
+                    accpeted,
                     dt.datetime.now().strftime('%Y-%m-%d')
                 )
             )
