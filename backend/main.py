@@ -37,7 +37,7 @@ compress.init_app(app)
 print(f'\033[0m[{now()}] \033[94mConfiguring CORS\033[0m')
 CORS(
     app, 
-    origins=[FRONTEND_URL],
+    origins=[FRONTEND_URL, 'http://localhost:3000'],
     allow_headers=['Content-Type'],
     supports_credentials=True
 )  
