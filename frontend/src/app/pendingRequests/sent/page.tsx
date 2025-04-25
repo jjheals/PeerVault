@@ -24,10 +24,10 @@ export default function Home() {
 
   React.useEffect(() =>{
     instance
-    .get("/ui/get-sent-requests")
+    .get("/ui/get-pending-requests")
     .then(function (response){
-      if (response.status === 200 && response.data && response.data.all_requests) {
-        setRequestData(response.data.all_requests);
+      if (response.status === 200 && response.data && response.data.outgoing_requests) {
+        setRequestData(response.data.outgoing_requests);
       }else {
         console.error('Incorrect format:', response.data);
       }

@@ -17,10 +17,11 @@ from configparser import ConfigParser
 from hashlib import sha256
 import pandas as pd
 import base64
+import json
 import datetime as dt 
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
-    load_aes_key, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
+    load_aes_key, strip_pem_headers, normalize_string, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
 
 from objects import Server, DatabaseConnection
 from .funcs import require_localhost
@@ -136,11 +137,11 @@ def get_stored_with_info():
     
     # Get the matched peers from the db
     matched_peers_df:pd.DataFrame = db_connection.get_matching_peers(
-        peer_pub_key=given_args['peer_pub_key'],
-        online=given_args['online'],
-        most_recent_ip=given_args['most_recent_ip'],
-        common_name=given_args['common_name'],
-        mac_last_four=given_args['mac_last_four']
+        peer_pub_key=given_args.get('peer_pub_key', None),
+        online=given_args.get('online', None),
+        most_recent_ip=given_args.get('most_recent_ip', None),
+        common_name=given_args.get('common_name', None),
+        mac_last_four=given_args.get('mac_last_four', None)
     )
     
     # Use the matched pub keys to get the storing with info for these peers (or all peers)
@@ -195,6 +196,47 @@ def whoami():
             'error': 'Error loading keys. Is the user signed up?',
             'message': f'{e.__class__}: {e}'
         }), 400
+
+
+@fi_bp.route('/ui/get-pub-key', methods=['POST'])
+@require_localhost
+def get_peer_public_key(): 
+    """
+        DESC: returns the public key for the given peer common name.
+        
+        ARGUMENTS: 
+            peer_common_name (str): the common name of the peer. 
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if the given common name does not exist in the DB.
+            - 500 | internal server error: if there is some internal error processing the request.
+            
+    """
+    
+    # Get the peer_common_name from the request 
+    peer_cn:str = request.args.get('peer_common_name', None) 
+    
+    # Check that a CN was given 
+    if not peer_cn: 
+        return jsonify({
+            'error': 'Not given a peer_common_name.'
+        }), 400
+        
+    # Convert the CN to pub key
+    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
+
+    # Check if results
+    if not matched_pub_keys: 
+        return jsonify({
+            'error': f'Common name "{peer_cn}" does not match any known peers.'
+        }), 404
+        
+    # Return the requested information
+    return jsonify({
+        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
+    })
 
 
 @fi_bp.route('/ui/signup', methods=['POST']) 
@@ -496,45 +538,28 @@ def get_user_history():
     return jsonify(current_app.db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
 
-@fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
+@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
 @require_localhost
-def peer_cn_to_pub_key(): 
-    """
-        DESC: returns the public key for the given peer common name.
-        
-        ARGUMENTS: 
-            peer_common_name (str): the common name of the peer. 
-            
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 404 | not found: if the given common name does not exist in the DB.
-            - 500 | internal server error: if there is some internal error processing the request.
-            
+def get_user_history_specific(): 
+    """ 
+    
     """
     
-    # Get the peer_common_name from the request 
-    peer_cn:str = request.args.get('peer_common_name', None) 
+    # Get the app's DB connection
+    db_connection:DatabaseConnection = current_app.db_connection
     
-    # Check that a CN was given 
-    if not peer_cn: 
-        return jsonify({
-            'error': 'Not given a peer_common_name.'
-        }), 400
+    # Extract the request body and the "other_user" from the request body
+    request_body:dict = request.get_json()
+    peer_cn:str = request_body.get('other_user', None)
+    
+    # Check if given another user and convert to a PK if necessary
+    if peer_cn: 
+        peer_pub_key:str = db_connection.pub_key_from_cn(peer_cn)
+    else: 
+        peer_pub_key:str = None
         
-    # Convert the CN to pub key
-    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
-
-    # Check if results
-    if not matched_pub_keys: 
-        return jsonify({
-            'error': f'Common name "{peer_cn}" does not match any known peers.'
-        }), 404
-        
-    # Return the requested information
-    return jsonify({
-        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
-    })
+    # Get the storage history for this user and return
+    return jsonify(db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
 
 @fi_bp.route('/ui/get-pending-requests', methods=['GET'])
