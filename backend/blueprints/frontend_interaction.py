@@ -602,7 +602,7 @@ def get_pending_requests():
     })
 
 
-@fi_bp.route('/update-request-status', methods=['POST'])
+@fi_bp.route('/ui/update-request-status', methods=['POST'])
 @require_localhost
 def update_request_status(): 
     """
