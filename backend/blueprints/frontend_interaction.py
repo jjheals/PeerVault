@@ -602,6 +602,65 @@ def get_pending_requests():
     })
 
 
+@fi_bp.route('/update-request-status', methods=['POST'])
+@require_localhost
+def update_request_status(): 
+    """
+    DESC: Updates the status (accepted attribute) of the given request.
+    
+    REQUEST BODY: 
+        {
+            "request_id": <int>,
+            "new_status": <bool>
+        }
+
+        NOTE: the "new_status" should be TRUE for "accept request" or FALSE for "decline request".
+
+    RETURNS: 
+        - 200 | successful: (dict) a JSON object with two keys: "status", which is True if the request is complete and False otherwise, and "message" which contains a string.
+        - 400 | bad request: if the request does not contain the required data or the data is not properly formatted.
+        - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+        - 404 | not found: if the given request ID is not found in the "PendingRequests" table.
+        - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    # Get the required params from the request
+    request_data:dict = request.get_json()
+    request_id:int = request_data.get('request_id', None)
+    new_status:bool = request_data.get('new_status', None)
+
+    # Verify that the info is given correctly
+    try: 
+        if not request_id or not new_status: raise ValueError('Not given a request ID or new status.')
+
+        # Cast the request ID to int incase it's a string
+        request_id = int(request_id)
+
+    # Handle exceptions, meaning something was wrong with the request
+    except Exception as e: 
+        return jsonify({
+            'error': 'Improper or missing parameters.',
+            'message': f'{e.__class__}: {e}',
+            'given_args': request_data
+        }), 400
+
+    # Get the app's DB connection
+    db_connection:DatabaseConnection = current_app.db_connection
+
+    # Check that the request ID exists
+    if not db_connection.check_request_id_exists(request_id): 
+        return jsonify({
+            'error': 'Request with the given ID was not found.',
+            'given_args': request_data
+        }), 404
+    
+    # Update the request status
+    db_connection.update_request_accepted(
+        request_id, 
+        new_status
+    )
+
+
 @fi_bp.route('/ui/upload-data', methods=['POST'])
 @require_localhost
 def upload_data(): 
