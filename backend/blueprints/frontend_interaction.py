@@ -602,6 +602,31 @@ def get_pending_requests():
     })
 
 
+@fi_bp.route('/ui/get-completed-requests', methods=['GET'])
+@require_localhost
+def get_completed_requests(): 
+    """
+    DESC: returns the "CompletedRequests" table, separated by "incoming" and "outgoing" requests.
+
+    ARGUMENTS: 
+        Endpoint takes no arguments.
+
+    RETURNS: 
+        - 200 | successful: (dict) a JSON object with two keys for "incoming_requests" and "outgoing_requests" and the values are lists of dicts with the data for each (sorted by date desc).
+        - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+        - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    # Use the app's DB connection to get the completed requests as a df 
+    completed_requests_df:pd.DataFrame = current_app.db_connection.table_as_df('CompletedRequests') 
+    
+    # Filter into incoming and outgoing requests and return
+    return jsonify({
+        'incoming_requests': completed_requests_df.loc[completed_requests_df['direction'] == 'incoming'].to_dict(orient='records'),
+        'outgoing_requests': completed_requests_df.loc[completed_requests_df['direction'] == 'outgoing'].to_dict(orient='records')
+    })
+
+
 @fi_bp.route('/ui/update-request-status', methods=['POST'])
 @require_localhost
 def update_request_status(): 
