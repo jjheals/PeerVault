@@ -194,7 +194,7 @@ class DatabaseConnection:
         return [r[0] for r in results] if results else []
 
 
-    def get_pending_request(self, request_id:int) -> dict: 
+    def get_pending_request(self, request_id:int) -> dict|None: 
         """Takes in a request ID and returns the row in the PendingRequests table for that request (as a dict)."""
 
         # Construct and execute query
@@ -246,10 +246,41 @@ class DatabaseConnection:
                 (accepted, request_id)
             )
 
+            # Commit changes
+            self.cxn.commit()
+
         # Handle exceptions
         except Exception as e: 
             self.logger.error(f'in update_request_accepted(): {e.__class__} - {e}')
             return 
+
+
+    def completed_pending_request(self, request_id:int) -> None: 
+        """Moves an entry from the PendingRequests table to the CompletedRequests table."""
+
+        # Get the request info from the pending requests table
+        pending_request_info:dict = self.get_pending_request(request_id)
+
+        # Check for results
+        if not pending_request_info: 
+            self.logger.warning(f'in completed_pending_request(): did not find any matches for PendingRequest ID "{request_id}"')
+            return 
+        
+        # If we git results, then move the entry into CompletedRequests
+        # NOTE: 9 placeholders
+        self.cursor.execute(
+            """
+            INSERT INTO CompletedRequests(id, direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            tuple(pending_request_info.values())
+        )
+
+        # Now delete the PendingRequest entry
+        self.remove_pending_request(request_id)
+        
+        # Commit changes
+        self.cxn.commit()
 
 
     # ---- Functions for the [Peer] table ---- # 
