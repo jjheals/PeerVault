@@ -1,8 +1,8 @@
 #include "installer.h"
 #include <stdio.h>
 
-#include "windows.h"
-#include "unix.h"
+#include "windows_tasks.h"
+#include "unix_tasks.h"
 
 
 int perform_installation() {

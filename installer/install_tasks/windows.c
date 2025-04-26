@@ -1,9 +1,64 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include "windows.h"
+#include <string.h>     // For strcat()
+#include <windows.h>
+#include "windows_tasks.h"
 #include "colors.h"
+#include <time.h>       // For sleep()
 
+
+int spinner_progress_printer(char* command) {
+
+    // Init vars 
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    // Start the child process
+    if (!CreateProcess(
+        NULL,               // No module name (use command line)
+        command,            // Command line
+        NULL,               // Process handle not inheritable
+        NULL,               // Thread handle not inheritable
+        FALSE,              // Set handle inheritance to FALSE
+        CREATE_NO_WINDOW,   // Don't create new window
+        NULL,               // Use parent's environment block
+        NULL,               // Use parent's starting directory 
+        &si,                // Pointer to STARTUPINFO structure
+        &pi)                // Pointer to PROCESS_INFORMATION structure
+    ) {
+        return 0;
+    }
+
+    // Spinner while waiting
+    const char spinner[] = "|/-\\";
+    int spinner_index = 0;
+
+    // Wait while command executes
+    while (1) {
+        DWORD result = WaitForSingleObject(pi.hProcess, 100); // Check every 100ms
+        printf("\b%c", spinner[spinner_index]);
+        fflush(stdout);
+        spinner_index = (spinner_index + 1) % 4;
+
+        // Check process finished
+        if (result == WAIT_OBJECT_0) {
+            
+            // Clear terminal for newlines
+            printf("\b \b");   // Erase spinner
+            printf("\n");      // Newline
+            fflush(stdout);    // Flush output
+
+            // Exit loop
+            break;
+        }
+    }
+
+    // Return True
+    return 1;
+}
 
 int windows_install() {
     printf(BOLD_YELLOW "\n[Windows] Installing files...\n" RESET);
@@ -13,11 +68,13 @@ int windows_install() {
     char* activate_venv_path = "..\\backend\\venv\\Scripts\\activate";
     char* requirements_txt_path = "..\\backend\\refs\\requirements.txt";
     char* pip_path = "..\\backend\\venv\\Scripts\\pip";
-    
+    char* pip_output_str = "> pip_output.log 2>&1";
+
     // Define buff for building command strings
     char command[512]; 
 
-    // Step 1: Create a virtual environment
+    // --- Create a virtual environment --- //
+    // Info print
     printf(BOLD_WHITE "[+] Creating Python virtual environment...\n" RESET);
 
     // Clear the buffer
@@ -26,47 +83,47 @@ int windows_install() {
     // Strcat the cmd to create a python venv -> command, then strcat the venv path onto that
     strcat(command, "python -m venv ");
     strcat(command, venv_path);
-
-    // Debug print
-    printf(BOLD_WHITE "[+] Running command: %s\n" RESET, command);
     
     // Run the command
-    int venv_result = system(command);
+    int venv_result = spinner_progress_printer(command);
 
     // Handle result
-    if (venv_result != 0) {
+    if (venv_result == 0) {
         printf(BOLD_RED "ERROR: " RESET "Failed to create virtual environment.\n");
         return 0; // failure
     }
 
-    // Step 2: Install requirements
+    // --- Install requirements --- //
     // Activate the venv 
-    printf(BOLD_WHITE "[+] Activating venv." RESET);
     system(activate_venv_path);
+    printf(BOLD_WHITE "[+] Activated venv.\n" RESET);
+    
+    // Info print
+    printf(BOLD_WHITE "[+] Installing Python dependencies via pip...\n" RESET);
 
-    printf(BOLD_WHITE "[+] Installing Python dependencies...\n" RESET);
+    // Create the pip install command
+    command[0] = '\0';                          // Clear command buff
+    strcat(command, pip_path);                  // Append the path to pip exe   
+    strcat(command, requirements_txt_path);     // Append the requirements.txt path (-r ..\backend\refs\requirements.txt)
+    strcat(command, pip_output_str);            // Append redirect pipe (> ... 2>&1)
 
-    // Clear the buffer
-    command[0] = '\0';
+    // Build full command
+    char full_command[600];
+    snprintf(full_command, sizeof(full_command), "cmd.exe /C %s", command);
 
-    // Strcat the pip path -> command, then strcat the static str for install -r, then strcat the requirements.txt path
-    strcat(command, pip_path);
-    strcat(command, " install -r ");
-    strcat(command, requirements_txt_path);
-
-    // Debug print
-    printf(BOLD_WHITE "[+] Running command: %s\n" RESET, command);
-
-    // Run the pip installl command 
-    int pip_result = system(command);
+    // Execute pip command (with progress spinner)
+    int pip_result = spinner_progress_printer(full_command);
 
     // Handle result
-    if (pip_result != 0) {
+    if (pip_result == 0) {
+
+        // FAILURE
         printf(BOLD_RED "ERROR: " RESET "Failed to install Python dependencies.\n");
-        return 0; // failure
+        return 0; 
     }
 
-    printf(BOLD_GREEN "[+] SUCCESS: " RESET "Python environment and dependencies installed successfully.\n");
-    return 1; // success
+    // SUCCESS
+    printf(BOLD_GREEN "\n[+] SUCCESS: " RESET "Python environment and dependencies installed successfully.\n");
+    return 1;
 }
 
