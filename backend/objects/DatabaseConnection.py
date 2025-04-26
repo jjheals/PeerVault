@@ -216,6 +216,42 @@ class DatabaseConnection:
             return None
 
 
+    def check_request_id_exists(self, request_id:int) -> bool: 
+        """Checks that the given request_id exists in the PendingRequests table."""
+
+        # Create and execute query
+        try: 
+            # Execute the query
+            self.cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM PendingRequests WHERE id = ?)",
+                (request_id,)
+            )
+            
+            # Fetch results
+            return self.cursor.fetchone()[0] == 1
+        
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in check_request_id_exists() - {e.__class__}: {e}')
+            return
+
+
+    def update_request_accepted(self, request_id:int, accepted:bool) -> None: 
+        """Updates the "accepted" field for the given request ID."""
+
+        # Create and execute the query
+        try: 
+            self.cursor.execute(
+                'UPDATE PendingRequests SET accepted = ? WHERE id = ?',
+                (accepted, request_id)
+            )
+
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in update_request_accepted(): {e.__class__} - {e}')
+            return 
+
+
     # ---- Functions for the [Peer] table ---- # 
     
     def new_peer(self, peer_pub_key:str, online:bool, most_recent_ip:str, common_name:str, 
