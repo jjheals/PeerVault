@@ -2,6 +2,7 @@
 # Caches
 *__pycache__
 *.vscode/
+*.pytest_cache
 
 # Keys, data, and logs
 backend/keys/
