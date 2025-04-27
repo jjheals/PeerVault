@@ -1,7 +1,6 @@
-#ifndef WINDOWS_H
-#define WINDOWS_H
+#ifndef WINDOWS_INSTALL_H
+#define WINDOWS_INSTALL_H
 
-// Declaration of platform-specific installation
 int windows_install();
 
-#endif // WINDOWS_H
+#endif

@@ -138,4 +138,3 @@ int windows_install() {
     printf(BOLD_GREEN "\n[+] SUCCESS: " RESET "Python environment and dependencies installed successfully.\n");
     return 1;
 }
-
