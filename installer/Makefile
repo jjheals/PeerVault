@@ -23,12 +23,14 @@ ifeq ($(OS),Windows_NT)
     OBJS += install_tasks/windows.o
     RM = del /Q	
 	EXECUTABLE = $(TARGET).exe
+	DIR_DELIM = \\ 
 
 # LINUX/UNIX
 else
     OBJS += install_tasks/unix.o		
 	RM = rm -f
 	EXECUTABLE = $(TARGET)
+	DIR_DELIM = /
 endif
 
 # --- Define targets --- #
@@ -47,13 +49,22 @@ $(EXECUTABLE): $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 	
 # --- Extra rules --- #
-# Auto clean after successful compile
 clean-obj:
+ifeq ($(OS),Windows_NT)
 	-$(RM) *.o 2>nul || exit 0
-	-$(RM) install_tasks\*.o 2>nul || exit 0
+	-$(RM) install_tasks\\*.o 2>nul || exit 0
+else
+	-find . -name "*.o" -exec rm -f {} +
+endif
 
 # Clean rule
 clean:
+ifeq ($(OS),Windows_NT)
 	-$(RM) $(EXECUTABLE) 2>nul || exit 0
 	-$(RM) *.o 2>nul || exit 0
-	-$(RM) install_tasks\*.o 2>nul || exit 0
+	-$(RM) install_tasks\\*.o 2>nul || exit 0
+else
+	-rm -f $(EXECUTABLE)
+	-find . -name "*.o" -exec rm -f {} +
+endif
+
