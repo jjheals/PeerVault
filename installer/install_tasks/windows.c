@@ -1,12 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>     // For strcat()
-#include <windows.h>
+#include <string.h>              // For strcat()
+#include <windows.h>             // For CreateProcess(), ZeroMemory, etc.
+#include <time.h>                // For sleep()
 #include "windows_tasks.h"
 #include "colors.h"
-#include <time.h>       // For sleep()
 
 
+/** spinner_progress_printer(command)
+ * @brief Executes the given command and prints a spinner while executing. 
+ * @param command the command to execute.
+ * @return An integer, 1 if the command succeeds and 0 if it fails. 
+ */
 int spinner_progress_printer(char* command) {
 
     // Init vars 
@@ -38,9 +43,15 @@ int spinner_progress_printer(char* command) {
 
     // Wait while command executes
     while (1) {
-        DWORD result = WaitForSingleObject(pi.hProcess, 100); // Check every 100ms
+
+        // Check every 100ms
+        DWORD result = WaitForSingleObject(pi.hProcess, 100); 
+
+        // Print spinner 
         printf("\b%c", spinner[spinner_index]);
         fflush(stdout);
+
+        // Increase idx 
         spinner_index = (spinner_index + 1) % 4;
 
         // Check process finished
@@ -59,6 +70,7 @@ int spinner_progress_printer(char* command) {
     // Return True
     return 1;
 }
+
 
 int windows_install() {
     printf(BOLD_YELLOW "\n[Windows] Installing files...\n" RESET);
