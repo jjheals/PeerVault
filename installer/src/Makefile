@@ -4,7 +4,7 @@
 CC = gcc
 
 # Target filename 
-TARGET = installer
+TARGET = PeerVault-installer
 
 # Object files
 OBJS = main.o installer.o
@@ -22,13 +22,13 @@ CFLAGS = -Wall -Wextra -std=c11 -Iinstall_tasks -v
 ifeq ($(OS),Windows_NT)
     OBJS += install_tasks/windows.o
     RM = del /Q	
-	EXECUTABLE = ..\\$(TARGET).exe
+	EXECUTABLE = ..\\$(TARGET)_windows.exe
 
 # LINUX/UNIX
 else
     OBJS += install_tasks/unix.o		
 	RM = rm -f
-	EXECUTABLE = ../$(TARGET)
+	EXECUTABLE = ../$(TARGET)_linux
 endif
 
 # --- Define targets --- #
