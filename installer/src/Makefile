@@ -22,15 +22,13 @@ CFLAGS = -Wall -Wextra -std=c11 -Iinstall_tasks -v
 ifeq ($(OS),Windows_NT)
     OBJS += install_tasks/windows.o
     RM = del /Q	
-	EXECUTABLE = $(TARGET).exe
-	DIR_DELIM = \\ 
+	EXECUTABLE = ..\\$(TARGET).exe
 
 # LINUX/UNIX
 else
     OBJS += install_tasks/unix.o		
 	RM = rm -f
-	EXECUTABLE = $(TARGET)
-	DIR_DELIM = /
+	EXECUTABLE = ../$(TARGET)
 endif
 
 # --- Define targets --- #
@@ -40,7 +38,7 @@ all: $(EXECUTABLE)
 # --- Build --- #
 # Compile obj files
 $(EXECUTABLE): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+	$(CC) $(CFLAGS) -o $(EXECUTABLE) $(OBJS)
 	$(MAKE) clean-obj 
 	
 # Compile executable
