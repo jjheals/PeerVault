@@ -155,7 +155,20 @@ class DatabaseConnection:
         if results: return results[0]
         else: return -1
         
-    
+    def update_accepted_status(self, request_id:int, new_status:bool) -> None:
+        """Updates the accepted status for the given request ID."""
+        
+        # Execute query
+        self.cursor.execute(
+            'UPDATE PendingRequests SET accepted = ? WHERE id = ?',
+            (new_status, request_id)
+        )
+        
+        # Commit changes 
+        self.cxn.commit() 
+        self.logger.info(f'Updated the accepted status for PendingRequests ID {request_id} to "{new_status}"')
+
+
     def update_request_date(self, request_id:int, new_date:str) -> None: 
         """Updates the request_date for the given request ID."""
         
@@ -499,7 +512,7 @@ class DatabaseConnection:
         
         # Construct the query (NOTE: 6 placeholders)
         query:str = """
-            INSERT INTO PreviouslySharedWith(peer_pub_key, direction, filename, size_gb, sha256, share_date) 
+            INSERT INTO PreviouslySharedWith(peer_pub_key, direction, filename, size_gb, sha256, hare_date) 
             VALUES(?, ?, ?, ?, ?, ?)
         """
         
