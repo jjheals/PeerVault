@@ -3,8 +3,24 @@
 #include <string.h>           // For strcat()
 #include <unistd.h>           // For sleep(), fork(), execvp()
 #include <sys/wait.h>         // For waitpid()
-#include "unix_tasks.h"
-#include "colors.h"
+#include "unix_tasks.h"       // For func declarations
+#include "colors.h"           // For printing colors
+#include "paths.h"            // For path declarations
+
+
+// --- Path variable definitions --- //
+// Backend paths
+const char* venv_path = "../backend/venv";
+const char* activate_venv_path = "../backend/venv/bin/activate";
+const char* requirements_txt_path = "../backend/refs/requirements.txt";
+const char* pip_path = "../backend/venv/bin/pip";
+const char* pip_output_str = "> pip_output.log 2>&1";
+
+// Frontend paths
+const char* frontend_dir = "../frontend";
+const char* npm_install_output_str = "> npm_install_output.log 2>&1";
+const char* npm_build_output_str = "> npm_build_output.log 2>&1";
+
 
 /** spinner_progress_printer(command)
  * @brief Executes the given command and prints a spinner while executing. 
@@ -125,6 +141,53 @@ int unix_install() {
     }
 
     // SUCCESS
-    printf(BOLD_GREEN "\n[+] SUCCESS: " RESET "Python environment and dependencies installed successfully.\n");
+    printf(BOLD_GREEN "[+] SUCCESS: " RESET "Python environment and dependencies installed successfully.\n");
+
+    // --- Install Frontend --- //
+    printf(BOLD_WHITE "\n[+] Installing frontend (React) dependencies...\n" RESET);
+
+    // Build the command:
+    command[0] = '\0';                       // Clear buffer
+    strcat(command, "cd ");                  // Change dir
+    strcat(command, frontend_dir);           // Frontend directory path
+    strcat(command, " && npm install ");     // npm install command
+    strcat(command, npm_install_output_str); // Redirect output 
+
+    // Run the command
+    int npm_install_result = spinner_progress_printer(command);
+
+    // Check result
+    if (npm_install_result == 0) {
+        printf(BOLD_RED "ERROR: " RESET "Failed to install frontend dependencies.\n");
+        return 0;
+    }
+
+    // SUCCESS
+    printf(BOLD_GREEN "[+] SUCCESS: " RESET "Node modules installed successfully.\n");
+
+    // --- Build frontend app --- //
+    printf(BOLD_WHITE "\n[+] Building frontend application...\n" RESET);
+
+    // Build the command:
+    command[0] = '\0';                          // Clear buffer
+    strcat(command, "cd ");                     // Change dir
+    strcat(command, frontend_dir);              // Frontend directory
+    strcat(command, " && npm run build ");      // npm build command
+    strcat(command, npm_build_output_str);      // Redirect output
+
+    // Run command
+    int npm_build_result = spinner_progress_printer(command);
+
+    // Check result
+    if (npm_build_result == 0) {
+        printf(BOLD_RED "ERROR: " RESET "Failed to build frontend application.\n");
+        return 0;
+    }
+
+    // Success
+    printf(BOLD_GREEN "[+] SUCCESS: " RESET "Frontend built successfully.\n");
+
+
+    // Return success
     return 1;
 }

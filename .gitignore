@@ -21,3 +21,4 @@ backend/db_testing.ipynb
 installer/*.o
 installer/*installer.exe
 installer/installer
+installer/PeerVault-installer*
