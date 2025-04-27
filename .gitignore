@@ -20,3 +20,4 @@ backend/db_testing.ipynb
 # Installer files
 installer/*.o
 installer/*installer.exe
+installer/installer
