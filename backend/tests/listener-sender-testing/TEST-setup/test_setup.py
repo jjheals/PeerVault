@@ -3,6 +3,7 @@ import os
 import sys 
 from configparser import ConfigParser
 from hashlib import sha256
+from shutil import rmtree 
 
 # Modify path for util imports 
 # Get the absolute path of the parent directory
@@ -12,7 +13,7 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")
 sys.path.insert(0, parent_dir)
 
 # Util and object imports
-from utils import generate_asymm_keys, gen_aes_key
+from utils import generate_asymm_keys, gen_aes_key, load_key_pem, strip_pem_headers
 from objects import DatabaseConnection
 
 
@@ -95,7 +96,7 @@ def setup_user_db(db_path:str, db_log_filepath:str, sql_script_path:str, user_la
     user label is only used for info prints."""
 
     # Info print
-    print(f'\n\033[94m---- Creating {user_label.upper()} keys ----\033[0m')
+    print(f'\n\033[94m---- Creating {user_label.upper()} DB ----\033[0m')
     print()
     print('DB_PATH: ', db_path)
     print('DB_LOG_FILEPATH: ', db_log_filepath)
@@ -105,6 +106,10 @@ def setup_user_db(db_path:str, db_log_filepath:str, sql_script_path:str, user_la
     # NOTE: delete the file if it already exists
     if os.path.exists(db_path): os.remove(db_path)
     
+    # NOTE: delete the existing logs dir if it exists 
+    if os.path.exists(os.path.dirname(db_log_filepath)): 
+        rmtree(os.path.dirname(db_log_filepath))
+        
     # --- Create the DB --- # 
     # Init a db connection
     db_connection:DatabaseConnection = DatabaseConnection(
@@ -171,4 +176,53 @@ setup_user_db(
     os.path.join('../', listener_flask_config['paths']['LOGS_DIR'], 'setup-database.log'),
     SQL_SCRIPT_PATH,
     'listener'
+)
+
+# NOTE: add the "SENDER" to the listener's Peer table, and the "LISTENER" to the sender's Peer table 
+# so we satisfy foreign key constraints when inserting into the tables
+
+# Load the sender and listener's enc config to get the key paths
+sender_enc_config:ConfigParser = ConfigParser()
+sender_enc_config.read(os.path.join(sender_config_dir, 'encryption.conf'))
+
+listener_enc_config:ConfigParser = ConfigParser()
+listener_enc_config.read(os.path.join(listener_config_dir, 'encryption.conf'))
+
+# Load each of their keys
+sender_pub_key:str = strip_pem_headers(load_key_pem(
+    os.path.join('../', sender_enc_config['paths']['pub_key_path']),
+    'public'
+))
+
+listener_pub_key:str = strip_pem_headers(load_key_pem(
+    os.path.join('../', listener_enc_config['paths']['pub_key_path']),
+    'public'
+))
+
+# Add 'TestListener' as a peer in the sender's DB
+sender_db_connection:DatabaseConnection = DatabaseConnection(
+    os.path.join('../', sender_flask_config['paths']['DB_PATH']),
+    os.path.join('../', sender_flask_config['paths']['LOGS_DIR'], 'setup-database.log')
+)
+
+sender_db_connection.new_peer(
+    listener_pub_key,
+    True,
+    '127.0.0.1', 
+    'TestListener',
+    '11:11'
+)
+
+# Add 'TestSender' as a peer in the listener's DB
+listener_db_connection:DatabaseConnection = DatabaseConnection(
+    os.path.join('../', listener_flask_config['paths']['DB_PATH']),
+    os.path.join('../', listener_flask_config['paths']['LOGS_DIR'], 'setup-database.log')
+)
+
+listener_db_connection.new_peer(
+    sender_pub_key,
+    True, 
+    '127.0.0.1',
+    'TestSender',
+    '22:22'
 )

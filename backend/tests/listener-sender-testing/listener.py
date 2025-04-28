@@ -22,7 +22,7 @@ from objects import Server, DatabaseConnection
 PASSPHRASE:str = 'i_am_the_listener'
 
 # Load the configs
-config_parsers:dict[str, ConfigParser] = load_configs('../TEST-config/listener/')
+config_parsers:dict[str, ConfigParser] = load_configs('TEST-config/listener/')
 for k,v in config_parsers.items(): print(f'{k} : {v}')
 
 # Extract vars from network config
@@ -83,7 +83,8 @@ server:Server = Server(
     log_filepath=SERVER_LOG_PATH,       # log_filepath
     logger_name=SERVER_LOGGER_NAME,     # logger_name
     db_log_filepath=DB_LOG_PATH,        # db_log_filepath
-    db_logger_name=DB_LOGGER_NAME       # db_logger_name
+    db_logger_name=DB_LOGGER_NAME,      # db_logger_name
+    temp_dir='.tmp/listener'
 )
 
 

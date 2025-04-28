@@ -85,11 +85,11 @@ class DatabaseConnection:
     # ---- Functions for the PendingRequests table ---- #
     
     def new_pending_request(self, direction:str, request_type:str, peer_pub_key:str, filename:str, size_gb:float,
-                            sha256:str, accepted:bool=None, request_date:str='') -> None: 
+                            sha256:str, accepted:bool=None, request_date:str='', notified:bool=False, ) -> None: 
         """Creates a new entry in either the [PendingIncomingRequest] or [PendingOutgoingRequest] table 
         with the given information. The given [direction] must be either 'incoming' or 'outgoing', other
-        values will raise a ValueError. NOTE: assumes the request date is TODAY if not given and that 
-        accepted is None if not given."""
+        values will raise a ValueError. NOTE: assumes the request date is TODAY, notified is False, and 
+        accepted is None, if these are not given."""
         
         # Make sure a valid direction is given 
         direction = direction.lower() 
@@ -98,8 +98,8 @@ class DatabaseConnection:
         
         # Create query (NOTE: 7 placeholders)
         query:str = f"""
-            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date) 
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?) 
+            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date, notified) 
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) 
         """
         
         try: 
@@ -114,13 +114,15 @@ class DatabaseConnection:
                     size_gb,
                     sha256,
                     accepted,
-                    dt.datetime.now().strftime('%Y-%m-%d') if not request_date else request_date
+                    dt.datetime.now().strftime('%Y-%m-%d') if not request_date else request_date,
+                    notified
                 )
             )
             
             # Commit changes 
             self.cxn.commit() 
-        
+            self.logger.info(f'Created new {direction.upper()} pending request for "{self.cn_from_pub_key(peer_pub_key)}" (ID = {self.get_request_id(peer_pub_key, filename, request_type, direction)})')
+            
         # Handle exceptions
         except Exception as e: 
             self.logger.error(f'in new_pending_request - {e.__class__}: {e}')
@@ -141,19 +143,19 @@ class DatabaseConnection:
         self.logger.info(f'Deleted pending request ID {req_id}.')
             
     
-    def get_request_id(self, peer_pub_key:str, filename:str, direction:str) -> int: 
-        """Returns the request ID for the request matching the given peer pub key, filename, and direction."""
+    def get_request_id(self, peer_pub_key:str, filename:str, request_type:str, direction:str) -> int: 
+        """Returns the request ID for the request matching the given peer pub key, filename, request type, and direction."""
         
         # Construct and execute query
         self.cursor.execute(
-            'SELECT id FROM PendingRequests WHERE peer_pub_key = ? AND filename = ? AND direction = ?',
-            (peer_pub_key, filename, direction)
+            'SELECT id FROM PendingRequests WHERE peer_pub_key = ? AND filename = ? AND request_type = ? AND direction = ?',
+            (peer_pub_key, filename, request_type, direction)
         )
         
         # Fetch results
         results:tuple = self.cursor.fetchone()
         
-        if results: return results[0]
+        if results: return int(results[0])
         else: return -1
         
     
@@ -171,24 +173,24 @@ class DatabaseConnection:
         self.logger.info(f'Updated the date for PendingRequests ID {request_id} to "{new_date}"')
         
     
-    def check_pending_requests_status(self, target_direction:str, target_peer_online_status:bool=True) -> list[int]: 
+    def check_pending_requests_status(self, target_direction:str, target_peer_online_status:bool=True, notified=False) -> list[int]: 
         """Takes in a [target_direction] and returns a list of request IDs where the peer's online status matches 
-        [target_peer_online_status] and with the given target direction. E.g. given target direction 'outgoing' 
-        and target peer online status 'True', returns a list of all pending outgoing requests where the associated
-        peer is online. """
+        [target_peer_online_status] and with the given target direction and notified status. E.g. given target 
+        direction 'outgoing'  and target peer online status 'True', returns a list of all pending outgoing request 
+        IDs where the associated peer is online. """
 
         # Construct query
         query:str = """
             SELECT PR.id
             FROM PendingRequests PR
             JOIN Peer P ON PR.peer_pub_key = P.peer_pub_key 
-            WHERE PR.direction = ? AND P.online = ?
+            WHERE PR.direction = ? AND P.online = ? AND PR.notified = ?
         """
 
         # Execute the query
         self.cursor.execute(
             query,
-            (target_direction, int(target_peer_online_status))
+            (target_direction, int(target_peer_online_status), notified)
         )
 
         # Fetch results
@@ -196,6 +198,20 @@ class DatabaseConnection:
         return [r[0] for r in results] if results else []
 
 
+    def update_request_notified(self, request_id:int, new_notified:bool=True) -> None: 
+        """Updates the notified status for the given request ID."""
+        
+        # Construct and execute query
+        self.cursor.execute(
+            'UPDATE PendingRequests SET notified = ? WHERE id = ?',
+            (new_notified, request_id)
+        )
+        
+        # Commit changes
+        self.cxn.commit()
+        self.logger.info(f'Updated "{request_id}" to notified = {new_notified}')
+        
+        
     def get_pending_request(self, request_id:int) -> dict|None: 
         """Takes in a request ID and returns the row in the PendingRequests table for that request (as a dict)."""
 

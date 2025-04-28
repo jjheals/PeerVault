@@ -17,6 +17,8 @@ backend/keys/
 # Test notebooks
 backend/db_testing.ipynb
 
+# Test temp dirs
+backend/tests/listener-sender-testing/.tmp/
 # Installer files
 installer/*.o
 installer/*installer.exe
