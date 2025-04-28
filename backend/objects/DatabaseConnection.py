@@ -85,10 +85,11 @@ class DatabaseConnection:
     # ---- Functions for the PendingRequests table ---- #
     
     def new_pending_request(self, direction:str, request_type:str, peer_pub_key:str, filename:str, size_gb:float,
-                            sha256:str, accpeted:bool) -> None: 
+                            sha256:str, accepted:bool=None, request_date:str='', notified:bool=False, ) -> None: 
         """Creates a new entry in either the [PendingIncomingRequest] or [PendingOutgoingRequest] table 
         with the given information. The given [direction] must be either 'incoming' or 'outgoing', other
-        values will raise a ValueError. NOTE: assumes the request date is TODAY."""
+        values will raise a ValueError. NOTE: assumes the request date is TODAY, notified is False, and 
+        accepted is None, if these are not given."""
         
         # Make sure a valid direction is given 
         direction = direction.lower() 
@@ -97,8 +98,8 @@ class DatabaseConnection:
         
         # Create query (NOTE: 7 placeholders)
         query:str = f"""
-            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date) 
-            VALUES(?, ?, ?, ?, ?, ?, ?) 
+            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date, notified) 
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) 
         """
         
         try: 
@@ -112,14 +113,16 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
-                    accpeted,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    accepted,
+                    dt.datetime.now().strftime('%Y-%m-%d') if not request_date else request_date,
+                    notified
                 )
             )
             
             # Commit changes 
             self.cxn.commit() 
-        
+            self.logger.info(f'Created new {direction.upper()} pending request for "{self.cn_from_pub_key(peer_pub_key)}" (ID = {self.get_request_id(peer_pub_key, filename, request_type, direction)})')
+            
         # Handle exceptions
         except Exception as e: 
             self.logger.error(f'in new_pending_request - {e.__class__}: {e}')
@@ -140,35 +143,22 @@ class DatabaseConnection:
         self.logger.info(f'Deleted pending request ID {req_id}.')
             
     
-    def get_request_id(self, peer_pub_key:str, filename:str, direction:str) -> int: 
-        """Returns the request ID for the request matching the given peer pub key, filename, and direction."""
+    def get_request_id(self, peer_pub_key:str, filename:str, request_type:str, direction:str) -> int: 
+        """Returns the request ID for the request matching the given peer pub key, filename, request type, and direction."""
         
         # Construct and execute query
         self.cursor.execute(
-            'SELECT id FROM PendingRequests WHERE peer_pub_key = ? AND filename = ? AND direction = ?',
-            (peer_pub_key, filename, direction)
+            'SELECT id FROM PendingRequests WHERE peer_pub_key = ? AND filename = ? AND request_type = ? AND direction = ?',
+            (peer_pub_key, filename, request_type, direction)
         )
         
         # Fetch results
         results:tuple = self.cursor.fetchone()
         
-        if results: return results[0]
+        if results: return int(results[0])
         else: return -1
         
-    def update_accepted_status(self, request_id:int, new_status:bool) -> None:
-        """Updates the accepted status for the given request ID."""
-        
-        # Execute query
-        self.cursor.execute(
-            'UPDATE PendingRequests SET accepted = ? WHERE id = ?',
-            (new_status, request_id)
-        )
-        
-        # Commit changes 
-        self.cxn.commit() 
-        self.logger.info(f'Updated the accepted status for PendingRequests ID {request_id} to "{new_status}"')
-
-
+    
     def update_request_date(self, request_id:int, new_date:str) -> None: 
         """Updates the request_date for the given request ID."""
         
@@ -183,24 +173,24 @@ class DatabaseConnection:
         self.logger.info(f'Updated the date for PendingRequests ID {request_id} to "{new_date}"')
         
     
-    def check_pending_requests_status(self, target_direction:str, target_peer_online_status:bool=True) -> list[int]: 
+    def check_pending_requests_status(self, target_direction:str, target_peer_online_status:bool=True, notified=False) -> list[int]: 
         """Takes in a [target_direction] and returns a list of request IDs where the peer's online status matches 
-        [target_peer_online_status] and with the given target direction. E.g. given target direction 'outgoing' 
-        and target peer online status 'True', returns a list of all pending outgoing requests where the associated
-        peer is online. """
+        [target_peer_online_status] and with the given target direction and notified status. E.g. given target 
+        direction 'outgoing'  and target peer online status 'True', returns a list of all pending outgoing request 
+        IDs where the associated peer is online. """
 
         # Construct query
         query:str = """
             SELECT PR.id
             FROM PendingRequests PR
             JOIN Peer P ON PR.peer_pub_key = P.peer_pub_key 
-            WHERE PR.direction = ? AND P.online = ?
+            WHERE PR.direction = ? AND P.online = ? AND PR.notified = ?
         """
 
         # Execute the query
         self.cursor.execute(
             query,
-            (target_direction, int(target_peer_online_status))
+            (target_direction, int(target_peer_online_status), notified)
         )
 
         # Fetch results
@@ -208,7 +198,21 @@ class DatabaseConnection:
         return [r[0] for r in results] if results else []
 
 
-    def get_pending_request(self, request_id:int) -> dict: 
+    def update_request_notified(self, request_id:int, new_notified:bool=True) -> None: 
+        """Updates the notified status for the given request ID."""
+        
+        # Construct and execute query
+        self.cursor.execute(
+            'UPDATE PendingRequests SET notified = ? WHERE id = ?',
+            (new_notified, request_id)
+        )
+        
+        # Commit changes
+        self.cxn.commit()
+        self.logger.info(f'Updated "{request_id}" to notified = {new_notified}')
+        
+        
+    def get_pending_request(self, request_id:int) -> dict|None: 
         """Takes in a request ID and returns the row in the PendingRequests table for that request (as a dict)."""
 
         # Construct and execute query
@@ -228,6 +232,73 @@ class DatabaseConnection:
             } 
         else: 
             return None
+
+
+    def check_request_id_exists(self, request_id:int) -> bool: 
+        """Checks that the given request_id exists in the PendingRequests table."""
+
+        # Create and execute query
+        try: 
+            # Execute the query
+            self.cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM PendingRequests WHERE id = ?)",
+                (request_id,)
+            )
+            
+            # Fetch results
+            return self.cursor.fetchone()[0] == 1
+        
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in check_request_id_exists() - {e.__class__}: {e}')
+            return
+
+
+    def update_request_accepted(self, request_id:int, accepted:bool) -> None: 
+        """Updates the "accepted" field for the given request ID."""
+
+        # Create and execute the query
+        try: 
+            self.cursor.execute(
+                'UPDATE PendingRequests SET accepted = ? WHERE id = ?',
+                (accepted, request_id)
+            )
+
+            # Commit changes
+            self.cxn.commit()
+
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in update_request_accepted(): {e.__class__} - {e}')
+            return 
+
+
+    def completed_pending_request(self, request_id:int) -> None: 
+        """Moves an entry from the PendingRequests table to the CompletedRequests table."""
+
+        # Get the request info from the pending requests table
+        pending_request_info:dict = self.get_pending_request(request_id)
+
+        # Check for results
+        if not pending_request_info: 
+            self.logger.warning(f'in completed_pending_request(): did not find any matches for PendingRequest ID "{request_id}"')
+            return 
+        
+        # If we git results, then move the entry into CompletedRequests
+        # NOTE: 9 placeholders
+        self.cursor.execute(
+            """
+            INSERT INTO CompletedRequests(id, direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            tuple(pending_request_info.values())
+        )
+
+        # Now delete the PendingRequest entry
+        self.remove_pending_request(request_id)
+        
+        # Commit changes
+        self.cxn.commit()
 
 
     # ---- Functions for the [Peer] table ---- # 
@@ -500,10 +571,10 @@ class DatabaseConnection:
     # ---- Functions for the [Currently* and PreviouslySharedWith] tables ---- #
     
     def new_shared_file(self, peer_pub_key:str, direction:str, filename:str, size_gb:float, 
-                        sha256:str) -> None: 
+                        sha256:str, share_date:str='') -> None: 
         """Creates a new entry in the [PreviouslySharedWith] table with the given info. The [direction] 
         must be either 'incoming' or 'outgoing', other values will raise a ValueError. NOTE: assumes 
-        the share date is TODAY."""
+        the share date is TODAY if not given."""
         
         # Check that the given direction is valid
         direction = direction.lower()
@@ -512,7 +583,7 @@ class DatabaseConnection:
         
         # Construct the query (NOTE: 6 placeholders)
         query:str = """
-            INSERT INTO PreviouslySharedWith(peer_pub_key, direction, filename, size_gb, sha256, hare_date) 
+            INSERT INTO PreviouslySharedWith(peer_pub_key, direction, filename, size_gb, sha256, share_date) 
             VALUES(?, ?, ?, ?, ?, ?)
         """
         
@@ -526,7 +597,7 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    dt.datetime.now().strftime('%Y-%m-%d') if not share_date else share_date
                 )
             )
             
@@ -546,9 +617,9 @@ class DatabaseConnection:
     
     
     def new_storing_with_file(self, peer_pub_key:str, filename:str, size_gb:float, sha256:str, 
-                              b64_nonce:str) -> None: 
+                              b64_nonce:str, store_date:str='') -> None: 
         """Creates a new entry in the [CurrentlyStoringWith] table with the given info. NOTE: assumes
-        the store date is TODAY."""
+        the store date is TODAY if not given."""
         
         # Construct the query (NOTE: 6 placeholders)
         query:str = """
@@ -566,7 +637,7 @@ class DatabaseConnection:
                     size_gb,
                     sha256,
                     b64_nonce,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    dt.datetime.now().strftime('%Y-%m-%d') if not store_date else store_date
                 )
             )
             
@@ -585,9 +656,9 @@ class DatabaseConnection:
             return 
     
     
-    def new_storing_for_file(self, peer_pub_key:str, filename:str, size_gb:float, sha256:str) -> None:
+    def new_storing_for_file(self, peer_pub_key:str, filename:str, size_gb:float, sha256:str, store_date:str='') -> None:
         """Creates a new entry in the [CurrentlyStoringFor] table with the given info. NOTE: assumes 
-        the store date is TODAY."""
+        the store date is TODAY if not given."""
         
         # Construct the query (NOTE: 5 placeholders)
         query:str = """
@@ -604,7 +675,7 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    dt.datetime.now().strftime('%Y-%m-%d') if not store_date else store_date
                 )
             )
             
