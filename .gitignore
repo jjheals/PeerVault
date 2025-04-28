@@ -15,3 +15,6 @@ backend/keys/
 
 # Test notebooks
 backend/db_testing.ipynb
+
+# Test temp dirs
+backend/tests/listener-sender-testing/.tmp/
