@@ -85,10 +85,11 @@ class DatabaseConnection:
     # ---- Functions for the PendingRequests table ---- #
     
     def new_pending_request(self, direction:str, request_type:str, peer_pub_key:str, filename:str, size_gb:float,
-                            sha256:str) -> None: 
+                            sha256:str, accepted:bool=None, request_date:str='') -> None: 
         """Creates a new entry in either the [PendingIncomingRequest] or [PendingOutgoingRequest] table 
         with the given information. The given [direction] must be either 'incoming' or 'outgoing', other
-        values will raise a ValueError. NOTE: assumes the request date is TODAY."""
+        values will raise a ValueError. NOTE: assumes the request date is TODAY if not given and that 
+        accepted is None if not given."""
         
         # Make sure a valid direction is given 
         direction = direction.lower() 
@@ -97,8 +98,8 @@ class DatabaseConnection:
         
         # Create query (NOTE: 7 placeholders)
         query:str = f"""
-            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, request_date) 
-            VALUES(?, ?, ?, ?, ?, ?, ?) 
+            INSERT INTO PendingRequests(direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date) 
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?) 
         """
         
         try: 
@@ -112,7 +113,8 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    accepted,
+                    dt.datetime.now().strftime('%Y-%m-%d') if not request_date else request_date
                 )
             )
             
@@ -553,10 +555,10 @@ class DatabaseConnection:
     # ---- Functions for the [Currently* and PreviouslySharedWith] tables ---- #
     
     def new_shared_file(self, peer_pub_key:str, direction:str, filename:str, size_gb:float, 
-                        sha256:str) -> None: 
+                        sha256:str, share_date:str='') -> None: 
         """Creates a new entry in the [PreviouslySharedWith] table with the given info. The [direction] 
         must be either 'incoming' or 'outgoing', other values will raise a ValueError. NOTE: assumes 
-        the share date is TODAY."""
+        the share date is TODAY if not given."""
         
         # Check that the given direction is valid
         direction = direction.lower()
@@ -579,7 +581,7 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    dt.datetime.now().strftime('%Y-%m-%d') if not share_date else share_date
                 )
             )
             
@@ -599,9 +601,9 @@ class DatabaseConnection:
     
     
     def new_storing_with_file(self, peer_pub_key:str, filename:str, size_gb:float, sha256:str, 
-                              b64_nonce:str) -> None: 
+                              b64_nonce:str, store_date:str='') -> None: 
         """Creates a new entry in the [CurrentlyStoringWith] table with the given info. NOTE: assumes
-        the store date is TODAY."""
+        the store date is TODAY if not given."""
         
         # Construct the query (NOTE: 6 placeholders)
         query:str = """
@@ -619,7 +621,7 @@ class DatabaseConnection:
                     size_gb,
                     sha256,
                     b64_nonce,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    dt.datetime.now().strftime('%Y-%m-%d') if not store_date else store_date
                 )
             )
             
@@ -638,9 +640,9 @@ class DatabaseConnection:
             return 
     
     
-    def new_storing_for_file(self, peer_pub_key:str, filename:str, size_gb:float, sha256:str) -> None:
+    def new_storing_for_file(self, peer_pub_key:str, filename:str, size_gb:float, sha256:str, store_date:str='') -> None:
         """Creates a new entry in the [CurrentlyStoringFor] table with the given info. NOTE: assumes 
-        the store date is TODAY."""
+        the store date is TODAY if not given."""
         
         # Construct the query (NOTE: 5 placeholders)
         query:str = """
@@ -657,7 +659,7 @@ class DatabaseConnection:
                     filename,
                     size_gb,
                     sha256,
-                    dt.datetime.now().strftime('%Y-%m-%d')
+                    dt.datetime.now().strftime('%Y-%m-%d') if not store_date else store_date
                 )
             )
             
