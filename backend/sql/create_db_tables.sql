@@ -56,13 +56,14 @@ CREATE TABLE PreviouslySharedWith(
 CREATE TABLE PendingRequests(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     direction TEXT NOT NULL,       -- Must be either [incoming | outgoing]
-    request_type TEXT NOT NULL,    -- Must be one of [store | share | delete]
+    request_type TEXT NOT NULL,    -- Must be one of [store | share | delete | accept ]
     peer_pub_key TEXT NOT NULL,
     filename TEXT NOT NULL,
     size_gb REAL NOT NULL,
     sha256 TEXT NOT NULL,
     accepted BOOLEAN DEFAULT NULL,     -- Whether or not the request has been accepted (for outgoing reqs, the peer accepts; for incoming reqs, we accept)
     request_date TEXT NOT NULL,        -- Must be in [YYYY-MM-DD] format 
+    notified BOOLEAN DEFAULT NULL,
     CHECK (request_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
     CHECK (direction = 'incoming' OR direction = 'outgoing'),
     CHECK (request_type IN ('store', 'share', 'delete', 'retrieve')),

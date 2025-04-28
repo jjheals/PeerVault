@@ -111,7 +111,7 @@ def pending_requests(db:DatabaseConnection, peers:list[dict[str, str|bool]]):
             )
 
             # Save info to validate later
-            req_id = db.get_request_id(peer_dict['peer_pub_key'], filename, direction)
+            req_id = db.get_request_id(peer_dict['peer_pub_key'], filename, req_type, direction)
             
             pending_requests.append({
                 'id': req_id,
@@ -120,8 +120,8 @@ def pending_requests(db:DatabaseConnection, peers:list[dict[str, str|bool]]):
                 'filename': filename,
                 'size_gb': size_gb,
                 'sha256': sha256,
-                'accepted': None,
-                'request_date': date
+                'request_type': req_type,
+                'accepted': None
             })
 
     # Return the list of dicts
