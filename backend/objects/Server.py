@@ -161,10 +161,9 @@ class Server(object):
 
             # Log
             self.logger.info("connection form IP address: %s", str(addr[0])) 
-            
-            try: 
                 
-                # Pass connection to handle network req func in a new thread        
+            # Pass connection to handle network req func in a new thread  
+            try:  
                 self.thread_pool.submit(self.handle_network_request(
                     cxn, 
                     addr
@@ -172,7 +171,7 @@ class Server(object):
                 
             except Exception as e: 
                 print(f'\033[91mERROR in Server.listen(): \033[0m{e.__class__} -', e)
-
+            
 
     def mcast_listen(self) -> None:         
         """Starts a listener for incoming multicast messages."""
@@ -628,6 +627,7 @@ class Server(object):
         """
         
         # ---- Read incoming message ---- #
+        self.logger.debug('Called handle_share_request()')
         
         # Read and decrypt the incoming data
         response_plaintext_dict:dict = json.loads(
@@ -769,98 +769,135 @@ class Server(object):
             None
         """
 
-        # Read and decrypt the incoming message
+        # ---- Read incoming message ---- #
+        self.logger.debug('Called handle_store_request()')
+        
+        # Read and decrypt the incoming data
         response_plaintext_dict:dict = json.loads(
             decrypt_message(
                 self.priv_key_pem, 
                 Server.read_incoming_data(connection)
             )
-        )
-    
-        # Extract the file name and file content from the file_information dictionary
-        filename:str = response_plaintext_dict["filename"]
-        encoded_file_content:str = response_plaintext_dict["encrypted_file"]
-
-        # Decode the file content 
-        decoded_encrypted_file_content:str = base64.b64decode(encoded_file_content)
-
-        # Extract the peer's pub key pem and the digital signature from the response dict
-        peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']
-        signature_str:str = response_plaintext_dict['signature']
+        )        
+        
+        # Extract the necessary information from the plaintext dict
+        filename:str = response_plaintext_dict["filename"]                                  # Filename
+        encoded_file_content:str = response_plaintext_dict["encrypted_file"]                # Encrypted file (b64 str)
+        decoded_encrypted_file_content:bytes = base64.b64decode(encoded_file_content)       # Decoded encrypted file (bytes)
+        peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']                    # Peer public key PEM
+        peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)                              # Peer public key (no PEM headers)
+        signature_str:str = response_plaintext_dict['signature']                            # Digital signature
         peer_cn:str = db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem))    # CN is used for info prints and logs
+        
+        file_size:float = len(decoded_encrypted_file_content)                   # Size of the encrypted file
+        enc_file_hash:str = hash_bytes_sha256(decoded_encrypted_file_content)   # Hash of the encrypted file
+        
+        # ---- Handle the incoming message ---- #
+        
+        # Get the request ID from the database 
+        # NOTE: DatabaseConnection.get_request_id() returns -1 if the request doesn't exist
+        pending_request_id:int = db_connection.get_request_id(strip_pem_headers(peer_pub_key_pem), filename, 'store', "incoming")
+        self.logger.info(f'in handle_store_request(): got pending request ID from DB "{pending_request_id}"')
+        
+        # Init vars for returning a message to the sender
+        outgoing_code:int|str = None
+        msg:str = '' 
         
         # Verify the digital signature
         if not verify_signature(peer_pub_key_pem, decoded_encrypted_file_content, signature_str):
+            self.logger.warning(f'in handle_store_request(): "{peer_cn}" failed digital signature for filename "{filename}"')
             
-            # Log
-            self.logger.warning('in handle_store_request() - request failed the digital signature.')
+            # Tell the sender that the request failed
+            outgoing_code = Server.FAIL_CODE
+            msg = 'Failed digital signature'
+
+        # Check if the request exists and/or is accepted 
+        # Request DOES NOT EXIST 
+        elif(pending_request_id == -1):
+            self.logger.info(f'in handle_store_request(): creating a new pending incoming STORE request from "{peer_cn}" for "{filename}"')
             
-            # Send a failure message back to the peer
-            connection.send({
-                'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, 'Failed digital signature.')
-            })
+            # Create an entry for an incoming pending request
+            db_connection.new_pending_request(
+                "incoming", 
+                "store", 
+                peer_pub_key,
+                filename, 
+                file_size, 
+                enc_file_hash,
+                accepted=None
+            )
 
-            # Do nothing else
-            return 
-        
-        pending_request_id:int = db_connection.get_request_id(peer_pub_key_pem, filename, 'store', "incoming")
-        if(pending_request_id == -1):
-            db_connection.new_pending_request("incoming", "store", strip_pem_headers(peer_pub_key_pem), 
-                                              filename, len(decoded_encrypted_file_content), signature_str,
-                                              False, datetime.now().strftime("%Y-%m-%d"))
-            connection.send({
-                'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, 'Request not accepted by the user')
-            })
+            # Tell the peer they have to wait
+            outgoing_code = Server.WAIT_CODE
+            msg = 'Request received, but not yet accepted by the user'
 
-        elif (db_connection.get_pending_request(pending_request_id)["accepted"] == False):
-            # the request exists but was not accepted, so we do nothing 
-            connection.send({
-                'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, 'Request not accepted by the user')
-            })
-
+        # Request EXISTS BUT IS NOT ACCEPTED
+        elif not db_connection.get_pending_request(pending_request_id)["accepted"]:
+            
+            # Tell the client that they have to wait 
+            outgoing_code = Server.WAIT_CODE
+            msg = 'Request not accepted by the user'
+            
+        # Request EXISTS AND IS ACCEPTED
         else:
-            # Construct the target directory path
-            target_directory:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'])
 
-            # Create the target dir if it doesn't exist
+            # Construct the target directory path and create it if it doesn't exist
+            target_directory:str = os.path.join(self.peer_storage_dir, peer_cn)
             os.makedirs(target_directory, exist_ok=True)
 
             # Write the file to the target directory and get the message
             message:str = write_to_file(os.path.join(target_directory, filename), decoded_encrypted_file_content)
             
-            # Log
-            self.logger.info(f'in handle_store_request() - sending response message "{message}" to "{peer_cn}"')
-            
-            # Prepare the outgoing message to be sent to the client
-            outgoing_message: dict = {
-                'code': Server.DONE_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, message)
-            }
-            
-            # Send the encrypted message to the client
-            connection.send(json.dumps(outgoing_message).encode())
-
-            # If the file write was a success, then add a new entry in the DB
+            # Check if the file was written successfully
+            # SUCCESS
             if(message == "File written"):
-                
-                # Log
-                self.logger.info(f'in handle_store_request() - now storing file "{filename}" for "{peer_cn}"')
                 
                 # Add a new row for the new shared file
                 db_connection.new_storing_for_file(
-                    strip_pem_headers(peer_pub_key_pem),
+                    peer_pub_key,
                     filename,
-                    bytes_to_gb(len(decoded_encrypted_file_content)),
-                    hash_bytes_sha256(decoded_encrypted_file_content)
+                    file_size,
+                    enc_file_hash
                 )
+                
+                # Log
+                self.logger.info(f'in handle_store_request(): request was handled and new stored file was saved to "{os.path.join(target_directory, filename)}"')
+                
+                # Tell the sender that everything was processed successfully
+                outgoing_code = Server.DONE_CODE
+                msg = 'Request completed successfully'
+                
+            # FAIL 
+            else: 
+                
+                # Log
+                self.logger.info(f'in handle_store_request(): there was an error saving file "{filename}" - write_to_file() returned "{message}"')
+                
+                # Tell the sender that something went wrong and we were unable to process the request 
+                outgoing_code = Server.FAIL_CODE
+                msg = 'There was an error processing the request'
+
+            # Remove the pending request from the DB
             db_connection.remove_pending_request(pending_request_id)
+            
+            # Tell the sender that the request was successful and is complete 
+            outgoing_code = Server.DONE_CODE
+            msg = 'Request complete'
+        
+        # ---- Send response ---- #
+        # Prepare the outgoing message to be sent to the client
+        self.send_encrypted_message(
+            connection, 
+            peer_pub_key_pem,
+            {
+                "code": outgoing_code,
+                "message": msg
+            },
+            get_response=False          # We don't need the response 
+        )
+        
+        # Log
+        self.logger.info(f'in handle_store_request(): sent message to "{peer_cn}": CODE = {outgoing_code}, MESSAGE = "{msg}"')
 
                               
     def handle_delete_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:
@@ -873,73 +910,79 @@ class Server(object):
             None
         """
 
-        # Read and decrypt the incoming message
+        # ---- Read incoming message ---- #
+        self.logger.debug('Called handle_delete_request()')
+        
+        # Read and decrypt the incoming data
         response_plaintext_dict:dict = json.loads(
             decrypt_message(
                 self.priv_key_pem, 
                 Server.read_incoming_data(connection)
             )
-        )
+        )        
         
-        # Extract the file name from the request
-        filename: str = response_plaintext_dict["filename"]
-
-        # Extract the peer's public key PEM from the response dict
+        # Extract the necessary info from the plaintext dict
+        filename: str = response_plaintext_dict["filename"]                 # Filename
         peer_pub_key_pem: str = response_plaintext_dict['public_key_pem']   # Pub key WITH PEM headers
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)              # Pub key WITHOUT PEM headers
-
+        peer_cn:str = db_connection.cn_from_pub_key(peer_pub_key)
+        
+        # ---- Handle the request ---- #
+        
         # Construct path to the stored file
         target_filepath:str = os.path.join(self.peer_storage_dir, response_plaintext_dict['common_name'], filename)
+        
+        # Init vars for the response
+        outgoing_code:int|str = None
+        msg:str = ''
         
         # Attempt to delete the file
         try:
 
-             # Check that we're actually storing this file for this peer
+            # Check that we're actually storing this file for this peer
+            # NO MATCH
             if not db_connection.check_stored_for_file_exists(peer_pub_key, filename):
-                raise FileNotFoundError(f'No matching file "{filename}" found for peer.')
+                self.logger.error(f'in handle_delete_request(): no matching file "{filename}" found for "{peer_cn}"')
+                
+                outgoing_code = Server.FAIL_CODE
+                msg = f'No file found matching "{filename}"'
             
-            # Remove the entry from the currently storing for CSV
-            db_connection.remove_storing_for_entry(
-                peer_pub_key,
-                filename
-            )
+            # YES MATCH
+            else: 
+                # Remove the entry from the CurrentlyStoringFor table in the DB
+                db_connection.remove_storing_for_entry(
+                    peer_pub_key,
+                    filename
+                )
 
-            # Delete the stored file 
-            os.remove(target_filepath)
-
-            # Send success response
-            connection.send(json.dumps({
-                'code': Server.DONE_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, json.dumps({'message': 'File deleted successfully.'}))
-            }).encode())
-
+                # Delete the stored file 
+                os.remove(target_filepath)
+                self.logger.info(f'in handle_delete_request(): successfully deleted "{filename}" for "{peer_cn}"')
+                
+                # Tell the peer that the request was a success
+                outgoing_code = Server.DONE_CODE
+                msg = f'File "{filename}" was deleted successfully.'
+            
         # Handle exceptions
-        # File doesn't exist 
-        except FileNotFoundError:
-
-            # Log
-            self.logger.error(f'File "{target_filepath}" does not exist.')
-
-            # Send error message back
-            connection.send(json.dumps({
-                'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, json.dumps({'error': 'File not found'}))
-            }).encode())
-
-        # Other exceptions
         except Exception as e:
-
-            # Log
-            self.logger.error(f'in handle_delete_request() - error occurred while deleting "{target_filepath}": {e}')
-
-            # Send error message back
-            connection.send(json.dumps({
-                'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
-                'data': encrypt_message(peer_pub_key_pem, json.dumps({'error': 'Error occurred'}))
-            }).encode())
+            self.logger.error(f'in handle_delete_request(): {e.__class__} - {e}')
+            outgoing_code = Server.FAIL_CODE
+            msg = 'Error processing delete request.'
+            
+        # ---- Send response ---- #
+        # Prepare the outgoing message to be sent to the client
+        self.send_encrypted_message(
+            connection, 
+            peer_pub_key_pem,
+            {
+                "code": outgoing_code,
+                "message": msg
+            },
+            get_response=False          # We don't need the response 
+        )
+        
+        # Log
+        self.logger.info(f'in handle_delete_request(): sent message to "{peer_cn}": CODE = {outgoing_code}, MESSAGE = "{msg}"')
 
 
     def handle_retrieve_request(self, connection:socket.socket, peer_pub_key_pem:str, peer_cn:str, filename:str) -> None: 
@@ -1112,7 +1155,7 @@ class Server(object):
             'public_key_pem': self.pub_key_pem,
             'common_name': self.common_name,
             'mac_last_four': self.mac_last_four,
-            'code': self.SHARE_REQ_CODE
+            'code': code
         })
 
         # Send the message
@@ -1121,7 +1164,7 @@ class Server(object):
         # ---- Identity check handshake ---- #
         
         # Receive handshake data from the server
-        self.logger.info(f'in send_share_request() - received response from peer "{peer_ip_address}" (presumed ID check)')
+        self.logger.info(f'in initiate_peer_connection() - received response from peer "{peer_ip_address}" (presumed ID check)')
         response = json.loads(connection.recv(self.BUFF))
         
         # Complete the ID check
@@ -1304,42 +1347,19 @@ class Server(object):
         
         try:
 
-            # Connect to the server
-            # NOTE: all peers use the same port for their backend server
-            client_socket.connect((peer_ip_address, self.port))
-
-            # Log
-            self.logger.info(f'in send_store_request() - sending store request to "{peer_ip_address}:{self.port}"')
+            # ---- Init connection ---- #
+            # Init a connection with the peer's backend server (initial message + ID check)
+            peer_pub_key_pem:str = self.initiate_peer_connection(
+                client_socket, 
+                peer_ip_address,
+                Server.STORE_REQ_CODE,
+                'store'
+            )
             
-            # Construct an initial message to send
-            message = json.dumps({
-                'public_key_pem': self.pub_key_pem,
-                'common_name': self.common_name,
-                'mac_last_four': self.mac_last_four,
-                'code': self.STORE_REQ_CODE
-            })
-
-            # Send the message
-            client_socket.send(message.encode())
-
-            # Receive handshake data from the server
-            self.logger.info('in send_store_request() - received response from peer (presumed ID check).')
-            response = json.loads(client_socket.recv(self.BUFF))
+            # Strip headers from the peer's pub key pem
+            peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)
             
-            # Complete the ID check
-            passcode = decrypt_message(self.priv_key_pem, response['data'])
-            message = json.dumps({
-                'public_key_pem': self.pub_key_pem,
-                'code': self.RESP_IDC_CODE,
-                'data': encrypt_message(response['public_key_pem'], passcode)
-            })
-
-            # Send the ID check response
-            client_socket.send(message.encode())
-            
-            # Log
-            self.logger.info('in send_store_request - signing file.')
-
+            # ---- Send the file information ---- #
             # Encrypt the file
             encrypted_file_data:dict = encrypt_bytes_with_aes(
                 plaintext_file,
@@ -1350,62 +1370,115 @@ class Server(object):
             nonce:str = encrypted_file_data['nonce']
             encrypted_file_contents:str = encrypted_file_data['ciphertext']
 
+            # Hash the encrypted file contents and get the length of the encrypted file contents
+            encrypted_file_hash:str = hash_bytes_sha256(base64.b64decode(encrypted_file_contents))
+            encrypted_file_size:float = bytes_to_gb(len(base64.b64decode(encrypted_file_contents)))
+            
             # Sign the encrypted file
             signature:str = base64.b64encode(
                 sign_file(
                     self.priv_key_pem, 
                     base64.b64decode(encrypted_file_contents))
             ).decode('utf-8')
+            
+            # Send an encrypted message to the peer and get the response
+            response:dict = self.send_encrypted_message(
+                client_socket,
+                peer_pub_key_pem,
+                {
+                    'public_key_pem': self.pub_key_pem,
+                    'filename': filename,
+                    'signature': signature,
+                    'encrypted_file': encrypted_file_contents
+                }
+            )
 
-            # Create a message with the file contents
-            message = json.dumps({
-                'common_name': self.common_name,
-                'public_key_pem': self.pub_key_pem,
-                'filename': filename,
-                'signature': signature,
-                'encrypted_file': encrypted_file_contents
-            })
-
-            # Encrypt the message with the file data
-            enc_message:dict = encrypt_message(response['public_key_pem'], message)
-
-            # Prepare the message
-            message_bytes:bytes = json.dumps(enc_message).encode()
-            message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
-
-            # Send length first, then messagesymn_aes_key
-            client_socket.sendall(message_length + message_bytes)
-
-            # Wait for response
-            response = json.loads(client_socket.recv(self.BUFF))
-            result = decrypt_message(self.priv_key_pem, response['data'])
-
+            # Extract parts of the response for clarity
+            response_code:int = response['code']
+            response_message:str = response['message']
+            
+            # Log the response info
+            self.logger.info(f'in send_store_request(): got response code "{response_code}" with message "{response_message}"')
+            
+            # ---- Handle response ---- #             
             # Handle the response message
-            # Some unknown error occured on the receiving server
-            if(json.loads(result).get('error', None) and json.loads(result)['error'] == "Error occured"): 
-                raise Exception('An unknown error occured and receiving server was unable to process the request.')
-            
-            # File already exists on the recieving server
-            elif(json.loads(result).get('error', None) and json.loads(result)['error'] == "File already exists"): 
-                raise FileExistsError('Recieving server already has a shared file with the same name.')
-            
-            # Success result (result == 'File written')
-            else: 
-
-                # Log
-                self.logger.info(f'in send_store_request() - successfully sent "{filename}" to be stored with peer IP "{peer_ip_address}"')
-
-                # Get the peer's public key
-                peer_pub_key:str = self.send_db_connection.pub_key_from_ip(peer_ip_address)
+            match response_code: 
                 
-                # Add a new DB entry
-                self.send_db_connection.new_storing_with_file(
-                    peer_pub_key,
-                    filename,
-                    bytes_to_gb(len(encrypted_file_contents)),
-                    hash_bytes_sha256(base64.b64decode(encrypted_file_contents)),
-                    nonce 
-                )
+                # WAIT code - request was received and processed, but we have to wait
+                case Server.WAIT_CODE: 
+                    
+                    # Check if we already have a pending request for this peer, filename, and request type
+                    # NOTE: DatabaseConnection.get_request_id() returns -1 if the request doesn't exist
+                    existing_request_id:int = self.send_db_connection.get_request_id(peer_pub_key, filename, 'store', 'outgoing') 
+                    
+                    # Request ALREADY EXISTS 
+                    if existing_request_id >= 0: 
+                        
+                        # Change the "notified" status for this request to TRUE
+                        # NOTE: we do not need to create a temp file because it should already exist since the request existed in the DB
+                        self.send_db_connection.update_request_notified(existing_request_id)
+                        self.logger.info(f'in send_store_request(): received WAIT_CODE and request ID "{existing_request_id}" already exists - updated notified to TRUE.')
+                        
+                    # Request DOES NOT ALREADY EXIST  
+                    else:                  
+                               
+                        # Add the request to PendingRequests in the DB
+                        self.send_db_connection.new_pending_request(
+                            'outgoing', 
+                            'store', 
+                            peer_pub_key, 
+                            filename,
+                            encrypted_file_size,
+                            encrypted_file_hash
+                        )
+
+                        # Create a temp file for this file so we can send it later 
+                        tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'store', filename)
+                        
+                        # Create the dir for the tmp file if it doesn't exist
+                        os.makedirs(os.path.dirname(tmp_filepath), exist_ok=True)
+                        
+                        # Write the temp file
+                        with open(tmp_filepath, 'wb+') as file: 
+                            file.write(encrypted_file_contents)
+                        
+                        # Log
+                        self.logger.info(f'in send_store_request(): received WAIT_CODE and request does not exist yet - created entry in PendingRequests and temp file at "{tmp_filepath}"')
+
+                # FAIL code - peer was unable to process the request
+                case Server.FAIL_CODE: 
+                    
+                    # Log and do nothing else
+                    self.logger.warning(f'in send_store_request(): something went wrong sending the request (FAIL_CODE) for filename "{filename}" with response message "{response_message}"')
+                    return 
+            
+                # SUCCESS code - peer processed the request and it is all set
+                case Server.DONE_CODE: 
+                    
+                    # Get the request info from the DB
+                    request_id:int = self.send_db_connection.get_request_id(peer_pub_key, filename, 'store', 'outgoing') 
+                    
+                    # Change this request to completed in the DB
+                    self.send_db_connection.completed_pending_request(request_id)
+                    
+                    # Add a new entry in the PreviouslySharedFiles table
+                    self.send_db_connection.new_storing_with_file(
+                        peer_pub_key,
+                        filename,                        
+                        encrypted_file_size,
+                        encrypted_file_hash,
+                        nonce
+                    )
+                    
+                    # Remove the temp file if it exists
+                    tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'store', filename)
+                    
+                    if os.path.exists(tmp_filepath):
+                        os.remove(tmp_filepath)
+                        self.logger.info(f'in send_store_request(): deleted temp file at "{tmp_filepath}"')
+                    
+                    # Log
+                    self.logger.info(f'in send_store_request(): completed request to store "{filename}" (request ID = {request_id})')
         
         # Handle exceptions
         except Exception as e:
@@ -1426,77 +1499,47 @@ class Server(object):
         # Connect to the server
         try:
 
-            # NOTE: all peers use the same port for their backend server
-            client_socket.connect((peer_ip_address, self.port))
-
-            # Log
-            self.logger.info(f'in send_delete_request() - sending delete request to "{peer_ip_address}" for file "{filename}"')
+            # ---- Init connection ---- #
+            # Init a connection with the peer's backend server (initial message + ID check)
+            peer_pub_key_pem:str = self.initiate_peer_connection(
+                client_socket, 
+                peer_ip_address,
+                Server.DEL_FILE_CODE,
+                'delete'
+            )
             
-            # Construct an initial message to send
-            message:str = json.dumps({
-                'public_key_pem': self.pub_key_pem,
-                'common_name': self.common_name,
-                'mac_last_four': self.mac_last_four,
-                'code': self.DEL_FILE_CODE
-            })
-
-            # Send the message
-            client_socket.send(message.encode())
-
-            # Receive handshake data from the server
-            self.logger.info(f'in send_delete_request() - received response from peer "{peer_ip_address}" (presumed ID check)')
-            response = json.loads(client_socket.recv(self.BUFF))
+            # ---- Send an encrypted message with the file information ---- #
             
-            # Complete the ID check
-            passcode = decrypt_message(self.priv_key_pem, response['data'])
-            message = json.dumps({
-                'public_key_pem': self.pub_key_pem,
-                'code': self.RESP_IDC_CODE,
-                'data': encrypt_message(response['public_key_pem'], passcode)
-            })
-
-            # Send the ID check response
-            client_socket.send(message.encode())          
-
-            # Create a message with the file contents
-            message = json.dumps({
-                'common_name': self.common_name,
-                'public_key_pem': self.pub_key_pem,
-                'filename': filename
-            })
-
-            # Encrypt the message with the file data
-            enc_message:dict = encrypt_message(response['public_key_pem'], message)
-
-            # Prepare the message
-            message_bytes:bytes = json.dumps(enc_message).encode()
-            message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
-
-            # Send length first, then payload
-            client_socket.sendall(message_length + message_bytes)
-
-            # Wait for response
-            response = json.loads(client_socket.recv(self.BUFF))
-            result = decrypt_message(self.priv_key_pem, response['data'])
+            # Send delete request
+            response:dict = self.send_encrypted_message(
+                client_socket,
+                peer_pub_key_pem,
+                {
+                    'common_name': self.common_name,
+                    'public_key_pem': self.pub_key_pem,
+                    'filename': filename
+                }
+            )
 
             # Handle the response message
-            # Some unknown error occured on the receiving server
-            if(result == "Error occurred"): raise Exception('An unknown error occured and receiving server was unable to process the request.')
-            
-            # File already exists on the recieving server
-            elif(result == "File not found"): raise FileNotFoundError('Recieving server can not find a file with the same name.')
-            elif(result == "Hash mismatch"): raise Exception('Recieving server has a file with the same name, but the hash does not match.')
-            else: 
+            match response['code']: 
+                
+                # SUCCESS 
+                case Server.DONE_CODE: 
+                    
+                    # Log
+                    self.logger.info(f'in send_delete_request() - successfully deleted "{filename}" from peer "{peer_ip_address}"')
 
-                # Log
-                self.logger.info('in send_delete_request() - successfully deleted "{filename}" from peer "{peer_ip_address}"')
+                    # Remove this row from the DB table
+                    self.send_db_connection.remove_storing_with_entry(
+                        peer_pub_key,
+                        filename                    
+                    )
+                
+                # FAIL
+                case Server.FAIL_CODE: 
+                    self.logger.error(f'in send_delete_request(): an error occured (FAIL_CODE) and the receiving server was unable to process the request. Got error: {response["data"]["error"]}')
 
-                # Remove this row from the DB table
-                self.send_db_connection.remove_storing_with_entry(
-                    peer_pub_key,
-                    filename                    
-                )
-        
         # Handle exceptions
         except Exception as e:
             self.logger.error(f'in send_delete_request() - {e.__class__}: {e}')
