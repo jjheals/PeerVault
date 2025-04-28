@@ -17,3 +17,8 @@ backend/keys/
 # Test notebooks
 backend/db_testing.ipynb
 
+# Installer files
+installer/*.o
+installer/*installer.exe
+installer/installer
+installer/PeerVault-installer*
