@@ -278,20 +278,26 @@ class DatabaseConnection:
 
         # Get the request info from the pending requests table
         pending_request_info:dict = self.get_pending_request(request_id)
-
+        
         # Check for results
         if not pending_request_info: 
             self.logger.warning(f'in completed_pending_request(): did not find any matches for PendingRequest ID "{request_id}"')
             return 
+
+        # Get the cols for CompletedRequests
+        completed_requests_cols:list[str] = self.get_table_columns('CompletedRequests')
+
+        # Extract only the pending request fields that are in completed requests
+        insert_tup:tuple = tuple([v for k,v in pending_request_info.items() if k in completed_requests_cols])
         
         # If we git results, then move the entry into CompletedRequests
         # NOTE: 9 placeholders
         self.cursor.execute(
-            """
-            INSERT INTO CompletedRequests(id, direction, request_type, peer_pub_key, filename, size_gb, sha256, accepted, request_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            f"""
+            INSERT INTO CompletedRequests({",".join(completed_requests_cols)})
+            VALUES ({",".join(["?" for _ in completed_requests_cols])})
             """,
-            tuple(pending_request_info.values())
+            insert_tup
         )
 
         # Now delete the PendingRequest entry
