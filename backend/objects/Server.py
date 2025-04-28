@@ -512,6 +512,8 @@ class Server(object):
 
 
     def handle_pending_incoming_requests(self) -> None:
+        """Incrementally checks the queued outgoing requests and sends them if the peer is online."""
+        
         # Log
         self.logger.info('Starting handle_pending_outgoing_requests().')
         
@@ -521,10 +523,92 @@ class Server(object):
             os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
             logger_name='server_requests_db_logger'
         )
+        
+        # Run while the server is alive
+        while self.server_alive:
 
-        # Run while the server is alive 
+            # NOTE: now done iterating over queued requests 
+            # Sleep for Server.REQ_CHECK_SLEEP before next iteration
+            sleep(Server.REQ_CHECK_SLEEP)
 
+            # Log 
+            self.logger.info('Checking status of outgoing requests.')
+            
+            # Get the request IDs for any outgoing requests where the peer is online
+            matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'incoming',
+                target_peer_online_status=True
+            )
 
+<<<<<<< HEAD
+=======
+            # Check for results
+            if not matched_req_ids or len(matched_req_ids) == 0: 
+                # No results
+                self.logger.info('in queued_request_checker() - no queued outgoing requests have online peers.')
+                continue 
+
+            # Iterate over the matched request IDs
+            for req_id in matched_req_ids:
+
+                # Get the info for this request 
+                request_info:dict = db_connection.get_pending_request(req_id)
+
+                # Make sure we got results to avoid a KeyError
+                if not request_info: 
+                    self.logger.error(f'in queued_request_checker() - expected to get a matching request for {req_id} but got None.')
+                    continue 
+                
+                # Log
+                self.logger.info(f'in queued_request_checker() - processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
+
+                # Extract the peer_pub_key and get this peer's info from the Peer table
+                peer_pub_key:str = request_info['peer_pub_key']
+                peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
+                    
+                # Check if this peer is online
+                if peer_info['online']: 
+                    
+                    # Log
+                    self.logger.info(f'Sending queued "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]}.')
+                        
+                    # Peer is online - extract the other needed attributes for the outgoing req
+                    req_type:str = request_info['upload_type']
+                    filename:str = request_info['filename']
+                    status:str = request_info['accepted']
+                        
+                    # Act according to the request type
+                    match(req_type.lower()): 
+                        
+                        # accept request
+                        case 'accept': 
+                            
+                            # Construct the path to the tmp file 
+                            tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+                    
+                            # Get the file contents
+                            with open(tmp_filepath, 'rb') as file: 
+                                file_contents:bytes = file.read()
+                        
+                            # Send the share request
+                            self.send_accept_request(
+                                peer_info['most_recent_ip'],    # peer_ip_address
+                                filename,                       # plaintext_file
+                                req_type,
+                                status
+                            )
+                            
+                            # Delete the tmp file 
+                            self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                            os.remove(tmp_filepath)
+                            
+                        
+                    # Delete the pending request now that we handled it 
+                    db_connection.remove_pending_request(req_id)
+                    self.logger.info(f'in queued_request_checker() - done handling {request_info["request_type"]} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                    
+
+>>>>>>> 457eb534cd4670502ef1abeeae40e96679c7a1e3
     def respond_identity_check(self, connection:socket.socket, client_address:str) -> bool:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
@@ -862,7 +946,11 @@ class Server(object):
                 )
             db_connection.remove_pending_request(pending_request_id)
 
+<<<<<<< HEAD
                               
+=======
+
+>>>>>>> 457eb534cd4670502ef1abeeae40e96679c7a1e3
     def handle_delete_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:
         """
         Handles a request to delete a file from a client and replies back to the client with the results of the delete.
@@ -1620,6 +1708,7 @@ class Server(object):
             self.logger.error(f'in Server.retrieve_stored_file(): \033[0m{e.__class__}", {e}')
             return ''
 
+<<<<<<< HEAD
     
     @staticmethod
     def read_incoming_data(connection:socket.socket) -> dict: 
@@ -1645,3 +1734,77 @@ class Server(object):
     
     
     
+=======
+    def send_accept_request(self, peer_ip_address:str, filename:str, request_type:str, status:bool) -> None:
+        """Sends an accept request to the given client address, and tells the remote peer to accept the file if ID check is passed."""
+
+        # Create a socket object
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # Connect to the server
+        try:
+
+            # NOTE: all peers use the same port for their backend server
+            client_socket.connect((peer_ip_address, self.port))
+
+            # Log
+            self.logger.info(f'in send_accept_request() - sending accept request to "{peer_ip_address}" for file "{filename}"')
+            
+            # Construct an initial message to send
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four,
+                'code': self.ACC_CODE
+            })
+
+            # Send the message
+            client_socket.send(message.encode())
+
+            # Receive handshake data from the server
+            self.logger.info(f'in send_accept_request() - received response from peer "{peer_ip_address}" (presumed ID check)')
+            response = json.loads(client_socket.recv(self.BUFF))
+            
+            # Complete the ID check
+            passcode = decrypt_message(self.priv_key_pem, response['data'])
+            message = json.dumps({
+                'public_key_pem': self.pub_key_pem,
+                'code': self.RESP_IDC_CODE,
+                'data': encrypt_message(response['public_key_pem'], passcode)
+            })
+
+            # Create a message with the file contents
+            message = json.dumps({
+                'pub_key_pem': self.pub_key_pem,
+                'filename': filename,
+                'request_type': request_type,
+                'accept': status
+            })
+
+            # Encrypt the message with the file data
+            enc_message:dict = encrypt_message(response['public_key_pem'], message)
+
+            # Prepare the message
+            message_bytes:bytes = json.dumps(enc_message).encode()
+            message_length:bytes = struct.pack('>I', len(message_bytes))  # 4 bytes big-endian
+
+            # Send length first, then message
+            client_socket.sendall(message_length + message_bytes)
+
+            # Wait for response
+            response = json.loads(client_socket.recv(self.BUFF))
+            result = decrypt_message(self.priv_key_pem, response['data'])
+
+            # Handle the response message
+            # Some unknown error occured on the receiving server
+            if(result == "Error occured"): 
+                self.logger.error(f'in send_accept_request() - an unknown error occured and receiving peer "{peer_ip_address}" was unable to process the request.')
+                raise Exception('An unknown error occured and receiving server was unable to process the request.')
+            else: 
+                # Log they got the message and changed the file status
+                self.logger.info('in send_accept_request() - successfully accpet file "{filename}" with peer "{peer_ip_address}".')
+
+        # Handle exceptions
+        except Exception as e:
+            self
+>>>>>>> 457eb534cd4670502ef1abeeae40e96679c7a1e3

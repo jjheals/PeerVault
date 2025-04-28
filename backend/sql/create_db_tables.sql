@@ -56,7 +56,7 @@ CREATE TABLE PreviouslySharedWith(
 CREATE TABLE PendingRequests(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     direction TEXT NOT NULL,       -- Must be either [incoming | outgoing]
-    request_type TEXT NOT NULL,    -- Must be one of [store | share | delete]
+    request_type TEXT NOT NULL,    -- Must be one of [store | share | delete | accept ]
     peer_pub_key TEXT NOT NULL,
     filename TEXT NOT NULL,
     size_gb REAL NOT NULL,
