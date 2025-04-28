@@ -2,6 +2,7 @@
 # Caches
 *__pycache__
 *.vscode/
+*.pytest_cache
 
 # Keys, data, and logs
 backend/keys/
@@ -18,3 +19,8 @@ backend/db_testing.ipynb
 
 # Test temp dirs
 backend/tests/listener-sender-testing/.tmp/
+# Installer files
+installer/*.o
+installer/*installer.exe
+installer/installer
+installer/PeerVault-installer*

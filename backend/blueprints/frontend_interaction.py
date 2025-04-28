@@ -1,4 +1,9 @@
 
+""" 
+get-peer-list
+get-pending-requests
+get-interacted-with-peers
+"""
 # NOTE: anytime current_app.server is used, CHECK that current_app.server is not null. This enforces that
 # the endpoint /ui/init-application/ is (successfully) hit BEFORE anything else happens, because initializing 
 # the Server for the app requires the passphrase to load the priv key, thus any use of current_app.server 
@@ -12,10 +17,11 @@ from configparser import ConfigParser
 from hashlib import sha256
 import pandas as pd
 import base64
+import json
 import datetime as dt 
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
-    load_aes_key, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
+    load_aes_key, strip_pem_headers, normalize_string, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
 
 from objects import Server, DatabaseConnection
 from .funcs import require_localhost
@@ -56,6 +62,7 @@ def get_peer_list():
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | server error: if some unexpected error occurs during server-side processing of the request.
     '''
+
     # Define expected args for easy checks of given args and their types
     expected_args:dict = {
         'online': int,
@@ -130,11 +137,11 @@ def get_stored_with_info():
     
     # Get the matched peers from the db
     matched_peers_df:pd.DataFrame = db_connection.get_matching_peers(
-        peer_pub_key=given_args['peer_pub_key'],
-        online=given_args['online'],
-        most_recent_ip=given_args['most_recent_ip'],
-        common_name=given_args['common_name'],
-        mac_last_four=given_args['mac_last_four']
+        peer_pub_key=given_args.get('peer_pub_key', None),
+        online=given_args.get('online', None),
+        most_recent_ip=given_args.get('most_recent_ip', None),
+        common_name=given_args.get('common_name', None),
+        mac_last_four=given_args.get('mac_last_four', None)
     )
     
     # Use the matched pub keys to get the storing with info for these peers (or all peers)
@@ -159,6 +166,7 @@ def whoami():
         RETURNS: 
             - 200 | successful: (dict) a JSON object with all the information about this user account with the following keys: 
             ['pub_key', 'allocated_storage', 'common_name', 'mac'].
+            - 400 | bad request: if the user is not signed up (i.e. keys don't exist).
             - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
             - 500 | internal server error: if there is some internal error processing the request.
     """
@@ -166,19 +174,68 @@ def whoami():
     # Load the identity config file 
     identity_config:ConfigParser = ConfigParser()
     identity_config.read('config/identity.conf')
-                
-    # Load this user's public key
-    pub_key:str = load_key_pem(
-        current_app.enc_config['paths']['PUB_KEY_PATH'],
-        'public'
-    )
+    
+    try: 
+        # Load this user's public key
+        pub_key:str = load_key_pem(
+            current_app.enc_config['paths']['PUB_KEY_PATH'],
+            'public'
+        )
+            
+        # Create a dict, jsonify and return 
+        return jsonify({
+            'pub_key': strip_pem_headers(pub_key),
+            'common_name': identity_config['IDENTITY']['common_name'],
+            'mac': identity_config['IDENTITY']['mac'],
+            'ip': identity_config['IDENTITY']['ip'],
+        })
+    
+    # Handle exceptions
+    except Exception as e:
+        return jsonify({
+            'error': 'Error loading keys. Is the user signed up?',
+            'message': f'{e.__class__}: {e}'
+        }), 400
+
+
+@fi_bp.route('/ui/get-pub-key', methods=['POST'])
+@require_localhost
+def get_peer_public_key(): 
+    """
+        DESC: returns the public key for the given peer common name.
         
-    # Create a dict, jsonify and return 
+        ARGUMENTS: 
+            peer_common_name (str): the common name of the peer. 
+            
+        RETURNS: 
+            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
+            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+            - 404 | not found: if the given common name does not exist in the DB.
+            - 500 | internal server error: if there is some internal error processing the request.
+            
+    """
+    
+    # Get the peer_common_name from the request 
+    peer_cn:str = request.args.get('peer_common_name', None) 
+    
+    # Check that a CN was given 
+    if not peer_cn: 
+        return jsonify({
+            'error': 'Not given a peer_common_name.'
+        }), 400
+        
+    # Convert the CN to pub key
+    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
+
+    # Check if results
+    if not matched_pub_keys: 
+        return jsonify({
+            'error': f'Common name "{peer_cn}" does not match any known peers.'
+        }), 404
+        
+    # Return the requested information
     return jsonify({
-        'pub_key': strip_pem_headers(pub_key),
-        'common_name': identity_config['IDENTITY']['COMMON_NAME'],
-        'mac': identity_config['IDENTITY']['MAC'],
-        'ip': identity_config['IDENTITY']['IP'],
+        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
     })
 
 
@@ -214,7 +271,7 @@ def signup():
     identity_config.read('config/identity.conf')
             
     # Check if there is already a common name for this user (i.e. they already have an account)
-    if identity_config['IDENTITY']['COMMON_NAME']: abort(409)
+    if identity_config['IDENTITY']['common_name']: abort(409)
     
     # Extract the body from the request     
     request_body:dict = request.get_json()
@@ -230,19 +287,32 @@ def signup():
         # Check that keys are given 
         if not (new_common_name and new_allocated_storage and new_peer_storage_path and new_passphrase): raise AttributeError
         # Make sure allocated_storage is an integer
-        new_allocated_storage = int(new_allocated_storage)
+        new_allocated_storage = float(new_allocated_storage)
     
     except: 
         # Bad request (missing/invalid info) 
-        abort(400) 
+        msg = {
+            'error': 'Invalid or missing data.',
+            'given_params': {
+                'common_name': new_common_name,
+                'allocated_storage': new_allocated_storage,
+                'peer_storage_path': new_peer_storage_path,
+                'passphrase': new_passphrase
+            }
+        }
+
+        print('ERROR: ')
+        print(msg)
+
+        return jsonify(msg), 400
     
     # --- Updating identity --- #
     # Update the identity config with the new common name, mac, allocated storage, and peer storage path
-    identity_config['IDENTITY']['COMMON_NAME'] = new_common_name
-    identity_config['IDENTITY']['MAC'] = get_mac_address()
-    identity_config['IDENTITY']['IP'] = get_IP_address()
-    identity_config['SETTINGS']['ALLOCATED_STORAGE'] = str(new_allocated_storage)
-    identity_config['PATHS']['PEER_STORAGE_PATH'] = new_peer_storage_path    
+    identity_config['IDENTITY']['common_name'] = new_common_name
+    identity_config['IDENTITY']['mac'] = get_mac_address()
+    identity_config['IDENTITY']['ip'] = get_IP_address()
+    identity_config['SETTINGS']['allocated_storage'] = str(new_allocated_storage)
+    identity_config['PATHS']['peer_storage_path'] = new_peer_storage_path    
     
     # Encrypt the passphrase in the enc config file
     current_app.enc_config['misc']['pass_hash'] = sha256(new_passphrase.encode()).hexdigest()
@@ -273,6 +343,9 @@ def signup():
         new_passphrase,
         current_app.enc_config['paths']['symm_key_path']
     )
+
+    # Update the current app w the new identity config
+    current_app.identity_config = identity_config
 
     # --- Return --- #
     # Return the newly stored info
@@ -423,7 +496,7 @@ def get_interacted_with_peers():
 
     # Use the app's DB connection to get the map of interacted with peers
     return jsonify({
-        'user_data': current_app.get_interacted_with_peers()
+        'user_data': current_app.db_connection.get_interacted_with_peers()
     })
 
 
@@ -465,45 +538,28 @@ def get_user_history():
     return jsonify(current_app.db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
 
-@fi_bp.route('/ui/peer-cn-to-pub-key', methods=['GET'])
+@fi_bp.route('/ui/get-user-history-specific', methods=['POST'])
 @require_localhost
-def peer_cn_to_pub_key(): 
-    """
-        DESC: returns the public key for the given peer common name.
-        
-        ARGUMENTS: 
-            peer_common_name (str): the common name of the peer. 
-            
-        RETURNS: 
-            - 200 | successful: (dict) a JSON object with a single key "peer_pub_key".
-            - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
-            - 404 | not found: if the given common name does not exist in the DB.
-            - 500 | internal server error: if there is some internal error processing the request.
-            
+def get_user_history_specific(): 
+    """ 
+    
     """
     
-    # Get the peer_common_name from the request 
-    peer_cn:str = request.args.get('peer_common_name', None) 
+    # Get the app's DB connection
+    db_connection:DatabaseConnection = current_app.db_connection
     
-    # Check that a CN was given 
-    if not peer_cn: 
-        return jsonify({
-            'error': 'Not given a peer_common_name.'
-        }), 400
+    # Extract the request body and the "other_user" from the request body
+    request_body:dict = request.get_json()
+    peer_cn:str = request_body.get('other_user', None)
+    
+    # Check if given another user and convert to a PK if necessary
+    if peer_cn: 
+        peer_pub_key:str = db_connection.pub_key_from_cn(peer_cn)
+    else: 
+        peer_pub_key:str = None
         
-    # Convert the CN to pub key
-    matched_pub_keys:str = current_app.db_connection.pub_key_from_cn(peer_cn)
-
-    # Check if results
-    if not matched_pub_keys: 
-        return jsonify({
-            'error': f'Common name "{peer_cn}" does not match any known peers.'
-        }), 404
-        
-    # Return the requested information
-    return jsonify({
-        'peer_pub_key': matched_pub_keys[0] if len(matched_pub_keys) == 1 else matched_pub_keys
-    })
+    # Get the storage history for this user and return
+    return jsonify(db_connection.get_user_history(peer_pub_key=peer_pub_key))
 
 
 @fi_bp.route('/ui/get-pending-requests', methods=['GET'])
@@ -544,6 +600,90 @@ def get_pending_requests():
         'incoming_requests': pending_requests_df.loc[pending_requests_df['direction'] == 'incoming'].to_dict(orient='records'),
         'outgoing_requests': pending_requests_df.loc[pending_requests_df['direction'] == 'outgoing'].to_dict(orient='records')
     })
+
+
+@fi_bp.route('/ui/get-completed-requests', methods=['GET'])
+@require_localhost
+def get_completed_requests(): 
+    """
+    DESC: returns the "CompletedRequests" table, separated by "incoming" and "outgoing" requests.
+
+    ARGUMENTS: 
+        Endpoint takes no arguments.
+
+    RETURNS: 
+        - 200 | successful: (dict) a JSON object with two keys for "incoming_requests" and "outgoing_requests" and the values are lists of dicts with the data for each (sorted by date desc).
+        - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+        - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    # Use the app's DB connection to get the completed requests as a df 
+    completed_requests_df:pd.DataFrame = current_app.db_connection.table_as_df('CompletedRequests') 
+    
+    # Filter into incoming and outgoing requests and return
+    return jsonify({
+        'incoming_requests': completed_requests_df.loc[completed_requests_df['direction'] == 'incoming'].to_dict(orient='records'),
+        'outgoing_requests': completed_requests_df.loc[completed_requests_df['direction'] == 'outgoing'].to_dict(orient='records')
+    })
+
+
+@fi_bp.route('/ui/update-request-status', methods=['POST'])
+@require_localhost
+def update_request_status(): 
+    """
+    DESC: Updates the status (accepted attribute) of the given request.
+    
+    REQUEST BODY: 
+        {
+            "request_id": <int>,
+            "new_status": <bool>
+        }
+
+        NOTE: the "new_status" should be TRUE for "accept request" or FALSE for "decline request".
+
+    RETURNS: 
+        - 200 | successful: (dict) a JSON object with two keys: "status", which is True if the request is complete and False otherwise, and "message" which contains a string.
+        - 400 | bad request: if the request does not contain the required data or the data is not properly formatted.
+        - 403 | unauthorized: if the request comes from a non-loopback address (not localhost).
+        - 404 | not found: if the given request ID is not found in the "PendingRequests" table.
+        - 500 | internal server error: if there is some internal error processing the request.
+    """
+
+    # Get the required params from the request
+    request_data:dict = request.get_json()
+    request_id:int = request_data.get('request_id', None)
+    new_status:bool = request_data.get('new_status', None)
+
+    # Verify that the info is given correctly
+    try: 
+        if not request_id or not new_status: raise ValueError('Not given a request ID or new status.')
+
+        # Cast the request ID to int incase it's a string
+        request_id = int(request_id)
+
+    # Handle exceptions, meaning something was wrong with the request
+    except Exception as e: 
+        return jsonify({
+            'error': 'Improper or missing parameters.',
+            'message': f'{e.__class__}: {e}',
+            'given_args': request_data
+        }), 400
+
+    # Get the app's DB connection
+    db_connection:DatabaseConnection = current_app.db_connection
+
+    # Check that the request ID exists
+    if not db_connection.check_request_id_exists(request_id): 
+        return jsonify({
+            'error': 'Request with the given ID was not found.',
+            'given_args': request_data
+        }), 404
+    
+    # Update the request status
+    db_connection.update_request_accepted(
+        request_id, 
+        new_status
+    )
 
 
 @fi_bp.route('/ui/upload-data', methods=['POST'])

@@ -79,12 +79,12 @@ def peers(db:DatabaseConnection):
 def pending_requests(db:DatabaseConnection, peers:list[dict[str, str|bool]]):
     
     # Init vars
-    today:str = dt.datetime.now().strftime('%Y-%m-%d')
-    directions:list[str] = ['incoming', 'outgoing']
-    request_types:list[str] = ['share', 'store', 'retrieve', 'delete']
-    file_exts:list[str] = ['txt', 'csv', 'xlsx', 'docx', 'pdf']
-    pending_requests:list[dict] = []
-
+    today:str = dt.datetime.now().strftime('%Y-%m-%d')                  # Current date (for request_date)
+    directions:list[str] = ['incoming', 'outgoing']                     # Possible values for "direction" 
+    request_types:list[str] = ['share', 'store', 'retrieve', 'delete']  # Possible values for "request_type"
+    file_exts:list[str] = ['txt', 'csv', 'xlsx', 'docx', 'pdf']         # Possible file extensions for variety
+    pending_requests:list[dict] = []                                    # List to hold all pending request dicts
+    
     # Create two requests per peer
     i:int = 0
     
@@ -100,13 +100,14 @@ def pending_requests(db:DatabaseConnection, peers:list[dict[str, str|bool]]):
             date = today
 
             # Insert the pending request into the db
+            # NOTE: "accepted" starts as None/NULL to indicate it has not been accepted/declined yet
             db.new_pending_request(
                 direction=direction,
                 request_type=req_type,
                 peer_pub_key=peer_dict['peer_pub_key'],
                 filename=filename,
                 size_gb=size_gb,
-                sha256=sha256
+                sha256=sha256, 
             )
 
             # Save info to validate later
@@ -120,7 +121,7 @@ def pending_requests(db:DatabaseConnection, peers:list[dict[str, str|bool]]):
                 'size_gb': size_gb,
                 'sha256': sha256,
                 'request_type': req_type,
-                'request_date': date
+                'accepted': None
             })
 
     # Return the list of dicts
@@ -358,3 +359,31 @@ def test_pub_key_cn_mapping(db:DatabaseConnection, peers:list[dict]):
     assert len(keys) == 1                   # Verify number of results
     assert peer['peer_pub_key'] in keys     # Verify that the match is correct
 
+
+def test_update_request_accepted(db:DatabaseConnection, pending_requests:list[dict]):
+    """Test updating the 'accepted' status of a pending request."""
+    
+    # Pick three pending requests
+    reqs:list[dict] = [
+        pending_requests[0],
+        pending_requests[1],
+        pending_requests[3]
+    ]
+
+    # Iterate over each of the requests
+    for req in reqs:
+
+        # Initially, 'accepted' should be None
+        request_info_before:dict = db.get_pending_request(req['id'])
+        assert request_info_before is not None
+        assert request_info_before['accepted'] is None
+
+        # Update it to True (accepted)
+        db.update_request_accepted(req['id'], True)
+        request_info_after:dict = db.get_pending_request(req['id'])
+        assert request_info_after['accepted'] == 1  # SQLite stores boolean True as 1
+
+        # Update it to False (rejected)
+        db.update_request_accepted(req['id'], False)
+        request_info_after_reject:dict = db.get_pending_request(req['id'])
+        assert request_info_after_reject['accepted'] == 0  # SQLite stores boolean False as 0
