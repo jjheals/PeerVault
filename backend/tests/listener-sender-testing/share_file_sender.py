@@ -21,7 +21,7 @@ from objects import Server, DatabaseConnection
 PASSPHRASE:str = 'i_am_the_sender'
 
 # Load the configs
-config_parsers:dict[str, ConfigParser] = load_configs('../TEST-config/sender/')
+config_parsers:dict[str, ConfigParser] = load_configs('TEST-config/sender/')
 
 # Extract vars from network config
 network_config:ConfigParser = config_parsers['network']
@@ -51,12 +51,12 @@ LOGS_DIR:str = flask_config['paths']['LOGS_DIR']    # Path to the dir to output 
 DB_PATH:str = flask_config['paths']['DB_PATH']      # Path to the test DB
 
 # Construct rel paths from the vars from flask config
-DB_LOG_PATH:str = os.path.join(LOGS_DIR, 'store', 'sender-database.log')     # Path to output DB logs
-SERVER_LOG_PATH:str = os.path.join(LOGS_DIR, 'store', 'sender-server.log')   # Path to output server logs
+DB_LOG_PATH:str = os.path.join(LOGS_DIR, 'share', 'sender-database.log')     # Path to output DB logs
+SERVER_LOG_PATH:str = os.path.join(LOGS_DIR, 'share', 'sender-server.log')   # Path to output server logs
 
 # Create unique names for the loggers so they don't interfere with other scripts
-SERVER_LOGGER_NAME:str = 'store_sender_server_logger'  # Name for the server logger
-DB_LOGGER_NAME:str = 'store_sender_db_logger'          # Name for the DB logger      
+SERVER_LOGGER_NAME:str = 'share_sender_server_logger'  # Name for the server logger
+DB_LOGGER_NAME:str = 'share_sender_db_logger'          # Name for the DB logger      
 
 
 # --- Init --- #
@@ -81,7 +81,8 @@ server:Server = Server(
     log_filepath=SERVER_LOG_PATH,       # log_filepath
     logger_name=SERVER_LOGGER_NAME,     # logger_name
     db_log_filepath=DB_LOG_PATH,        # db_log_filepath
-    db_logger_name=DB_LOGGER_NAME       # db_logger_name
+    db_logger_name=DB_LOGGER_NAME,      # db_logger_name
+    temp_dir='.tmp/sender/'
 )
 
 
