@@ -41,7 +41,7 @@ export default function Home() {
 
   function updateRequest(id: number, status: boolean){
     instance
-    .post("/ui/get-user-history-specific", {
+    .post("/ui/update-request-status", {
       request_id: id,
       new_status: status
     })
