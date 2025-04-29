@@ -32,7 +32,7 @@ export default function Home() {
       other_user: other_user
     })
     .then(function (response) {
-      setHistory(response.data.user_data);
+      setHistory(response.data);
     })
     .catch(function (error) {
       console.log(error);
@@ -48,9 +48,7 @@ export default function Home() {
   function retreiveOtherPubKey() {
 
     instance
-    .post("/ui/get-pub-key", {
-      peer_common_name: other_user
-    })
+    .post(`/ui/get-pub-key?peer_common_name=${encodeURIComponent(other_user)}`)
     .then(function (response) {
       setOtherPubKey(response.data.peer_pub_key);
     })
@@ -67,10 +65,16 @@ export default function Home() {
 
   const UserTable: React.FC = () => {
     
-  if (!history || !Array.isArray(history)) {
+    if (!history || typeof history !== "object") {
     return <div className="text-red-500">Loading history ...</div>;
   }
 
+  // Flatten all categories into a single array
+  const allEntries = [
+    ...(history.shared || []),
+    ...(history.storing_for || []),
+    ...(history.storing_with || [])
+  ];
 
   return (
       <table className="w-full border-collapse border border-gray-300">
@@ -83,7 +87,7 @@ export default function Home() {
           </tr>
         </thead>
         <tbody>
-          {history.map((file: any, index: number) => (
+          {allEntries.map((file: any, index: number) => (
             file.peer_pub_key && file.filename && file.sha256 && file.size_gb ? (
               <tr key={index} className="hover:bg-gray-100">
                 <td className="border p-2">{file.filename}</td>

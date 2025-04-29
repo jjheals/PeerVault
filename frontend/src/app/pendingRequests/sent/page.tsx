@@ -74,13 +74,13 @@ export default function Home() {
             </tr>
           </thead>
           <tbody>
-            {requestData.map((request) => (
-              <tr key={request.date} className="hover:bg-gray-100">
+            {requestData.map((request, index) => (
+              <tr key={index} className="hover:bg-gray-100">
                 <td className="border p-2">{request.peer_pub_key}</td>
-                <td className="border p-2">{request.file}</td>
-                <td className="border p-2">{request.upload_type}</td>
-                <td className="border p-2">{request.size} Bytes</td>
-                <td className="border p-2">{request.date}</td>
+                <td className="border p-2">{request.filename}</td>
+                <td className="border p-2">{request.request_type}</td>
+                <td className="border p-2">{request.size_gb} GB</td>
+                <td className="border p-2">{request.request_date}</td>
                 <td className="border p-2">{request.sha256}</td>
                 <td className="border p-2">
                   <button onClick={() => resend(request)}>

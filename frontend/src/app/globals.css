@@ -157,6 +157,20 @@ body {
   text-align: center;
 }
 
+.decline-button {
+  background-color: #d41d1a; /* Blue */
+  color: white;
+  font-family: "Poppins", serif;
+  font-weight: 400;
+  font-size:larger;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  text-align: center;
+}
+
 .button:hover {
   background-color: #1154b8; /* Darker Blue */
 }

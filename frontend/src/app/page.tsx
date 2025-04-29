@@ -295,9 +295,9 @@ export default function Home() {
             <thead>
               <tr className="bg-gray-200">
                 <th className="border p-2">Recipient</th>
-                <th className="border p-2">Total Stored Remotely</th>
-                <th className="border p-2">Total Stored Locally</th>
-                <th className="border p-2">Total Shared</th>
+                <th className="border p-2">Total Files Stored Remotely</th>
+                <th className="border p-2">Total Files Stored Locally</th>
+                <th className="border p-2">Total Files Shared</th>
                 <th className="border p-2">View</th>
               </tr>
             </thead>
@@ -306,14 +306,14 @@ export default function Home() {
                 .filter(user => user.publicKey !== identity.pub_key)
                 .map((user) => (
                 <tr key={user.publicKey} className="hover:bg-gray-100">
-                  <td className="border p-2">{user.common_name}</td>
-                  <td className="border p-2">{user.storage_data.stored_remotely} GB</td>
-                  <td className="border p-2">{user.storage_data.stored_locally} GB</td>
-                  <td className="border p-2">{user.storage_data.shared} GB</td>
-                  <td className="border p-2"> 
+                  <td className="border p-2 text-center">{user.common_name}</td>
+                  <td className="border p-2 text-center">{user.storage_data.stored_remotely}</td>
+                  <td className="border p-2 text-center">{user.storage_data.stored_locally}</td>
+                  <td className="border p-2 text-center">{user.storage_data.shared}</td>
+                  <td className="border p-2 text-center"> 
                     <a href={`/history/${identity.common_name}/${user.common_name}`} className="hover" title="Detailed View">
                         <Image
-                          className="dark"
+                          className="mx-auto dark"
                           src="/info-circle-svgrepo-com.svg"
                           alt="History"
                           width={30}

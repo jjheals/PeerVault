@@ -559,7 +559,7 @@ def get_user_history_specific():
         peer_pub_key:str = None
         
     # Get the storage history for this user and return
-    return jsonify(db_connection.get_user_history(peer_pub_key=peer_pub_key))
+    return jsonify(db_connection.get_user_history(peer_pub_key=peer_pub_key[0]))
 
 
 @fi_bp.route('/ui/get-pending-requests', methods=['GET'])
