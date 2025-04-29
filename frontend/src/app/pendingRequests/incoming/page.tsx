@@ -67,9 +67,10 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {requestData
-              .filter((request) => request.accepted == null)
-              .map((request, index) => (
+              {Array.isArray(requestData) &&
+                requestData
+                .filter((request) => (Number.isNaN(request.accepted) || request.accepted == null))
+                .map((request, index) => (
                 <tr key={index} className="hover:bg-gray-100">
                   <td className="border p-2">{request.peer_pub_key}</td>
                   <td className="border p-2">{request.isDirect ? "Direct" : "Universal"}</td>
