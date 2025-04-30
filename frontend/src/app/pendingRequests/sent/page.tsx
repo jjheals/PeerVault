@@ -76,13 +76,13 @@ export default function Home() {
           <tbody>
             {requestData.map((request, index) => (
               <tr key={index} className="hover:bg-gray-100">
-                <td className="border p-2">{request.peer_pub_key}</td>
-                <td className="border p-2">{request.filename}</td>
-                <td className="border p-2">{request.request_type}</td>
-                <td className="border p-2">{request.size_gb} GB</td>
-                <td className="border p-2">{request.request_date}</td>
-                <td className="border p-2">{request.sha256}</td>
-                <td className="border p-2">
+                <td className="border p-2 text-center">{request.peer_pub_key}</td>
+                <td className="border p-2 text-center">{request.filename}</td>
+                <td className="border p-2 text-center">{request.request_type}</td>
+                <td className="border p-2 text-center">{request.size_gb} GB</td>
+                <td className="border p-2 text-center">{request.request_date}</td>
+                <td className="border p-2 text-center">{request.sha256}</td>
+                <td className="border p-2 text-center">
                   <button onClick={() => resend(request)}>
                   <Image
                         className="dark"

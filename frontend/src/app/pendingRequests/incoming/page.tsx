@@ -69,18 +69,25 @@ export default function Home() {
             <tbody>
               {Array.isArray(requestData) &&
                 requestData
-                .filter((request) => (Number.isNaN(request.accepted) || request.accepted == null))
                 .map((request, index) => (
                 <tr key={index} className="hover:bg-gray-100">
-                  <td className="border p-2">{request.peer_pub_key}</td>
-                  <td className="border p-2">{request.isDirect ? "Direct" : "Universal"}</td>
-                  <td className="border p-2">{request.filename}</td>
-                  <td className="border p-2">{request.size_gb} GB</td>
-                  <td className="border p-2">{request.sha256}</td>
-                  <td className="border p-2">{request.request_date}</td>
+                  <td className="border p-2 text-center">{request.peer_pub_key}</td>
+                  <td className="border p-2 text-center">{request.isDirect ? "Direct" : "Universal"}</td>
+                  <td className="border p-2 text-center">{request.filename}</td>
+                  <td className="border p-2 text-center">{request.size_gb} GB</td>
+                  <td className="border p-2 text-center">{request.sha256}</td>
+                  <td className="border p-2 text-center">{request.request_date}</td>
                   <td>
-                    <div className="button" onClick={() => updateRequest(request.id, true)}>Accept</div>
-                    <div className="decline-button" onClick={() => updateRequest(request.id, false)}>Decline</div>
+                    {request.accepted === 1.0 || request.accepted === true ? (
+                      <div className="button" disabled>Accepted</div>
+                    ) : request.accepted === 0 || request.accepted === false ? (
+                      <div className="button" disabled>Declined</div>
+                    ) : (
+                      <>
+                        <div className="button" onClick={() => updateRequest(request.id, true)}>Accept</div>
+                        <div className="decline-button" onClick={() => updateRequest(request.id, false)}>Decline</div>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
