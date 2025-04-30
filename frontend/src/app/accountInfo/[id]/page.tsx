@@ -18,9 +18,7 @@ export default function Home() {
   const router = useRouter();
   const [redraw, forceRedraw] = React.useState(0);
   const [identity, setIdentity] = React.useState();
-  const [localStorage, setLocalStorage] = React.useState(0.0);
-  const [remoteStorage, setRemoteStorage] = React.useState(0.0);
-  const [sharedStorage, setSharedStorage] = React.useState(0.0);
+
   // a list of json objects with a user name and the total amount of data stored in each of three categories
   const [userData, setUserData] = React.useState({});
   
@@ -110,12 +108,12 @@ export default function Home() {
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
       <div className="subtitleText">Quick Facts</div>
       <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
-        <div className="font-semibold">Total Amount Stored Locally: </div>
-        <div>{userData['stored_locally']} GB</div>
-        <div className="font-semibold">Total Amount Stored Remotely: </div>
-        <div>{userData['stored_remotely']} GB</div>
-        <div className="font-semibold">Total Amount Shared: </div>
-        <div>{userData['shared']} GB</div>
+        <div className="font-semibold">Total Files Stored Locally: </div>
+        <div>{userData['stored_locally'] ?? 0}</div>
+        <div className="font-semibold">Total Files Stored Remotely: </div>
+        <div>{userData['stored_remotely'] ?? 0}</div>
+        <div className="font-semibold">Total Files Shared: </div>
+        <div>{userData['shared'] ?? 0}</div>
         
       </div>
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>

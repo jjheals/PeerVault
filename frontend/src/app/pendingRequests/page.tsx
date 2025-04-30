@@ -47,12 +47,12 @@ export default function Home() {
               <tbody>
                 {requestData.map((request) => (
                   <tr key={request.date_shared} className="hover:bg-gray-100">
-                    <td className="border p-2">{request.filename}</td>
-                    <td className="border p-2">{request.size_gb} Bytes</td>
-                    <td className="border p-2">{request.sha256}</td>
-                    <td className="border p-2">{request.date_shared}</td>
-                    <td className="border p-2">
-                      <a href={`/resend`} className="hover" title="Resend Request">
+                    <td className="border p-2 text-center">{request.filename}</td>
+                    <td className="border p-2 text-center">{request.size_gb} Bytes</td>
+                    <td className="border p-2 text-center">{request.sha256}</td>
+                    <td className="border p-2 text-center">{request.date_shared}</td>
+                    <td className="border p-2 text-center">
+                      <a href={`/resend`} className="hover text-center" title="Resend Request">
                           <Image
                             className="dark"
                             src="/refresh.svg"

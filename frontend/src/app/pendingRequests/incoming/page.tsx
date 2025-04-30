@@ -39,20 +39,11 @@ export default function Home() {
     });
   }, [redraw]);
 
-  function acceptRequest(req:any){
-    const formData = new FormData();
-
-    formData.append("peer_pub_key", req.peer_pub_key);
-    formData.append("file", req.file);
-    formData.append("send_method", req.upload_type);
-    formData.append("size", req.size);
-    formData.append("sha256", req.sha256);
-    formData.append("date", req.date)
-
+  function updateRequest(id: number, status: boolean){
     instance
-    .post("/ui/reupload-data", formData, {headers: {"Content-Type": "multipart/form-data",},})
-    .then(function (response){
-      // ...
+    .post("/ui/update-request-status", {
+      request_id: id,
+      new_status: status
     })
     .catch (function (error) {
       console.error("errored:", error)
@@ -72,20 +63,31 @@ export default function Home() {
                 <th className="border p-2">File Size</th>
                 <th className="border p-2">File Hash</th>
                 <th className="border p-2">Date</th>
-                <th className="border p-2">Accept?</th>
+                <th className="border p-2">Accept Request?</th>
               </tr>
             </thead>
             <tbody>
-              {requestData.map((request) => (
-                <tr key={request.date} className="hover:bg-gray-100">
-                  <td className="border p-2">{request.peer_pub_key}</td>
-                  <td className="border p-2">{request.isDirect ? "Direct" : "Universal"}</td>
-                  <td className="border p-2">{request.filename}</td>
-                  <td className="border p-2">{request.size_gb} Bytes</td>
-                  <td className="border p-2">{request.sha256}</td>
-                  <td className="border p-2">{request.date}</td>
+              {Array.isArray(requestData) &&
+                requestData
+                .map((request, index) => (
+                <tr key={index} className="hover:bg-gray-100">
+                  <td className="border p-2 text-center">{request.peer_pub_key}</td>
+                  <td className="border p-2 text-center">{request.isDirect ? "Direct" : "Universal"}</td>
+                  <td className="border p-2 text-center">{request.filename}</td>
+                  <td className="border p-2 text-center">{request.size_gb} GB</td>
+                  <td className="border p-2 text-center">{request.sha256}</td>
+                  <td className="border p-2 text-center">{request.request_date}</td>
                   <td>
-                    <div className="button">Accept Request</div>
+                    {request.accepted === 1.0 || request.accepted === true ? (
+                      <div className="button" disabled>Accepted</div>
+                    ) : request.accepted === 0 || request.accepted === false ? (
+                      <div className="button" disabled>Declined</div>
+                    ) : (
+                      <>
+                        <div className="button" onClick={() => updateRequest(request.id, true)}>Accept</div>
+                        <div className="decline-button" onClick={() => updateRequest(request.id, false)}>Decline</div>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
