@@ -109,7 +109,6 @@ class Server(object):
         
         # Info log
         self.logger.info("Server initialized.")
-        print('\033[92mServer init complete.\033[0m')
 
 
     # ---- Methods related to SERVER INITIALIZATION and SHUTDOWN ---- #
@@ -191,7 +190,7 @@ class Server(object):
 
             # If this connection is from ourself, ignore it
             if addr == self.iface: 
-                print('Received loopback message.') 
+                self.logger.info('Received loopback message.') 
                 continue 
             
             # Log
@@ -206,7 +205,8 @@ class Server(object):
                 
             except Exception as e: 
                 print(f'\033[91mERROR in Server.listen(): \033[0m{e.__class__} -', e)
-            
+                self.logger.error(f'in server.listen(): {e.__class__} - {e}')
+                
 
     def mcast_listen(self) -> None:         
         """Starts a listener for incoming multicast messages."""
@@ -259,7 +259,6 @@ class Server(object):
                 if addr == self.iface: continue 
                 
                 # Info print
-                print(f"[Listener] New peer discovered: {peer_info}")
                 self.logger.info(f'New multicast message from {peer_info}')
 
                 # Extract what we need from the message
@@ -318,13 +317,13 @@ class Server(object):
                     
                     # Peer doesn't exist, so create an entry for them
                     else: 
-                        self.logger.info('Creating new Peer entry for "{peer_cn}".')
+                        self.logger.info(f'Creating new Peer entry for "{peer_cn}".')
                         
                         db_connection.new_peer(
                             peer_pub_key,           # peer_pub_key
                             True,                   # online_status
                             addr[0],                # most_recent_ip
-                            peer_cn,       # common_name
+                            peer_cn,                # common_name
                             peer_mac_last_four      # mac_last_four
                         )
                     
@@ -357,7 +356,6 @@ class Server(object):
         if addr[0] == self.iface: return 
         
         # Log about the incoming connection
-        print(f'\033[0m[{now()}] \033[92mIncoming connection. \033[0m(IP, PORT): {addr}')
         self.logger.info(f'Incoming connection from peer (ip, port): {addr}')
         
         # Read the incoming data
@@ -484,11 +482,8 @@ class Server(object):
             # Handle other code (invalid)
             case _: 
 
-                # Log 
-                print(f'\033[0m[{now()}] \033[93mNOTICE: \033[0mPeer "{addr[0]}" sent an unrecognized code "{code}" - not sending a response.')
+                # Log and do not respond
                 self.logger.info(f'Peer "{addr[0]}" sent an invalid code "{code}" - not sending a response.')
-
-                # Do not respond 
                 pass
         
         # Close the connection
@@ -650,7 +645,7 @@ class Server(object):
         # Run while the server is alive 
 
 
-    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key_pem:str, encrypted_data:str) -> bool:
+    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key_pem:str, encrypted_data:str) -> None:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
         # Load the incoming message JSON
@@ -671,22 +666,10 @@ class Server(object):
             'data': encrypted_passcode_msg
         }).encode())
 
-        
-        # Wait for a response and check if we passed
-        check_passed:dict = json.loads(connection.recv(self.BUFF).decode())
+        # NOTE: not expecting a response
+        return 
 
-        # Extract result
-        result:bool = check_passed['result'] 
-
-        # Handle result
-        if(result):
-            self.logger.info("Passed identity check with client (%s)", str(client_address))                   
-            return True
-        else:
-            self.logger.info("Failed identity check with client (%s)", str(client_address))
-            return False
-
-
+    
     def handle_accept_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None: 
         """Handles an incoming message that one of our outgoing requests was accepted (or declined) by the peer."""
     
@@ -1202,7 +1185,7 @@ class Server(object):
         )
         
         # Info print
-        print(f"\n\033[92mServer.send_mcast_hello() sent message: \033[0m\n{message}")
+        self.logger.info('Sent MCAST hello/discovery message.')
 
 
     def find_store_recipient(self, file_size_gb:float) -> str: 
@@ -1231,7 +1214,6 @@ class Server(object):
 
         # Log 
         self.logger.info(f'Initiating identity check with "{client_address}".')
-        print(f"\n\t\033[93mStarting Handshake with client ({client_address})\033[0m")   
         
         # Generate a passcode for the handshake
         passcode:str = generate_random_passcode()             
