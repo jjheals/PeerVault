@@ -384,7 +384,7 @@ class Server(object):
             self.respond_identity_check(
                 connection,                             # connection
                 addr[0],                                # client_address
-                strip_pem_headers(peer_pub_key_pem),    # peer_pub_key
+                peer_pub_key_pem,                       # peer_pub_key_pem
                 message_json['data']                    # encrypted_data
             )
 
@@ -650,7 +650,7 @@ class Server(object):
         # Run while the server is alive 
 
 
-    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key:str, encrypted_data:str) -> bool:
+    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key_pem:str, encrypted_data:str) -> bool:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
         # Load the incoming message JSON
@@ -661,8 +661,9 @@ class Server(object):
         self.logger.debug(f'ID check incoming decrypted message: {decrypted_message}')
         
         # Encrypt the passcode using the sender's public key
-        encrypted_passcode_msg:dict = encrypt_message(peer_pub_key, decrypted_message)
-
+        encrypted_passcode_msg:dict = encrypt_message(peer_pub_key_pem, decrypted_message)
+        self.logger.debug(f'Sending encrypted message back: {encrypted_passcode_msg}')
+        
         # Send the encrypted message back 
         connection.send(json.dumps({
             'code': self.RESP_IDC_CODE, 
@@ -670,6 +671,7 @@ class Server(object):
             'data': encrypted_passcode_msg
         }).encode())
 
+        
         # Wait for a response and check if we passed
         check_passed:dict = json.loads(connection.recv(self.BUFF).decode())
 
