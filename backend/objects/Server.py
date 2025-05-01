@@ -381,8 +381,10 @@ class Server(object):
             
             # Simply respond to the ID check
             self.respond_identity_check(
-                connection, 
-                addr[0]
+                connection,                             # connection
+                addr[0],                                # client_address
+                strip_pem_headers(peer_pub_key_pem),    # peer_pub_key
+                message_json['data']                    # encrypted_data_str
             )
 
             # Do nothing else 
@@ -647,27 +649,18 @@ class Server(object):
         # Run while the server is alive 
 
 
-    def respond_identity_check(self, connection:socket.socket, client_address:str) -> bool:
+    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key:str, encrypted_data_str:str) -> bool:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
         # Load the incoming message JSON
-        self.logger.info(f'Responding to ID check from "{client_address}"')
-        incoming_message_json:dict = json.loads(connection.recv(self.BUFF))
-
-        # Extract the info from the incoming message 
-        # Extract the public key
-        peer_public_key:str = incoming_message_json['public_key_pem']
-
-        # Extract the data 
-        # NOTE: assumes the incoming data is in the format as returned by encrypt_message()
-        incoming_data:dict = incoming_message_json['data']
+        self.logger.info(f'in respond_identity_check(): responding to ID check from "{client_address}"')
         
         # Decrypt the incoming data
-        decrypted_message = decrypt_message(self.priv_key_pem, incoming_data)
+        decrypted_message = decrypt_message(self.priv_key_pem, json.loads(encrypted_data_str))
         self.logger.debug(f'ID check incoming decrypted message: {decrypted_message}')
         
         # Encrypt the passcode using the sender's public key
-        encrypted_passcode_msg:dict = encrypt_message(peer_public_key, decrypted_message)
+        encrypted_passcode_msg:dict = encrypt_message(peer_pub_key, decrypted_message)
 
         # Send the encrypted message back 
         connection.send(json.dumps({
@@ -1243,7 +1236,7 @@ class Server(object):
         # Send a messsage with the passcode
         connection.send(json.dumps({
             'code': Server.INIT_IDC_CODE,
-            'public_key_pem': self.pub_key_pem,
+            'pub_key_pem': self.pub_key_pem,
             'data': encrypt_message(peer_public_key_pem, passcode)
         }).encode())
         
