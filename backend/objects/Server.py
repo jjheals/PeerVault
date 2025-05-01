@@ -272,6 +272,9 @@ class Server(object):
             if not all([code, peer_pub_key_pem, peer_ip, peer_cn]): 
                 self.logger.warning('Invalid MCAST message (missing required info) - not responding.')
                 continue 
+            elif peer_pub_key_pem == self.pub_key_pem: 
+                self.logger.debug('Received loopback MCAST.')
+                continue 
             
             # Create a socket object
             self.logger.info(f'Initating new connection with "{peer_cn}" at IP "{peer_ip}".')
@@ -328,7 +331,6 @@ class Server(object):
                 self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
                 return 
             
-
 
     def handle_network_request(self, connection:socket.socket, addr:tuple[str, int]) -> None: 
         """Takes in an incoming connection, the addr info (in the format (ip, port)), checks the requirements of the message, initiates an identity check if required,
