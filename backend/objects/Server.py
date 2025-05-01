@@ -249,87 +249,98 @@ class Server(object):
         # Listen while server is alive
         while self.server_alive:
 
-            # Receive message
-            data, addr = sock.recvfrom(1024)  
-            peer_info = data.decode()
-
-            # If this is our own address, ignore it
-            if addr == self.iface: continue 
-            
-            # Info print
-            print(f"[Listener] New peer discovered: {peer_info}")
-            self.logger.info(f'New multicast message from {peer_info}')
-
-            # Extract what we need from the message
-            request_info:dict = json.loads(peer_info)
-            code:int|str = request_info.get('code', None)
-            peer_pub_key_pem:str = request_info.get('pub_key_pem', None)
-            peer_ip:str = request_info.get('ip', None)
-            peer_cn:str = request_info.get('common_name', None) 
-            peer_mac_last_four:str = request_info.get('mac_last_four', None)
-            
-            # Verify info is given
-            if not all([code, peer_pub_key_pem, peer_ip, peer_cn]): 
-                self.logger.warning('Invalid MCAST message (missing required info) - not responding.')
-                continue 
-            elif peer_pub_key_pem == self.pub_key_pem: 
-                self.logger.debug('Received loopback MCAST.')
-                continue 
-            
-            # Create a socket object
-            self.logger.info(f'Initating new connection with "{peer_cn}" at IP "{peer_ip}".')
-            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            
-            # Connect to the peer
-            connection.connect((peer_ip, self.port))
-            
-            # Initiate an ID check with the peer
-            id_check_result:bool = self.initiate_identity_check(
-                connection,
-                peer_pub_key_pem,
-                peer_ip
-            )
-            
-            # Init a db connection
-            db_connection:DatabaseConnection = DatabaseConnection(
-                self.db_filepath,
-                log_filepath=self.db_log_filepath,
-                logger_name=self.db_logger_name
-            )   
-            
-            # Handle ID check result
-            peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)
-            
-            # If ID check pass, update the peer's info
-            if id_check_result: 
+            try: 
                 
-                # Check if this peer exists already
-                # Peer exists, so update their status
-                if db_connection.check_peer_exists(peer_pub_key):
-                    self.logger.info(f'Updating status and IP for "{peer_cn}".')
+                # Receive message
+                data, addr = sock.recvfrom(1024)  
+                peer_info = data.decode()
+
+                # If this is our own address, ignore it
+                if addr == self.iface: continue 
+                
+                # Info print
+                print(f"[Listener] New peer discovered: {peer_info}")
+                self.logger.info(f'New multicast message from {peer_info}')
+
+                # Extract what we need from the message
+                request_info:dict = json.loads(peer_info)
+                code:int|str = request_info.get('code', None)
+                peer_pub_key_pem:str = request_info.get('pub_key_pem', None)
+                peer_ip:str = request_info.get('ip', None)
+                peer_cn:str = request_info.get('common_name', None) 
+                peer_mac_last_four:str = request_info.get('mac_last_four', None)
+                
+                # Verify info is given
+                if not all([code, peer_pub_key_pem, peer_ip, peer_cn]): 
+                    self.logger.warning('Invalid MCAST message (missing required info) - not responding.')
+                    continue 
+                elif peer_pub_key_pem == self.pub_key_pem: 
+                    self.logger.debug('Received loopback MCAST.')
+                    continue 
+                
+                # Create a socket object
+                self.logger.info(f'Initating new connection with "{peer_cn}" at IP "{peer_ip}".')
+                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                
+                # Connect to the peer
+                connection.connect((peer_ip, self.port))
+                
+                # Initiate an ID check with the peer
+                id_check_result:bool = self.initiate_identity_check(
+                    connection,
+                    peer_pub_key_pem,
+                    peer_ip
+                )
+                
+                # Init a db connection
+                db_connection:DatabaseConnection = DatabaseConnection(
+                    self.db_filepath,
+                    log_filepath=self.db_log_filepath,
+                    logger_name=self.db_logger_name
+                )   
+                
+                # Handle ID check result
+                peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)
+                
+                # If ID check pass, update the peer's info
+                if id_check_result: 
                     
-                    db_connection.update_peer_status(       
-                        peer_pub_key,                     
-                        addr[0],
-                        new_online_status=True
-                    )
-                
-                # Peer doesn't exist, so create an entry for them
+                    # Check if this peer exists already
+                    # Peer exists, so update their status
+                    if db_connection.check_peer_exists(peer_pub_key):
+                        self.logger.info(f'Updating status and IP for "{peer_cn}".')
+                        
+                        db_connection.update_peer_status(       
+                            peer_pub_key,                     
+                            addr[0],
+                            new_online_status=True
+                        )
+                    
+                    # Peer doesn't exist, so create an entry for them
+                    else: 
+                        self.logger.info('Creating new Peer entry for "{peer_cn}".')
+                        
+                        db_connection.new_peer(
+                            peer_pub_key,           # peer_pub_key
+                            True,                   # online_status
+                            addr[0],                # most_recent_ip
+                            peer_cn,       # common_name
+                            peer_mac_last_four      # mac_last_four
+                        )
+                    
+                    # Close the connection
+                    connection.close()
+                    
+                # If ID check failed, log and do nothing else 
                 else: 
-                    self.logger.info('Creating new Peer entry for "{peer_cn}".')
-                    
-                    db_connection.new_peer(
-                        peer_pub_key,           # peer_pub_key
-                        True,                   # online_status
-                        addr[0],                # most_recent_ip
-                        peer_cn,       # common_name
-                        peer_mac_last_four      # mac_last_four
-                    )
-                    
-            # If ID check failed, log and do nothing else 
-            else: 
-                self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                return 
+                    self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+                    connection.close()
+                    continue  
+            
+            # Handle exceptions
+            except Exception as e: 
+                self.logger.error(f'in mcast_listen(): caught exception. {e.__class__}: {e}')
+                continue 
             
 
     def handle_network_request(self, connection:socket.socket, addr:tuple[str, int]) -> None: 
