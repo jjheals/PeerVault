@@ -16,7 +16,7 @@ import pandas as pd
 import base64 
 from time import sleep
 from datetime import datetime
-
+import threading as th
 
 from .DatabaseConnection import DatabaseConnection
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, write_to_file,  \
@@ -114,6 +114,36 @@ class Server(object):
 
     # ---- Methods related to SERVER INITIALIZATION and SHUTDOWN ---- #
 
+    def start(self) -> bool: 
+        """Sets server alive as true, creates threads for self.listen() and self.mcast_listen() AND sends a mcast hello 
+        message. Returns True if startup was successful, False otherwise."""
+        
+        # Set server alive and log
+        self.server_alive = True
+        self.logger.debug('Starting server startup.')
+        
+        try: 
+            
+            # Define threads for the listeners
+            listen_thread:th.Thread = th.Thread(target=self.listen)
+            mcast_thread:th.Thread = th.Thread(target=self.mcast_listen)
+            
+            # Start listener and mcast listener
+            listen_thread.start()
+            #mcast_thread.start()
+            
+            # Send MCAST hello message
+            self.send_mcast_hello()
+            
+            # DONE
+            return True
+        
+        # Handle exceptions 
+        except Exception as e: 
+            self.logger.error(f'in start() - caught exception. {e.__class__}: {e}')
+            return False
+        
+    
     def server_shutdown(self):
         """Shuts down the server and closes all sockets.
         
@@ -159,6 +189,11 @@ class Server(object):
             # Accept the incoming connection
             cxn, addr = self.socket_connection.accept()
 
+            # If this connection is from ourself, ignore it
+            if addr == self.iface: 
+                print('Received loopback message.') 
+                continue 
+            
             # Log
             self.logger.info("connection form IP address: %s", str(addr[0])) 
                 
@@ -218,6 +253,9 @@ class Server(object):
             data, addr = sock.recvfrom(1024)  
             peer_info = data.decode()
 
+            # If this is our own address, ignore it
+            if addr == self.iface: continue 
+            
             # Info print
             print(f"[Listener] New peer discovered: {peer_info}")
             self.logger.info(f'New multicast message from {peer_info}')

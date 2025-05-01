@@ -392,31 +392,27 @@ def signup():
         db_logger_name='server_db_logger'                          # db_logger_name
     )
     
-    # Start the listener threads
-    server.server_alive = True
-
-    # Define thread for the listener and mcast listener
-    listen_thread:th.Thread = th.Thread(target=server.listen)                   # TCP listener 
-    mcast_listener_thread:th.Thread = th.Thread(target=server.mcast_listen)     # Multicast listener
+    # Start the server
+    server_started:bool = server.start()
     
-    # Start the threads
-    listen_thread.start()
-    mcast_listener_thread.start() 
-    
-    # Send MCAST hello message
-    server.send_mcast_hello()
-    
-    # Add the server to the current app 
-    current_app.server = server
+    # Handle result of start
+    if server_started: 
         
-    # --- Return --- #
-    # Return the newly stored info
-    return jsonify({
-        'common_name': new_common_name,
-        'mac': identity_config['IDENTITY']['MAC'],
-        'allocated_storage': new_allocated_storage,
-        'peer_storage_path': new_peer_storage_path
-    })
+        # Add the server to the current app
+        current_app.server = server 
+        
+        # Return success 
+        return jsonify({
+            'status': 'success'
+        })
+        
+    else: 
+        # Some error occured starting the server
+        return jsonify({
+            'status': 'fail',
+            'error': 'Server failed to start.'
+        }), 500
+        
     
 
 @fi_bp.route('/ui/init-application', methods=['POST'])
@@ -497,29 +493,28 @@ def init_application():
         db_logger_name='server_db_logger'                          # db_logger_name
     )
     
-    # Start the listener threads
-    server.server_alive = True
-
-    # Define thread for the listener and mcast listener
-    listen_thread:th.Thread = th.Thread(target=server.listen)                   # TCP listener 
-    mcast_listener_thread:th.Thread = th.Thread(target=server.mcast_listen)     # Multicast listener
+    # Start the server
+    server_started:bool = server.start()
     
-    # Start the threads
-    listen_thread.start()
-    mcast_listener_thread.start() 
-    
-    # Send MCAST hello message
-    server.send_mcast_hello()
-    
-    # Add the server to the current app 
-    current_app.server = server
-    
-    # Return success 
-    return jsonify({
-        'status': 'success'
-    })
-    
-
+    # Handle result of start
+    if server_started: 
+        
+        # Add the server to the current app
+        current_app.server = server 
+        
+        # Return success 
+        return jsonify({
+            'status': 'success'
+        })
+        
+    else: 
+        # Some error occured starting the server
+        return jsonify({
+            'status': 'fail',
+            'error': 'Server failed to start.'
+        }), 500
+        
+        
 @fi_bp.route("/ui/get-all-info", methods=['GET'])
 @require_localhost
 def get_all_info(): 
