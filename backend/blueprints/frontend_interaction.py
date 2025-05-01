@@ -406,7 +406,6 @@ def signup():
         }), 500
         
     
-
 @fi_bp.route('/ui/init-application', methods=['POST'])
 @require_localhost
 def init_application(): 
@@ -655,6 +654,9 @@ def get_pending_requests():
     # Use the app's DB connection to get the pending requests as a df 
     pending_requests_df:pd.DataFrame = current_app.db_connection.table_as_df('PendingRequests') 
     
+    # Fill NaN with empty string
+    pending_requests_df = pending_requests_df.fillna(value='')
+
     # Filter into incoming and outgoing requests and return
     return jsonify({
         'incoming_requests': pending_requests_df.loc[pending_requests_df['direction'] == 'incoming'].to_dict(orient='records'),
@@ -716,7 +718,7 @@ def update_request_status():
 
     # Verify that the info is given correctly
     try: 
-        if not request_id or not new_status: raise ValueError('Not given a request ID or new status.')
+        if not request_id or not new_status in [True, False]: raise ValueError('Not given a request ID or new status.')
 
         # Cast the request ID to int incase it's a string
         request_id = int(request_id)
@@ -744,6 +746,12 @@ def update_request_status():
         request_id, 
         new_status
     )
+
+    # Return success 
+    return jsonify({
+        'status': 200,
+        'message': 'Updated successfully.'
+    }), 200
 
 
 @fi_bp.route('/ui/upload-data', methods=['POST'])
