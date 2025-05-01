@@ -19,6 +19,7 @@ import pandas as pd
 import base64
 import json
 import datetime as dt 
+import threading as th 
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
     load_aes_key, strip_pem_headers, normalize_string, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
@@ -347,6 +348,67 @@ def signup():
     # Update the current app w the new identity config
     current_app.identity_config = identity_config
 
+    # Load the keys 
+    try: 
+        pub_key_pem:str = load_key_pem(current_app.enc_config['paths']['pub_key_path'], 'public')
+        priv_key_pem:str = load_key_pem(current_app.enc_config['paths']['priv_key_path'], 'private', new_passphrase)
+        symm_key_b64:str = load_aes_key(new_passphrase, current_app.enc_config['paths']['symm_key_path'])
+        
+    # Handle exceptions
+    except Exception as e:
+        
+        # Log 
+        current_app.logger.warning(f'Caught exception loading keys in init_application() - {e.__class__}: {e}') 
+        
+        # Exception (likely) means that the user hasn't signed up yet
+        return jsonify({
+            'error': 'There was an error loading the keys. Has the user signed up yet?',
+        }), 403
+    
+    # Construct paths for the server
+    server_log_filepath:str = os.path.join(current_app.flask_config['paths']['LOGS_DIR'], 'server.log')
+    server_db_log_filepath:str = os.path.join(current_app.flask_config['paths']['LOGS_DIR'], 'server-database.log')
+    
+    # Init a Server obj 
+    server:Server = Server(
+        pub_key_pem,                                                # pub_key_pem
+        priv_key_pem,                                               # priv_key_pem
+        symm_key_b64,                                               # symm_aes_key
+        current_app.identity_config['IDENTITY']['common_name'],     # common_name
+        current_app.network_config['network']['IFACE'],             # iface
+        int(current_app.network_config['network']['PORT']),         # port
+        current_app.network_config['network']['IFACE'],             # mcast_iface
+        int(current_app.network_config['multicast']['MCAST_PORT']), # mcast_port
+        current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
+        DatabaseConnection(                                         # send_db_connection
+            current_app.flask_config['paths']['DB_PATH'],
+            log_filepath=server_db_log_filepath,
+            logger_name='server_db_logger'
+        ),                                 
+        current_app.flask_config['paths']['DB_PATH'],           # db_filepath
+        current_app.identity_config['PATHS']['peer_storage_path'], # peer_storage_dir
+        log_filepath=server_log_filepath,                          # log_filepath
+        db_log_filepath=server_db_log_filepath,                    # db_log_filepath
+        db_logger_name='server_db_logger'                          # db_logger_name
+    )
+    
+    # Start the listener threads
+    server.server_alive = True
+
+    # Define thread for the listener and mcast listener
+    listen_thread:th.Thread = th.Thread(target=server.listen)                   # TCP listener 
+    mcast_listener_thread:th.Thread = th.Thread(target=server.mcast_listen)     # Multicast listener
+    
+    # Start the threads
+    listen_thread.start()
+    mcast_listener_thread.start() 
+    
+    # Send MCAST hello message
+    server.send_mcast_hello()
+    
+    # Add the server to the current app 
+    current_app.server = server
+        
     # --- Return --- #
     # Return the newly stored info
     return jsonify({
@@ -419,9 +481,9 @@ def init_application():
         symm_key_b64,                                               # symm_aes_key
         current_app.identity_config['IDENTITY']['common_name'],     # common_name
         current_app.network_config['network']['IFACE'],             # iface
-        current_app.network_config['network']['PORT'],              # port
+        int(current_app.network_config['network']['PORT']),         # port
         current_app.network_config['network']['IFACE'],             # mcast_iface
-        current_app.network_config['multicast']['MCAST_PORT'],      # mcast_port
+        int(current_app.network_config['multicast']['MCAST_PORT']), # mcast_port
         current_app.network_config['multicast']['MCAST_GROUP'],     # mcast_group
         DatabaseConnection(                                         # send_db_connection
             current_app.flask_config['paths']['DB_PATH'],
@@ -435,8 +497,19 @@ def init_application():
         db_logger_name='server_db_logger'                          # db_logger_name
     )
     
-    # TODO: call server.send_mcast_hello()
-    # DO SOMETHING ...
+    # Start the listener threads
+    server.server_alive = True
+
+    # Define thread for the listener and mcast listener
+    listen_thread:th.Thread = th.Thread(target=server.listen)                   # TCP listener 
+    mcast_listener_thread:th.Thread = th.Thread(target=server.mcast_listen)     # Multicast listener
+    
+    # Start the threads
+    listen_thread.start()
+    mcast_listener_thread.start() 
+    
+    # Send MCAST hello message
+    server.send_mcast_hello()
     
     # Add the server to the current app 
     current_app.server = server

@@ -92,5 +92,5 @@ if __name__ == '__main__':
     # network interfaces
     app.logger.info('Flask app running.')
     print(f'\033[0m[{now()}] \033[92mFlask app running\033[0m')
-    http_server = WSGIServer((configs['network']['network']['IFACE'], PORT), app)
+    http_server = WSGIServer(('0.0.0.0', PORT), app)
     http_server.serve_forever()
