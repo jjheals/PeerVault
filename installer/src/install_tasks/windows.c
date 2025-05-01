@@ -4,7 +4,6 @@
 #include <windows.h>             // For CreateProcess(), ZeroMemory, etc.
 #include <time.h>                // For sleep()
 #include "windows_tasks.h"       // For func declarations
-#include "paths.h"               // For path declarations
 #include "colors.h"              // For printing colors
 
 
