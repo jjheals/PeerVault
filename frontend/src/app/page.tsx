@@ -480,7 +480,7 @@ export default function Home() {
                     htmlFor="fileInput" 
                     className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer"
                   >
-                    Select File
+                    Select Files
                   </label>
                   </p>
                   <div>
