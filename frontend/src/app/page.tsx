@@ -510,7 +510,7 @@ export default function Home() {
                 <div className="itemCard">
                   <div className="itemCardTitleText">Storage Type</div>
                     <select id="sendType" value={sendType} onChange={selectSendType}>
-                      <option value="" disabled>Select an type</option>
+                      <option value="" disabled>Select a type</option>
                       <option value="Share">Share</option>
                       <option value="Store">Store</option>
                     </select>
