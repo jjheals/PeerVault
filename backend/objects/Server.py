@@ -1167,6 +1167,7 @@ class Server(object):
 
         # Create a message with this machine's common name, IP, and pub key
         message:dict = {
+            'code': Server.DISC_CODE,
             'pub_key_pem': self.pub_key_pem,
             'ip': self.iface,
             'common_name': self.common_name,
