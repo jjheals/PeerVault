@@ -371,9 +371,7 @@ class Server(object):
             # Simply respond to the ID check
             self.respond_identity_check(
                 connection, 
-                addr[0], 
-                peer_pub_key_pem, 
-                data
+                addr[0]
             )
 
             # Do nothing else 
