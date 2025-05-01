@@ -640,6 +640,7 @@ class Server(object):
         """Takes in a connection and other info and responds to the incoming identity check."""
         
         # Load the incoming message JSON
+        self.logger.info(f'Responding to ID check from "{client_address}"')
         incoming_message_json:dict = json.loads(connection.recv(self.BUFF))
 
         # Extract the info from the incoming message 
@@ -649,10 +650,11 @@ class Server(object):
         # Extract the data 
         # NOTE: assumes the incoming data is in the format as returned by encrypt_message()
         incoming_data:dict = incoming_message_json['data']
-
+        
         # Decrypt the incoming data
         decrypted_message = decrypt_message(self.priv_key_pem, incoming_data)
-
+        self.logger.debug(f'ID check incoming decrypted message: {decrypted_message}')
+        
         # Encrypt the passcode using the sender's public key
         encrypted_passcode_msg:dict = encrypt_message(peer_public_key, decrypted_message)
 
