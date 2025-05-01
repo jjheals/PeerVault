@@ -277,6 +277,9 @@ class Server(object):
             self.logger.info(f'Initating new connection with "{peer_cn}" at IP "{peer_ip}".')
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             
+            # Connect to the peer
+            connection.connect((peer_ip, self.port))
+            
             # Initiate an ID check with the peer
             id_check_result:bool = self.initiate_identity_check(
                 connection,
@@ -336,6 +339,9 @@ class Server(object):
             print_info (bool, optional): Specify whether to print info statements to the terminal. Defaults to False.
 
         """
+        
+        # Ignore if it is a loopback msg
+        if addr[0] == self.iface: return 
         
         # Log about the incoming connection
         print(f'\033[0m[{now()}] \033[92mIncoming connection. \033[0m(IP, PORT): {addr}')
@@ -1209,6 +1215,7 @@ class Server(object):
         """
 
         # Log 
+        self.logger.info(f'Initiating identity check with "{client_address}".')
         print(f"\n\t\033[93mStarting Handshake with client ({client_address})\033[0m")   
         
         # Generate a passcode for the handshake
