@@ -91,6 +91,9 @@ class DatabaseConnection:
         values will raise a ValueError. NOTE: assumes the request date is TODAY, notified is False, and 
         accepted is None, if these are not given."""
         
+        # Log
+        self.logger.info(f'in new_pending_request(): creating new pending request (direction = {direction}, filename = {filename}, request_type = {request_type})')
+        
         # Make sure a valid direction is given 
         direction = direction.lower() 
         if not direction in ['incoming', 'outgoing']: 
@@ -121,16 +124,19 @@ class DatabaseConnection:
             
             # Commit changes 
             self.cxn.commit() 
-            self.logger.info(f'Created new {direction.upper()} pending request for "{self.cn_from_pub_key(peer_pub_key)}" (ID = {self.get_request_id(peer_pub_key, filename, request_type, direction)})')
+            self.logger.info(f'in new_pending_request(): created new {direction.upper()} pending request for "{self.cn_from_pub_key(peer_pub_key)}" (ID = {self.get_request_id(peer_pub_key, filename, request_type, direction)})')
             
         # Handle exceptions
         except Exception as e: 
-            self.logger.error(f'in new_pending_request - {e.__class__}: {e}')
+            self.logger.error(f'in new_pending_request() - {e.__class__}: {e}')
             raise Exception('An error occured while inserting the new pending request.')
     
 
     def remove_pending_request(self, req_id:int) -> None: 
         """Removes the row for the given [req_id] (request ID) from the [PendingRequests] table."""
+        
+        # Log
+        self.logger.info(f'in remove_pending_request(): removing request ID "{req_id}"')
         
         # Execute query
         self.cursor.execute(
@@ -155,12 +161,19 @@ class DatabaseConnection:
         # Fetch results
         results:tuple = self.cursor.fetchone()
         
+        # Log
+        self.logger.info(f'in get_request_id(): got results for filename "{filename}", request type "{request_type}", direction "{direction}" | Results: {results}')
+        
+        # Return according to results
         if results: return int(results[0])
         else: return -1
         
     
     def update_request_date(self, request_id:int, new_date:str) -> None: 
         """Updates the request_date for the given request ID."""
+        
+        # Log
+        self.logger.info(f'in update_request_date(): updating request date for "{request_id}" to "{new_date}"')
         
         # Execute query
         self.cursor.execute(
@@ -170,7 +183,7 @@ class DatabaseConnection:
         
         # Commit changes 
         self.cxn.commit() 
-        self.logger.info(f'Updated the date for PendingRequests ID {request_id} to "{new_date}"')
+        self.logger.info(f'in update_request_date(): updated the date for PendingRequests ID {request_id} to "{new_date}"')
         
     
     def check_pending_requests_status(self, target_direction:str, target_peer_online_status:bool=True, notified=False) -> list[int]: 
@@ -200,6 +213,9 @@ class DatabaseConnection:
 
     def update_request_notified(self, request_id:int, new_notified:bool=True) -> None: 
         """Updates the notified status for the given request ID."""
+        
+        # Log
+        self.logger.info(f'in update_request_notified(): updating "{request_id}" to notified = "{new_notified}"')
         
         # Construct and execute query
         self.cursor.execute(
@@ -257,6 +273,9 @@ class DatabaseConnection:
     def update_request_accepted(self, request_id:int, accepted:bool) -> None: 
         """Updates the "accepted" field for the given request ID."""
 
+        # Log
+        self.logger.info(f'in update_request_accepted(): updating "{request_id}" to accepted = "{accepted}"')
+        
         # Create and execute the query
         try: 
             self.cursor.execute(
@@ -276,6 +295,9 @@ class DatabaseConnection:
     def completed_pending_request(self, request_id:int) -> None: 
         """Moves an entry from the PendingRequests table to the CompletedRequests table."""
 
+        # Log 
+        self.logger.info(f'in completed_pending_requests(): moving "{request_id}" to CompletedRequests.')
+        
         # Get the request info from the pending requests table
         pending_request_info:dict = self.get_pending_request(request_id)
         
@@ -290,7 +312,7 @@ class DatabaseConnection:
         # Extract only the pending request fields that are in completed requests
         insert_tup:tuple = tuple([v for k,v in pending_request_info.items() if k in completed_requests_cols])
         
-        # If we git results, then move the entry into CompletedRequests
+        # If we get results, then move the entry into CompletedRequests
         # NOTE: 9 placeholders
         self.cursor.execute(
             f"""
@@ -312,6 +334,9 @@ class DatabaseConnection:
     def new_peer(self, peer_pub_key:str, online:bool, most_recent_ip:str, common_name:str, 
                  mac_last_four:str) -> None: 
         """Creates a new row in the [Peer] table for the given peer info."""
+        
+        # Log
+        self.logger.info(f'in new_peer(): creating new Peer entry for common name "{common_name}"')
         
         # Construct the query (NOTE: 5 placeholders)
         query:str = """
@@ -385,17 +410,17 @@ class DatabaseConnection:
     def update_peer_status(self, peer_pub_key:str, new_ip:str, new_online_status:bool=True) -> None: 
         """Updates the online status and most recent IP for the given peer."""
         
-        # Construct query 
-        query:str = """
-            UPDATE Peer 
-            SET most_recent_ip = ?, online = ?
-            WHERE peer_pub_key = ?
-        """
+        # Log
+        self.logger.info(f'in update_peer_status(): updating the (most_recent_ip, new_online_status) for {peer_pub_key} to ({new_ip}, {new_online_status})')
         
         try: 
-            # Execute the query
+            # Construct and execute query
             self.cursor.execute(
-                query,
+                """
+                    UPDATE Peer 
+                    SET most_recent_ip = ?, online = ?
+                    WHERE peer_pub_key = ?
+                """,
                 (new_ip, new_online_status, peer_pub_key)
             )
             
@@ -582,21 +607,21 @@ class DatabaseConnection:
         must be either 'incoming' or 'outgoing', other values will raise a ValueError. NOTE: assumes 
         the share date is TODAY if not given."""
         
+        # Log
+        self.logger.info(f'in new_shared_file(): creating new entry for filename "{filename}" and direction "{direction}"')
+        
         # Check that the given direction is valid
         direction = direction.lower()
         if not direction in ['incoming', 'outgoing']: 
             raise ValueError(f'Given direction "{direction}" is not valid - must be one of "incoming" or "outgoing"')
         
-        # Construct the query (NOTE: 6 placeholders)
-        query:str = """
-            INSERT INTO PreviouslySharedWith(peer_pub_key, direction, filename, size_gb, sha256, share_date) 
-            VALUES(?, ?, ?, ?, ?, ?)
-        """
-        
         try: 
-            # Execute the query
+            # Construct and execute the query (NOTE: 6 placeholders)
             self.cursor.execute(
-                query,
+                """
+                    INSERT INTO PreviouslySharedWith(peer_pub_key, direction, filename, size_gb, sha256, share_date) 
+                    VALUES(?, ?, ?, ?, ?, ?)
+                """,
                 (
                     peer_pub_key,
                     direction,
@@ -627,16 +652,16 @@ class DatabaseConnection:
         """Creates a new entry in the [CurrentlyStoringWith] table with the given info. NOTE: assumes
         the store date is TODAY if not given."""
         
-        # Construct the query (NOTE: 6 placeholders)
-        query:str = """
-            INSERT INTO CurrentlyStoringWith(peer_pub_key, filename, size_gb, sha256, b64_nonce, store_date)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """
+        # Log
+        self.logger.info(f'in new_storing_with_file(): creating new entry for filename "{filename}"')
         
         try: 
-            # Exceute the query
+            # Construct and execute the query (NOTE: 6 placeholders)
             self.cursor.execute(
-                query,
+                """
+                INSERT INTO CurrentlyStoringWith(peer_pub_key, filename, size_gb, sha256, b64_nonce, store_date)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
                 (
                     peer_pub_key,
                     filename,
@@ -666,16 +691,16 @@ class DatabaseConnection:
         """Creates a new entry in the [CurrentlyStoringFor] table with the given info. NOTE: assumes 
         the store date is TODAY if not given."""
         
-        # Construct the query (NOTE: 5 placeholders)
-        query:str = """
-            INSERT INTO CurrentlyStoringFor(peer_pub_key, filename, size_gb, sha256, store_date)
-            VALUES (?, ?, ?, ?, ?)
-        """
+        # Log
+        self.logger.info(f'in new_storing_for_file(): creating new entry for filename "{filename}"')
         
         try: 
-            # Exceute the query
+            # Construct and execute the query (NOTE: 5 placeholders)
             self.cursor.execute(
-                query,
+                """
+                INSERT INTO CurrentlyStoringFor(peer_pub_key, filename, size_gb, sha256, store_date)
+                VALUES (?, ?, ?, ?, ?)
+                """,
                 (
                     peer_pub_key,
                     filename,
@@ -704,13 +729,13 @@ class DatabaseConnection:
         """Removes the entry in the [CurrentlyStoringWith] table for the given peer pub key 
         and filename."""
         
-        # Construct query
-        query:str = "DELETE FROM CurrentlyStoringWith WHERE peer_pub_key = ? AND filename = ?"
+        # Log
+        self.logger.info(f'in remove_storing_with_entry(): removing entry for filename "{filename}", peer "{peer_pub_key}"')
         
         try: 
             # Execute the query
             self.cursor.execute(
-                query,
+                "DELETE FROM CurrentlyStoringWith WHERE peer_pub_key = ? AND filename = ?",
                 (peer_pub_key, filename)
             )
             
@@ -727,13 +752,13 @@ class DatabaseConnection:
         """Removes the entry in the [CurrentlyStoringFor] table for the given peer pub key 
         and filename."""
         
-        # Construct query
-        query:str = "DELETE FROM CurrentlyStoringFor WHERE peer_pub_key = ? AND filename = ?"
+        # Log
+        self.logger.info(f'in remove_storing_with_entry(): removing entry for filename "{filename}", peer "{peer_pub_key}"')
         
         try: 
-            # Execute the query
+            # Construct and execute the query
             self.cursor.execute(
-                query,
+                "DELETE FROM CurrentlyStoringFor WHERE peer_pub_key = ? AND filename = ?",
                 (peer_pub_key, filename)
             )
             

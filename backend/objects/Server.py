@@ -135,6 +135,7 @@ class Server(object):
             self.send_mcast_hello()
             
             # DONE
+            self.logger.debug('Server startup successful - now listening for connections.')
             return True
         
         # Handle exceptions 
@@ -171,6 +172,9 @@ class Server(object):
         Notes: A client will make one request to the server. If the server needs infomation like the public key from server then it will make it own request to that server 
         """
         
+        # Log
+        self.logger.debug('in listen(): starting server listener.')
+        
         # Bind the socket to the interface and port
         self.socket_connection.bind((self.iface, self.port))
         self.logger.info("Bound socket connection to address: %s and port %d", self.iface, self.port)
@@ -194,7 +198,7 @@ class Server(object):
                 continue 
             
             # Log
-            self.logger.info("connection form IP address: %s", str(addr[0])) 
+            self.logger.info(f"Incoming connection form IP address: {str(addr[0])}") 
                 
             # Pass connection to handle network req func in a new thread  
             try:  
@@ -202,7 +206,8 @@ class Server(object):
                     cxn, 
                     addr
                 ))
-                
+            
+            # Handle exceptions that arise during the handle process that are not handled elsewhere 
             except Exception as e: 
                 print(f'\033[91mERROR in Server.listen(): \033[0m{e.__class__} -', e)
                 self.logger.error(f'in server.listen(): {e.__class__} - {e}')
@@ -211,6 +216,9 @@ class Server(object):
     def mcast_listen(self) -> None:         
         """Starts a listener for incoming multicast messages."""
 
+        # Log
+        self.logger.debug('in mcast_listen(): starting MCAST listener.')
+        
         # Create the socket
         sock = socket.socket(
             socket.AF_INET,         # Specify IPv4
@@ -244,7 +252,7 @@ class Server(object):
         # Listen for incoming messages
         # Log
         print("[Multicast Listener] Listening for peer announcements...")
-        self.logger.info('Starting multicast listener.')
+        self.logger.info('Server is now listening for MCAST announcements.')
 
         # Listen while server is alive
         while self.server_alive:
@@ -255,12 +263,6 @@ class Server(object):
                 data, addr = sock.recvfrom(1024)  
                 peer_info = data.decode()
 
-                # If this is our own address, ignore it
-                if addr == self.iface: continue 
-                
-                # Info print
-                self.logger.info(f'New multicast message from {peer_info}')
-
                 # Extract what we need from the message
                 request_info:dict = json.loads(peer_info)
                 code:int|str = request_info.get('code', None)
@@ -269,19 +271,22 @@ class Server(object):
                 peer_cn:str = request_info.get('common_name', None) 
                 peer_mac_last_four:str = request_info.get('mac_last_four', None)
                 
+                # If this is our own address, ignore it
+                if addr == self.iface or peer_pub_key_pem == self.pub_key_pem: 
+                    self.logger.info('Received loopback MCAST.')
+                    continue 
+                
+                # Info print
+                self.logger.info(f'New multicast message: {peer_info}')
+                
                 # Verify info is given
                 if not all([code, peer_pub_key_pem, peer_ip, peer_cn]): 
                     self.logger.warning('Invalid MCAST message (missing required info) - not responding.')
                     continue 
-                elif peer_pub_key_pem == self.pub_key_pem: 
-                    self.logger.debug('Received loopback MCAST.')
-                    continue 
-                
-                # Create a socket object
-                self.logger.info(f'Initating new connection with "{peer_cn}" at IP "{peer_ip}".')
+
+                # Init a new connection to start the ID check
+                self.logger.info(f'Initating new connection with "{peer_cn}" at IP "{peer_ip}" for an ID check.')
                 connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                
-                # Connect to the peer
                 connection.connect((peer_ip, self.port))
                 
                 # Initiate an ID check with the peer
@@ -302,6 +307,8 @@ class Server(object):
                 peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)
                 
                 # If ID check pass, update the peer's info
+                self.logger.info(f'ID check result for {peer_cn}: {id_check_result}')
+                
                 if id_check_result: 
                     
                     # Check if this peer exists already
@@ -356,18 +363,15 @@ class Server(object):
         if addr[0] == self.iface: return 
         
         # Log about the incoming connection
-        self.logger.info(f'Incoming connection from peer (ip, port): {addr}')
+        self.logger.info(f'in handle_network_request(): incoming connection from peer (ip, port): {addr}')
         
         # Read the incoming data
         data = connection.recv(self.BUFF)
 
         # Extract the JSON and conver to a python dict
         message_json:dict = json.loads(data.decode())
-        self.logger.info(f'Incoming message_json (as dict): {message_json}')
+        self.logger.info(f'in handle_network_request(): incoming message_json (as dict): {message_json}')
         
-        # Log
-        self.logger.info(f'Server handle network request got message JSON: {message_json}.')
-
         # Check for the required keys in the body
         code:int = message_json.get('code', None)
         peer_pub_key_pem:str = message_json.get('pub_key_pem', None)
@@ -376,7 +380,7 @@ class Server(object):
         
         # Check if the code is an init ID check
         if code == Server.INIT_IDC_CODE: 
-            self.logger.info('Incoming request is an INIT_IDC_CODE - responding.')
+            self.logger.info('in handle_network_request(): incoming request is an INIT_IDC_CODE - responding.')
             
             # Simply respond to the ID check
             self.respond_identity_check(
@@ -387,12 +391,12 @@ class Server(object):
             )
 
             # Do nothing else 
+            self.logger.info('in handle_network_request(): done responding to ID check.')
             return 
         
         # NOTE: we know at this point that this is not an initiated ID check
         # Close cxn if missing info
         if not all([code, peer_pub_key_pem, peer_common_name, peer_mac_last_four]): 
-            self.logger.info(f'in handle_network_request(): got message JSON - {message_json}')
             self.logger.error(f'in handle_network_request(): message does not contain one of [code, pub_key_pem, common_name, mac_last_four] - ignoring message.')
             connection.close()
             return      
@@ -411,18 +415,25 @@ class Server(object):
         # NOTE: the only code that doesn't initiate an ID check is an INIT_IDC_CODE
             
         # Do identity check
+        self.logger.info(f'in handle_network_request(): initiating ID check with "{addr[0]}"')
+        
         id_check_result:bool = self.initiate_identity_check(
             connection, 
             peer_pub_key_pem, 
             addr[0]
         )  
 
+        # Log ID check result
+        self.logger.info(f'in handle_network_request(): ID check result for "{addr[0]}": {id_check_result}')
+        
         # If ID check pass, update the peer's info
         if id_check_result: 
             
             # Check if this peer exists already
             # Peer exists, so update their status
             if db_connection.check_peer_exists(peer_pub_key):
+                self.logger.info(f'Updating status and IP for "{peer_common_name}".')
+                
                 db_connection.update_peer_status(       
                     peer_pub_key,                     
                     addr[0],
@@ -431,6 +442,8 @@ class Server(object):
             
             # Peer doesn't exist, so create an entry for them
             else: 
+                self.logger.info(f'Creating a new Peer entry for "{peer_common_name}".')
+                
                 db_connection.new_peer(
                     peer_pub_key,           # peer_pub_key
                     True,                   # online_status
@@ -441,7 +454,7 @@ class Server(object):
                 
         # If ID check failed, log and do nothing else 
         else: 
-            self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+            self.logger.info(f'Peer "{peer_common_name}" ("{addr[0]}") failed the ID check - not sending a response.')
             return 
 
         # If all required attributes are present, handle the request code appropriately
@@ -483,7 +496,7 @@ class Server(object):
             case _: 
 
                 # Log and do not respond
-                self.logger.info(f'Peer "{addr[0]}" sent an invalid code "{code}" - not sending a response.')
+                self.logger.info(f'Peer "{peer_common_name}" ("{addr[0]}") sent an invalid code "{code}" - not sending a response.')
                 pass
         
         # Close the connection
@@ -1155,38 +1168,45 @@ class Server(object):
                 port (int): The port number to send the message to.
         """
 
-        # Create the socket
-        mcast_sock:socket.socket = socket.socket(
-            socket.AF_INET,         # Specify IPv4
-            socket.SOCK_DGRAM,      # UDP socket
-            socket.IPPROTO_UDP      # UDP protocol 
-        )
+        try: 
+            
+            # Create the socket
+            mcast_sock:socket.socket = socket.socket(
+                socket.AF_INET,         # Specify IPv4
+                socket.SOCK_DGRAM,      # UDP socket
+                socket.IPPROTO_UDP      # UDP protocol 
+            )
 
-        # Set the TTL
-        mcast_sock.setsockopt(
-            socket.IPPROTO_IP,          # Modifying an IP-level setting
-            socket.IP_MULTICAST_TTL,    # Setting the mcast TTL
-            2                           # TTL
-        )
+            # Set the TTL
+            mcast_sock.setsockopt(
+                socket.IPPROTO_IP,          # Modifying an IP-level setting
+                socket.IP_MULTICAST_TTL,    # Setting the mcast TTL
+                2                           # TTL
+            )
 
-        # Create a message with this machine's common name, IP, and pub key
-        message:dict = {
-            'code': Server.DISC_CODE,
-            'pub_key_pem': self.pub_key_pem,
-            'ip': self.iface,
-            'common_name': self.common_name,
-            'mac_last_four': self.mac_last_four
-        }
+            # Create a message with this machine's common name, IP, and pub key
+            message:dict = {
+                'code': Server.DISC_CODE,
+                'pub_key_pem': self.pub_key_pem,
+                'ip': self.iface,
+                'common_name': self.common_name,
+                'mac_last_four': self.mac_last_four
+            }
+            
+            # Send a multicast message to the multicast group
+            mcast_sock.sendto(
+                json.dumps(message).encode(), 
+                (self.mcast_group, self.mcast_port)
+            )
+            
+            # Info print
+            self.logger.info('Sent MCAST hello/discovery message.')
+            
+        # Handle exceptions
+        except Exception as e: 
+            self.logger.error(f'in send_mcast_hello(): there was an error sending the multicast hello/discovery message. {e.__class__}: {e}')
+            return 
         
-        # Send a multicast message to the multicast group
-        mcast_sock.sendto(
-            json.dumps(message).encode(), 
-            (self.mcast_group, self.mcast_port)
-        )
-        
-        # Info print
-        self.logger.info('Sent MCAST hello/discovery message.')
-
 
     def find_store_recipient(self, file_size_gb:float) -> str: 
         """
@@ -1213,7 +1233,7 @@ class Server(object):
         """
 
         # Log 
-        self.logger.info(f'Initiating identity check with "{client_address}".')
+        self.logger.info(f'in initiate_identity_check(): initiating identity check with "{client_address}".')
         
         # Generate a passcode for the handshake
         passcode:str = generate_random_passcode()             
@@ -1225,10 +1245,12 @@ class Server(object):
             'data': encrypt_message(peer_pub_key_pem, passcode)
         }).encode())
         
-        # Wait for response                                      
+        # Wait for response                
+        self.logger.info('in initiate_identity_check(): sent initial message, waiting for response.')                      
         response:dict = json.loads(connection.recv(self.BUFF).decode())
 
         # Decrypt the incoming response
+        self.logger.info('in initiate_identity_check(): reading incoming response.')
         client_handshake_data = decrypt_message(
             self.priv_key_pem, 
             response['data']
@@ -1254,7 +1276,7 @@ class Server(object):
         # Connect to the peer's backend server
         # NOTE: all peers use the same port for their backend server
         connection.connect((peer_ip_address, self.port))
-        self.logger.info(f'Sending "{request_type.upper()}" request (code = {code}) to "{peer_ip_address}:{self.port}""')
+        self.logger.info(f'in initiate_peer_connection(): sending "{request_type.upper()}" request (code = {code}) to "{peer_ip_address}:{self.port}""')
         
         # Construct an initial message to send
         message = json.dumps({
@@ -1305,8 +1327,10 @@ class Server(object):
         # Send length first, then message
         connection.sendall(message_length + message_bytes)
     
-        # Wait for response
+        # Wait for response (if configured)
         if get_response: 
+            self.logger.info('in send_encrypted_message(): waiting for response.')
+            
             response_plaintext_str:str = decrypt_message(
                 self.priv_key_pem, 
                 Server.read_incoming_data(connection)
@@ -1319,6 +1343,9 @@ class Server(object):
     def send_share_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a share request to the given client address, and shares the file if ID check is passed."""
 
+        # Log
+        self.logger.info(f'in send_share_request(): sending SHARE request for file "{filename}" to "{peer_ip_address}"')
+        
         # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
@@ -1447,7 +1474,10 @@ class Server(object):
 
     def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
-
+        
+        # Log
+        self.logger.info(f'in send_store_request(): sending STORE request for file "{filename}" to "{peer_ip_address}"')
+        
         # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
@@ -1598,7 +1628,10 @@ class Server(object):
     
     def send_delete_request(self, peer_pub_key:str, peer_ip_address:str, filename:str) -> None: 
         """Sends a delete request to the given client address, and tells the remote peer to delete the file if ID check is passed."""
-
+        
+        # Log
+        self.logger.info(f'in send_delete_request(): sending DELETE request for file "{filename}" to "{peer_ip_address}"')
+        
         # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
@@ -1661,6 +1694,9 @@ class Server(object):
         tmp_store_path, and returns the full file path of the stored file. NOTE: does not request the peer to delete the file,
         just retrieves the file from the peer, decrypts it, and returns the file contents."""
 
+        # Log
+        self.logger.info(f'in send_share_request(): sending SHARE request for file "{filename}" to "{peer_ip_address}"')
+            
         # Create a socket object
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
@@ -1670,9 +1706,6 @@ class Server(object):
             # NOTE: all peers use the same port for their backend server
             client_socket.connect((peer_ip_address, self.port))
 
-            # Log
-            self.logger.info(f'Sending RETRIEVE request to "{peer_ip_address}" for file "{filename}"')
-            
             # Construct an initial message to send
             message = json.dumps({
                 'pub_key_pem': self.pub_key_pem,
