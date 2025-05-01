@@ -43,7 +43,7 @@ def get_mac_address() -> str:
 
 
 def get_IP_address() -> str:
-    """Returns the device's MAC address in the format "AB:CD:EF:GH:00"."""
+    """Returns the device's local IPv4 address."""
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
     return ip_address

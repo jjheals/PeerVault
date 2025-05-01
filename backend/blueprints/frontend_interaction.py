@@ -1,28 +1,20 @@
 
-""" 
-get-peer-list
-get-pending-requests
-get-interacted-with-peers
-"""
 # NOTE: anytime current_app.server is used, CHECK that current_app.server is not null. This enforces that
 # the endpoint /ui/init-application/ is (successfully) hit BEFORE anything else happens, because initializing 
 # the Server for the app requires the passphrase to load the priv key, thus any use of current_app.server 
 # BEFORE /ui/init-application/ is successfully hit will return an error because current_app.server will be 
 # None. 
 
-from flask import Blueprint, jsonify, g, current_app, request, abort
+from flask import Blueprint, jsonify, current_app, request, abort
 import os 
 import pandas as pd
 from configparser import ConfigParser
 from hashlib import sha256
 import pandas as pd
-import base64
-import json
 import datetime as dt 
-import threading as th 
 
 from utils import filter_args, load_key_pem, get_mac_address,get_IP_address, generate_asymm_keys, gen_aes_key, \
-    load_aes_key, strip_pem_headers, normalize_string, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
+    load_aes_key, strip_pem_headers, strip_pem_headers, bytes_to_gb, hash_bytes_sha256
 
 from objects import Server, DatabaseConnection
 from .funcs import require_localhost

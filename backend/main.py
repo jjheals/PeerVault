@@ -3,7 +3,7 @@
 # so this endpoint MUST be used BEFORE any p2p communication takes place, because it relies on the given
 # passphrase to load the keys  
 
-from flask import Flask, g, request
+from flask import Flask, request
 from flask_compress import Compress
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer

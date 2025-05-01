@@ -1,10 +1,4 @@
-"""
-TODO: 
-    - in /ui/share-file and /ui/store-file, implement the Server sending a mcast
-      msg to find a recipient if the peer_pub_key is blank (empty str)
-"""
-
-from flask import Blueprint, jsonify, g, current_app, request, abort, send_file
+from flask import Blueprint, jsonify, current_app, request, abort, send_file
 import os 
 
 from utils import bytes_to_gb, hash_bytes_sha256

@@ -13,3 +13,7 @@ Invoke-WebRequest -Uri "http://localhost:8000/ui/init-application/" `
     -Body '{ "passphrase": "super_secure" }' `
     -ContentType "application/json"
 
+
+GET ALL PEERS
+
+Invoke-WebRequest -Uri "http://localhost:8000/ui/get-peer-list" -Method GET 

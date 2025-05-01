@@ -1,25 +1,15 @@
-
-"""
-TODO: 
-    - better exception handling so that connections don't hang if an error occurs
-    - better logging for successes/failures
-    - remove print logs and move to just using Server.logger (self.logger)
-"""
-
 import logging 
 import socket
 import struct
 import json
 import os
 import concurrent.futures 
-import pandas as pd
 import base64 
 from time import sleep
-from datetime import datetime
 import threading as th
 
 from .DatabaseConnection import DatabaseConnection
-from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, now, write_to_file,  \
+from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, write_to_file,  \
         hash_bytes_sha256, sign_file, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
         get_mac_address, setup_logger
 
