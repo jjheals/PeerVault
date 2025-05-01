@@ -359,13 +359,14 @@ class Server(object):
         # Log about the incoming connection
         print(f'\033[0m[{now()}] \033[92mIncoming connection. \033[0m(IP, PORT): {addr}')
         self.logger.info(f'Incoming connection from peer (ip, port): {addr}')
-
+        
         # Read the incoming data
         data = connection.recv(self.BUFF)
 
         # Extract the JSON and conver to a python dict
         message_json:dict = json.loads(data.decode())
-
+        self.logger.info(f'Incoming message_json (as dict): {message_json}')
+        
         # Log
         self.logger.info(f'Server handle network request got message JSON: {message_json}.')
 
@@ -384,7 +385,7 @@ class Server(object):
                 connection,                             # connection
                 addr[0],                                # client_address
                 strip_pem_headers(peer_pub_key_pem),    # peer_pub_key
-                message_json['data']                    # encrypted_data_str
+                message_json['data']                    # encrypted_data
             )
 
             # Do nothing else 
@@ -649,14 +650,14 @@ class Server(object):
         # Run while the server is alive 
 
 
-    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key:str, encrypted_data_str:str) -> bool:
+    def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key:str, encrypted_data:str) -> bool:
         """Takes in a connection and other info and responds to the incoming identity check."""
         
         # Load the incoming message JSON
         self.logger.info(f'in respond_identity_check(): responding to ID check from "{client_address}"')
         
         # Decrypt the incoming data
-        decrypted_message = decrypt_message(self.priv_key_pem, json.loads(encrypted_data_str))
+        decrypted_message = decrypt_message(self.priv_key_pem, encrypted_data)
         self.logger.debug(f'ID check incoming decrypted message: {decrypted_message}')
         
         # Encrypt the passcode using the sender's public key
