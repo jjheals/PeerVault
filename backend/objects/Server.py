@@ -371,7 +371,7 @@ class Server(object):
 
         # Check for the required keys in the body
         code:int = message_json.get('code', None)
-        peer_pub_key_pem:str = message_json.get('public_key_pem', None)
+        peer_pub_key_pem:str = message_json.get('pub_key_pem', None)
         peer_common_name:str = message_json.get('common_name', None)
         peer_mac_last_four:str = message_json.get('mac_last_four', None)
         
@@ -394,7 +394,7 @@ class Server(object):
         # Close cxn if missing info
         if not all([code, peer_pub_key_pem, peer_common_name, peer_mac_last_four]): 
             self.logger.info(f'in handle_network_request(): got message JSON - {message_json}')
-            self.logger.error(f'in handle_network_request(): message does not contain one of [code, public_key_pem, common_name, mac_last_four] - ignoring message.')
+            self.logger.error(f'in handle_network_request(): message does not contain one of [code, pub_key_pem, common_name, mac_last_four] - ignoring message.')
             connection.close()
             return      
         
@@ -665,7 +665,7 @@ class Server(object):
         # Send the encrypted message back 
         connection.send(json.dumps({
             'code': self.RESP_IDC_CODE, 
-            'public_key_pem': self.pub_key_pem,
+            'pub_key_pem': self.pub_key_pem,
             'data': encrypted_passcode_msg
         }).encode())
 
@@ -714,7 +714,7 @@ class Server(object):
         if request_id == -1: 
             connection.send({
                 'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
+                'pub_key_pem': self.pub_key_pem,
                 'data': encrypt_message(peer_pub_key_pem, f'Did not find a pending outgoing "{request_type}" request for "{filename}".')
             })
 
@@ -727,7 +727,7 @@ class Server(object):
         # Send a DONE code back
         connection.send({
             'code': Server.DONE_CODE,
-            'public_key_pem': self.pub_key_pem,
+            'pub_key_pem': self.pub_key_pem,
             'data': encrypt_message(peer_pub_key_pem, f'Updated local status of the outgoing "{request_type}" request for "{filename}".')
         })
 
@@ -760,7 +760,7 @@ class Server(object):
         encoded_file_content:str = response_plaintext_dict["plaintext_file"]    # File contents (b64 encoded)
         signature_str:str = response_plaintext_dict['signature']                # Digital signature 
         decoded_file_content:str = base64.b64decode(encoded_file_content)       # Decoded file content (now plaintext bytes)
-        peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']        # Peer pub key
+        peer_pub_key_pem:str = response_plaintext_dict['pub_key_pem']        # Peer pub key
         peer_cn:str = db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem))    # NOTE: CN only used for logs
         
         # Log
@@ -902,7 +902,7 @@ class Server(object):
         filename:str = response_plaintext_dict["filename"]                                  # Filename
         encoded_file_content:str = response_plaintext_dict["encrypted_file"]                # Encrypted file (b64 str)
         decoded_encrypted_file_content:bytes = base64.b64decode(encoded_file_content)       # Decoded encrypted file (bytes)
-        peer_pub_key_pem:str = response_plaintext_dict['public_key_pem']                    # Peer public key PEM
+        peer_pub_key_pem:str = response_plaintext_dict['pub_key_pem']                    # Peer public key PEM
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)                              # Peer public key (no PEM headers)
         signature_str:str = response_plaintext_dict['signature']                            # Digital signature
         peer_cn:str = db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem))    # CN is used for info prints and logs
@@ -1041,7 +1041,7 @@ class Server(object):
         
         # Extract the necessary info from the plaintext dict
         filename: str = response_plaintext_dict["filename"]                 # Filename
-        peer_pub_key_pem: str = response_plaintext_dict['public_key_pem']   # Pub key WITH PEM headers
+        peer_pub_key_pem: str = response_plaintext_dict['pub_key_pem']   # Pub key WITH PEM headers
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)              # Pub key WITHOUT PEM headers
         peer_cn:str = db_connection.cn_from_pub_key(peer_pub_key)
         
@@ -1129,7 +1129,7 @@ class Server(object):
             # Prepare the outgoing message to be sent to the client
             outgoing_message: dict = {
                 'code': Server.FAIL_CODE,
-                'public_key_pem': self.pub_key_pem,
+                'pub_key_pem': self.pub_key_pem,
                 'data': encrypt_message(peer_pub_key_pem, message_data)
             }
         
@@ -1143,7 +1143,7 @@ class Server(object):
         # Prepare the outgoing message to be sent to the client
         outgoing_message: dict = {
             'code': Server.DONE_CODE,
-            'public_key_pem': self.pub_key_pem,
+            'pub_key_pem': self.pub_key_pem,
             'data': encrypt_message(peer_pub_key_pem, encrypted_file_contents)
         }
 
@@ -1215,7 +1215,7 @@ class Server(object):
         return NotImplementedError
         
         
-    def initiate_identity_check(self, connection:socket.socket, peer_public_key_pem:str, client_address:str) -> bool:
+    def initiate_identity_check(self, connection:socket.socket, peer_pub_key_pem:str, client_address:str) -> bool:
         """Complete an identity check handshake with the given connection and client address.
         
         Tasks:
@@ -1237,7 +1237,7 @@ class Server(object):
         connection.send(json.dumps({
             'code': Server.INIT_IDC_CODE,
             'pub_key_pem': self.pub_key_pem,
-            'data': encrypt_message(peer_public_key_pem, passcode)
+            'data': encrypt_message(peer_pub_key_pem, passcode)
         }).encode())
         
         # Wait for response                                      
@@ -1273,7 +1273,7 @@ class Server(object):
         
         # Construct an initial message to send
         message = json.dumps({
-            'public_key_pem': self.pub_key_pem,
+            'pub_key_pem': self.pub_key_pem,
             'common_name': self.common_name,
             'mac_last_four': self.mac_last_four,
             'code': code
@@ -1290,10 +1290,10 @@ class Server(object):
         
         # Complete the ID check
         passcode = decrypt_message(self.priv_key_pem, response['data'])
-        peer_pub_key_pem:str = response['public_key_pem']
+        peer_pub_key_pem:str = response['pub_key_pem']
         
         message = json.dumps({
-            'public_key_pem': self.pub_key_pem,
+            'pub_key_pem': self.pub_key_pem,
             'code': self.RESP_IDC_CODE,
             'data': encrypt_message(peer_pub_key_pem, passcode)
         })
@@ -1357,7 +1357,7 @@ class Server(object):
                 client_socket,
                 peer_pub_key_pem,
                 {
-                    'public_key_pem': self.pub_key_pem,
+                    'pub_key_pem': self.pub_key_pem,
                     'filename': filename,
                     'signature': base64.b64encode(sign_file(self.priv_key_pem, plaintext_file)).decode('utf-8'),
                     'plaintext_file': base64.b64encode(plaintext_file).decode('utf-8')
@@ -1507,7 +1507,7 @@ class Server(object):
                 client_socket,
                 peer_pub_key_pem,
                 {
-                    'public_key_pem': self.pub_key_pem,
+                    'pub_key_pem': self.pub_key_pem,
                     'filename': filename,
                     'signature': signature,
                     'encrypted_file': encrypted_file_contents
@@ -1637,7 +1637,7 @@ class Server(object):
                 peer_pub_key_pem,
                 {
                     'common_name': self.common_name,
-                    'public_key_pem': self.pub_key_pem,
+                    'pub_key_pem': self.pub_key_pem,
                     'filename': filename
                 }
             )
@@ -1690,7 +1690,7 @@ class Server(object):
             
             # Construct an initial message to send
             message = json.dumps({
-                'public_key_pem': self.pub_key_pem,
+                'pub_key_pem': self.pub_key_pem,
                 'common_name': self.common_name,
                 'mac_last_four': self.mac_last_four,
                 'code': self.STORE_REQ_CODE
@@ -1706,9 +1706,9 @@ class Server(object):
             # Complete the ID check
             passcode = decrypt_message(self.priv_key_pem, response['data'])
             message = json.dumps({
-                'public_key_pem': self.pub_key_pem,
+                'pub_key_pem': self.pub_key_pem,
                 'code': self.RETR_FILE_CODE,
-                'data': encrypt_message(response['public_key_pem'], passcode)
+                'data': encrypt_message(response['pub_key_pem'], passcode)
             })
 
             # Send the ID check response
@@ -1727,12 +1727,12 @@ class Server(object):
                 
                  # Create a message with the file name we want
                 message = json.dumps({
-                    'public_key_pem': self.pub_key_pem,
+                    'pub_key_pem': self.pub_key_pem,
                     'filename': filename
                 })
 
                 # Encrypt the message with the file data
-                enc_message:dict = encrypt_message(response['public_key_pem'], message)
+                enc_message:dict = encrypt_message(response['pub_key_pem'], message)
 
                 # Prepare the message
                 message_bytes:bytes = json.dumps(enc_message).encode()
