@@ -1,0 +1,15 @@
+SIGNUP 
+
+Invoke-WebRequest -Uri "http://localhost:8000/ui/signup/" `
+    -Method POST `
+    -Body '{"common_name": "jjhealey", "passphrase": "super_secure", "peer_storage_path": "C:/Users/jjhea/Desktop/peer-storage/", "allocated_storage": 50}' `
+    -ContentType "application/json"
+
+
+INIT APPLICATION
+
+Invoke-WebRequest -Uri "http://localhost:8000/ui/init-application/" `
+    -Method POST `
+    -Body '{ "passphrase": "super_secure" }' `
+    -ContentType "application/json"
+
