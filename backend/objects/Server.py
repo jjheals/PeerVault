@@ -364,7 +364,23 @@ class Server(object):
         peer_common_name:str = message_json.get('common_name', None)
         peer_mac_last_four:str = message_json.get('mac_last_four', None)
         
-        # If no code or pub key, ignore the message and close the cxn
+        # Check if the code is an init ID check
+        if code == Server.INIT_IDC_CODE: 
+            self.logger.info('Incoming request is an INIT_IDC_CODE - responding.')
+            
+            # Simply respond to the ID check
+            self.respond_identity_check(
+                connection, 
+                addr[0], 
+                peer_pub_key_pem, 
+                data
+            )
+
+            # Do nothing else 
+            return 
+        
+        # NOTE: we know at this point that this is not an initiated ID check
+        # Close cxn if missing info
         if not all([code, peer_pub_key_pem, peer_common_name, peer_mac_last_four]): 
             self.logger.info(f'in handle_network_request(): got message JSON - {message_json}')
             self.logger.error(f'in handle_network_request(): message does not contain one of [code, public_key_pem, common_name, mac_last_four] - ignoring message.')
@@ -383,50 +399,40 @@ class Server(object):
         
         # For simplicity, do the identity check before checking the code
         # NOTE: the only code that doesn't initiate an ID check is an INIT_IDC_CODE
-        if code != Server.INIT_IDC_CODE: 
             
-            # Do identity check
-            id_check_result:bool = self.initiate_identity_check(
-                connection, 
-                peer_pub_key_pem, 
-                addr[0]
-            )  
+        # Do identity check
+        id_check_result:bool = self.initiate_identity_check(
+            connection, 
+            peer_pub_key_pem, 
+            addr[0]
+        )  
 
-            # If ID check pass, update the peer's info
-            if id_check_result: 
-                
-                # Check if this peer exists already
-                # Peer exists, so update their status
-                if db_connection.check_peer_exists(peer_pub_key):
-                    db_connection.update_peer_status(       
-                        peer_pub_key,                     
-                        addr[0],
-                        new_online_status=True
-                    )
-                
-                # Peer doesn't exist, so create an entry for them
-                else: 
-                    db_connection.new_peer(
-                        peer_pub_key,           # peer_pub_key
-                        True,                   # online_status
-                        addr[0],                # most_recent_ip
-                        peer_common_name,       # common_name
-                        peer_mac_last_four      # mac_last_four
-                    )
-                    
-            # If ID check failed, log and do nothing else 
-            else: 
-                self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
-                return 
+        # If ID check pass, update the peer's info
+        if id_check_result: 
             
-        # If it is an INIT_ID_CODE, then simply respond
+            # Check if this peer exists already
+            # Peer exists, so update their status
+            if db_connection.check_peer_exists(peer_pub_key):
+                db_connection.update_peer_status(       
+                    peer_pub_key,                     
+                    addr[0],
+                    new_online_status=True
+                )
+            
+            # Peer doesn't exist, so create an entry for them
+            else: 
+                db_connection.new_peer(
+                    peer_pub_key,           # peer_pub_key
+                    True,                   # online_status
+                    addr[0],                # most_recent_ip
+                    peer_common_name,       # common_name
+                    peer_mac_last_four      # mac_last_four
+                )
+                
+        # If ID check failed, log and do nothing else 
         else: 
-            self.respond_identity_check(
-                connection, 
-                addr[0], 
-                peer_pub_key_pem, 
-                data
-            )
+            self.logger.info(f'Peer {addr[0]} failed the ID check - not sending a response.')
+            return 
 
         # If all required attributes are present, handle the request code appropriately
         match code: 
