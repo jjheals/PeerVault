@@ -762,16 +762,22 @@ def upload_data():
     db_connection:DatabaseConnection = current_app.db_connection
     
     # Extract the args from the form
-    peer_pub_key:str = request.form.get('peer_pub_key', "")
+    peer_cn:str = request.form.get('peer_pub_key', "")
     send_method:str = request.form.get('send_method', "")
     uploaded_files:list = request.files.getlist('files')
-        
+    
+    # Get the pub key for this CN
+    peer_pub_key:str = db_connection.pub_key_from_cn(peer_cn)
+    
+    current_app.logger.info(f'in /ui/upload_data: given: | {peer_cn} | {send_method} | {len(uploaded_files)} |')
+    
     # Check that required info is given
     if not peer_pub_key or not send_method or len(uploaded_files) == 0: 
         return jsonify({
             'error': 'Failed to supply the required arguments.',
             'given_args': {
-                'peer_pub_key': peer_pub_key,
+                'peer_pub_key (peer common name)': peer_cn,
+                'peer_pub_key (from common name)': peer_pub_key,
                 'send_method': send_method,
                 'num_uploaded_files': len(uploaded_files)
             }
@@ -782,20 +788,29 @@ def upload_data():
         for file in uploaded_files:
             
             # Get the file contents, then the size and hash
-            file_bytes:bytes = file.read()
-            file_size_gb:float = bytes_to_gb(len(file_bytes))
-            file_hash:str = hash_bytes_sha256(file_bytes)
-                        
+            file_bytes: bytes = file.read()
+            file_size_gb: float = bytes_to_gb(len(file_bytes))
+            file_hash: str = hash_bytes_sha256(file_bytes)
+            filename: str = file.filename
+
+            # Save to temp
+            tmp_dir = os.path.join(current_app.server.temp_dir, 'outgoing', send_method.lower())
+            os.makedirs(tmp_dir, exist_ok=True)
+            tmp_filepath = os.path.join(tmp_dir, filename)
+
+            with open(tmp_filepath, 'wb') as f:
+                f.write(file_bytes)
+
             # Add a row in the PendingRequests table for this file
             db_connection.new_pending_request(
                 'outgoing',         # direction
-                send_method,        # request_type
-                peer_pub_key,       # peer_pub_key
+                send_method.lower(),        # request_type
+                peer_pub_key[0],       # peer_pub_key
                 file.filename,      # filename
                 file_size_gb,       # size_gb
                 file_hash           # sha256
             )
-        
+
         # Return status
         return jsonify({'status': 'success'})    
     

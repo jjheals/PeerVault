@@ -12,6 +12,23 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from .general import now
 
 
+def format_public_key_pem(public_key_str: str) -> str:
+    """
+    Takes a base64-encoded public key string (without headers or newlines)
+    and formats it into a valid PEM-formatted public key string.
+    """
+    # Remove any whitespace just in case
+    clean_key = ''.join(public_key_str.strip().split())
+
+    # Break into 64-character chunks
+    chunks = [clean_key[i:i+64] for i in range(0, len(clean_key), 64)]
+
+    # Wrap with PEM headers and footers
+    pem_key = "-----BEGIN PUBLIC KEY-----\n" + "\n".join(chunks) + "\n-----END PUBLIC KEY-----\n"
+
+    return pem_key
+
+
 def load_key_pem(filepath:str, type:str, passphrase:str=None) -> str:
     """Loads the RSA key from the given filepath, where type is 'public' or 'private'."""
 
