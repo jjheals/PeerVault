@@ -42,7 +42,6 @@ export default function Home() {
         alert("signup successful");
       } catch (error) {
         const statuscode = error.response.status
-        
         switch (statuscode){
           case 400:
             alert("Bad Request. There is missing or misformated data")
