@@ -64,7 +64,7 @@ export default function Home() {
         <table className="w-full border-collapse border border-gray-300">
           <thead>
             <tr className="bg-gray-200">
-              <th className="border p-2">User Name</th>
+              <th className="border p-2">Peer Public Key</th>
               <th className="border p-2">File Name</th>
               <th className="border p-2">Upload Type</th>
               <th className="border p-2">File Size</th>
