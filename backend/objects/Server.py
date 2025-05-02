@@ -41,7 +41,7 @@ class Server(object):
     WAIT_CODE:str = "124"       # Code for request received but user has not accepted the incoming request (sender has to wait for it to be accepted)
     
     BUFF:int = 2048             # Buffer for requests
-    REQ_CHECK_SLEEP:int = 3     # Amount of time (in seconds) to wait before checking the status of requests
+    REQ_CHECK_SLEEP:int = 10     # Amount of time (in seconds) to wait before checking the status of requests
         
     
     def __init__(
@@ -512,30 +512,42 @@ class Server(object):
         # Log
         logger.info('Starting handle_pending_outgoing_requests().')
         
-        # Create a db connection for this thread 
-        db_connection:DatabaseConnection = DatabaseConnection(
-            self.db_filepath,
-            log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-out-request-db.log'),
-            logger_name='server_out_requests_db_logger'
-        )
-        
         # Run while the server is alive
         while self.server_alive: 
             
+            # Create a db connection for this thread 
+            db_connection:DatabaseConnection = DatabaseConnection(
+                self.db_filepath,
+                log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-out-request-db.log'),
+                logger_name='server_out_requests_db_logger'
+            )
+        
             # Log 
             logger.info('Checking status of outgoing requests.')
             
             # Get the request IDs for any outgoing requests where the peer is online
-            matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+            notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
                 'outgoing',
-                target_peer_online_status=True
+                target_peer_online_status=True,
+                notified=True
+            )
+            
+            not_notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'outgoing', 
+                target_peer_online_status=True,
+                notified=False
             )
 
+            # Combine the two lists
+            matched_req_ids:list[int] = notified_matched_req_ids + not_notified_matched_req_ids
+            
             # Check for results
             if not matched_req_ids or len(matched_req_ids) == 0: 
                 # No results
-                self.logger.info('... no queued outgoing requests have online peers ...')
+                logger.info('... no queued outgoing requests have online peers ...')
             else: 
+                
+                logger.info(f'Found matched request IDs: {matched_req_ids}')
                 
                 # Iterate over the matched request IDs
                 for req_id in matched_req_ids:
@@ -545,11 +557,11 @@ class Server(object):
 
                     # Make sure we got results to avoid a KeyError
                     if not request_info: 
-                        self.logger.error(f'in handle_pending_outgoing_requests() - expected to get a matching request for {req_id} but got None.')
+                        logger.error(f'expected to get a matching request for {req_id} but got None.')
                         continue 
                     
                     # Log
-                    logger.info(f'in handle_pending_outgoing_requests() - processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
+                    logger.info(f'processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
 
                     # Extract the peer_pub_key and get this peer's info from the Peer table
                     peer_pub_key:str = request_info['peer_pub_key']
@@ -629,10 +641,10 @@ class Server(object):
 
                 
                         # Log
-                        logger.info(f'in queued_request_checker() - done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                        logger.info(f'done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
-            # Sleep for Server.REQ_CHECK_SLEEP before next iteration
+            logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
             sleep(Server.REQ_CHECK_SLEEP)
 
 
@@ -646,16 +658,33 @@ class Server(object):
         
         logger.info('Starting handle_pending_incoming_requests().')
 
-        db_connection: DatabaseConnection = DatabaseConnection(
-            self.db_filepath,
-            log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-in-request-db.log'),
-            logger_name='server_in_requests_db_logger'
-        )
-
         while self.server_alive:
+            
+            db_connection: DatabaseConnection = DatabaseConnection(
+                self.db_filepath,
+                log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-in-request-db.log'),
+                logger_name='server_in_requests_db_logger'
+            )
+            
             logger.info('Checking status of incoming requests.')
-            matched_req_ids: list[int] = db_connection.check_pending_requests_status('incoming', target_peer_online_status=True)
+            
+            # Get the request IDs for any incoming requests where the peer is online
+            notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'incoming',
+                target_peer_online_status=True,
+                notified=True
+            )
+            
+            not_notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'incoming', 
+                target_peer_online_status=True,
+                notified=False
+            )
 
+            # Combine the two lists
+            matched_req_ids:list[int] = notified_matched_req_ids + not_notified_matched_req_ids
+            
+            # Handle results
             if not matched_req_ids:
                 logger.info('... no queued incoming requests ...')
             else:
