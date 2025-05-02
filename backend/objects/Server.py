@@ -534,6 +534,7 @@ class Server(object):
         
         # Close the connection and DB connection
         connection.close()
+        
         db_connection.cxn.commit()      # Commit just incase
         db_connection.cursor.close()    # Close cursor
         db_connection.cxn.close()       # Close connection
@@ -685,6 +686,13 @@ class Server(object):
                         logger.info(f'done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
+            
+            # Close DB connection
+            db_connection.cxn.commit()      # Commit just incase
+            db_connection.cursor.close()    # Close cursor
+            db_connection.cxn.close()       # Close connection
+            
+            # log and sleep
             logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
             sleep(Server.REQ_CHECK_SLEEP)
 
@@ -758,7 +766,12 @@ class Server(object):
 
                         logger.info(f'... done handling request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
-            # Sleep after each iteration
+            # Close DB connection
+            db_connection.cxn.commit()      # Commit just incase
+            db_connection.cursor.close()    # Close cursor
+            db_connection.cxn.close()       # Close connection
+            
+            # log and sleep
             logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
             sleep(Server.REQ_CHECK_SLEEP)
 
