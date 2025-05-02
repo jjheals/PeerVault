@@ -73,7 +73,14 @@ export default function Home() {
   <div>
     <div className="header">
       <div className="header-row">
-        <div className="titleText">PeerVault</div>
+          <div style = {{height:'60px', overflow:'hidden'}}>
+                             <Image
+                    src="/PeerVault.svg"
+                    alt="PeerVault"
+                    width={200}
+                    height={200}
+                  /> 
+                  </div>
         <div className="header-options-row">
           <div className="icon-padding"></div>
           <button onClick={()=> router.push("/")}>

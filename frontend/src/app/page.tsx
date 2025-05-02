@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { motion } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
+import { button } from "framer-motion/client";
 
 const PORT = 8000;
 
@@ -70,6 +71,11 @@ export default function Home() {
         setPassphrase("");
       });
       console.log(verifiedUser);
+      refresh();
+    };
+
+    const handleSignOut = async () => {
+      setVerifiedUser(false);
       refresh();
     };
 
@@ -370,7 +376,15 @@ export default function Home() {
       <div>
       <div className="header">
         <div className="header-row">
-          <div className="titleText">PeerVault</div>
+          <div style = {{height:'60px', overflow:'hidden'}}>
+                     <Image
+            src="/PeerVault.svg"
+            alt="PeerVault"
+            width={200}
+            height={200}
+          /> 
+          </div>
+
 
           {!verifiedUser && (            
             <div className="header-options-row">            
@@ -430,12 +444,14 @@ export default function Home() {
                   />
               </a>
               <div className="icon-padding"></div>
+              <button className="button" onClick={handleSignOut} title="Sign Out">Sign Out</button>
+              <div className="icon-padding"></div>
             </div>
           )}
         </div>
         
         {verifiedUser && (
-            <div className = "subtitleText">              
+            <div className = "itemCardTitleText">              
                 Welcome, {identity.common_name}
             </div>
           )}
@@ -614,7 +630,6 @@ export default function Home() {
         <div>
           <UserTable />
         </div>}
-
       </div>
     )
   }

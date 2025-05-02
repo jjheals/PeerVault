@@ -46,8 +46,10 @@
 
 .header-row {
   display: flex;
+  align-items:center;
   flex-direction: row;
   justify-content: space-between;
+
 }
 
 .header-options-row {
@@ -257,4 +259,14 @@ body {
     padding: 8px;
     text-align: left;
     background-color: #f2f2f2;
+}
+
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
 }

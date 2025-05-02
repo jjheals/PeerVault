@@ -99,6 +99,14 @@ export default function Home() {
     return (
       <div className="header">
           <div className="header-row">
+                <div style = {{height:'60px', overflow:'hidden'}}>
+                                   <Image
+                          src="/PeerVault.svg"
+                          alt="PeerVault"
+                          width={200}
+                          height={200}
+                        /> 
+                        </div>
               <div className="titleText">Pending Incoming Requests</div>
           <div className="header-options-row">
               <div className="icon-padding"></div>
