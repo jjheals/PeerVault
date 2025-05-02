@@ -113,13 +113,17 @@ class Server(object):
         
         try: 
             
-            # Define threads for the listeners
+            # Define threads for the listeners and req handlers
             listen_thread:th.Thread = th.Thread(target=self.listen)
             mcast_thread:th.Thread = th.Thread(target=self.mcast_listen)
+            out_req_thread:th.Thread = th.Thread(target=self.handle_pending_outgoing_requests)
+            inc_req_thread:th.Thread = th.Thread(target=self.handle_pending_incoming_requests) 
             
             # Start listener and mcast listener
             listen_thread.start()
             mcast_thread.start()
+            out_req_thread.start()
+            inc_req_thread.start()
             
             # Send MCAST hello message
             self.send_mcast_hello()
