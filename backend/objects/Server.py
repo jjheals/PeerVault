@@ -708,7 +708,8 @@ class Server(object):
     
     def handle_accept_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None: 
         """Handles an incoming message that one of our outgoing requests was accepted (or declined) by the peer."""
-    
+        self.logger.info('in handle_accept_request(): incoming accept request.')
+        
         # Read and decrypt the message
         response_plaintext_dict:dict = json.loads(
             decrypt_message(
@@ -717,6 +718,8 @@ class Server(object):
             )
         )
 
+        self.logger.info(f'in handle_accept_request(): got json: {response_plaintext_dict}')
+        
         # Extract the needed variables from the response dict 
         accepted_status:bool = response_plaintext_dict['accept']
         filename:str = response_plaintext_dict['status']
@@ -1855,6 +1858,7 @@ class Server(object):
                 'pub_key_pem': self.pub_key_pem,
                 'filename': filename,
                 'request_type': request_type,
+                'accept': True,
                 'code': Server.ACC_CODE
             },
             get_response=False
