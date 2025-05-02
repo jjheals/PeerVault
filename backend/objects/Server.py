@@ -41,7 +41,7 @@ class Server(object):
     WAIT_CODE:str = "124"       # Code for request received but user has not accepted the incoming request (sender has to wait for it to be accepted)
     
     BUFF:int = 2048             # Buffer for requests
-    REQ_CHECK_SLEEP:int = 2     # Amount of time (in seconds) to wait before checking the status of outgoing requests
+    REQ_CHECK_SLEEP:int = 5     # Amount of time (in seconds) to wait before checking the status of requests
         
     
     def __init__(
