@@ -57,7 +57,7 @@ export default function Home() {
           <table className="w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-gray-200">
-              <th className="border p-2">Peer Pub Key</th>
+              <th className="border p-2">Peer Name</th>
               <th className="border p-2">Request Type</th>
               <th className="border p-2">File Name</th>
                 <th className="border p-2">File Size</th>
