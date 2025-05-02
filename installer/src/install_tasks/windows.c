@@ -4,7 +4,6 @@
 #include <windows.h>             // For CreateProcess(), ZeroMemory, etc.
 #include <time.h>                // For sleep()
 #include "windows_tasks.h"       // For func declarations
-#include "paths.h"               // For path declarations
 #include "colors.h"              // For printing colors
 
 
@@ -15,6 +14,7 @@ const char* activate_venv_path = "..\\backend\\venv\\Scripts\\activate";
 const char* requirements_txt_path = "..\\backend\\refs\\requirements.txt";
 const char* pip_path = "..\\backend\\venv\\Scripts\\pip";
 const char* pip_output_str = "> pip_output.log 2>&1";
+char python_path[256];
 
 // Frontend paths
 const char* frontend_dir = "..\\frontend";
@@ -92,6 +92,7 @@ int windows_install() {
 
     // Define buff for building command strings
     char command[512]; 
+    char full_command[600]; 
 
     // --- Create a virtual environment --- //
     // Info print
@@ -114,24 +115,24 @@ int windows_install() {
     }
 
     // --- Install requirements --- //
-    // Activate the venv 
-    system(activate_venv_path);
-    printf(BOLD_WHITE "[+] Activated venv.\n" RESET);
-    
-    // Info print
-    printf(BOLD_WHITE "[+] Installing Python dependencies via pip...\n" RESET);
 
-    // Create the pip install command
-    command[0] = '\0';                          // Clear command buff
-    strcat(command, pip_path);                  // Append the path to pip exe   
-    strcat(command, requirements_txt_path);     // Append the requirements.txt path (-r ..\backend\refs\requirements.txt)
-    strcat(command, pip_output_str);            // Append redirect pipe (> ... 2>&1)
+    // Build the path to the venv's Python
+    snprintf(python_path, sizeof(python_path), "%s\\Scripts\\python.exe", venv_path);
 
-    // Build full command
-    char full_command[600];
+    // Build command using python -m pip ...
+    command[0] = '\0';
+    strcat(command, "\"");
+    strcat(command, python_path);
+    strcat(command, "\" -m pip install -r ");
+    strcat(command, requirements_txt_path);
+    strcat(command, " ");
+    strcat(command, pip_output_str);
+
+    // Wrap command in full cmd.exe call
     snprintf(full_command, sizeof(full_command), "cmd.exe /C %s", command);
 
-    // Execute pip command (with progress spinner)
+    // Log and run
+    printf(BOLD_WHITE "[+] Installing Python dependencies via pip...\n" RESET);
     int pip_result = spinner_progress_printer(full_command);
 
     // Handle result

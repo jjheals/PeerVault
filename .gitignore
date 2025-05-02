@@ -26,5 +26,10 @@ installer/*installer.exe
 installer/installer
 installer/PeerVault-installer*
 
+# Application files
+application/*.o
+application/*.exe
+application/PeerVault
+
 # Config files
 backend/config/
