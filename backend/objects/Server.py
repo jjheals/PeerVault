@@ -552,12 +552,14 @@ class Server(object):
                     # Check if this peer is online
                     if peer_info['online']: 
                         
-                        # Log
-                        self.logger.info(f'Sending queued "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]}.')
-                            
                         # Peer is online - extract the other needed attributes for the outgoing req
-                        req_type:str = request_info['upload_type']
+                        req_type:str = request_info['request_type']
                         filename:str = request_info['filename']
+                        
+                        # Log
+                        self.logger.info(f'Sending queued "{req_type.upper()}" request to "{peer_info["common_name"]}.')
+                            
+                        
                             
                         # Act according to the request type
                         match(req_type.lower()): 
@@ -566,7 +568,7 @@ class Server(object):
                             case 'share': 
                                 
                                 # Construct the path to the tmp file 
-                                tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+                                tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'share', filename)
                         
                                 # Get the file contents
                                 with open(tmp_filepath, 'rb') as file: 
@@ -580,14 +582,14 @@ class Server(object):
                                 )
                                 
                                 # Delete the tmp file 
-                                self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                                self.logger.info(f'Sent "{request_info["request_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
                                 os.remove(tmp_filepath)
                                 
                             # STORE request
                             case 'store': 
                                 
                                 # Construct the path to the tmp file 
-                                tmp_filepath:str = os.path.join('requests', 'tmp', filename)
+                                tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'share', filename)
                         
                                 # Get the file contents
                                 with open(tmp_filepath, 'rb') as file: 
@@ -601,7 +603,7 @@ class Server(object):
                                 )
 
                                 # Delete the tmp file 
-                                self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                                self.logger.info(f'Sent "{req_type.upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
                                 os.remove(tmp_filepath)
                                 
                             # DELETE request
@@ -615,7 +617,7 @@ class Server(object):
                                 )
                                 
                                 # Log
-                                self.logger.info(f'Sent "{request_info["upload_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
+                                self.logger.info(f'Sent "{req_type.upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
 
                             # RETRIEVE request
                             case 'retrieve': 
@@ -625,13 +627,13 @@ class Server(object):
                                     peer_info['peer_pub_key'],      # peer_pub_key
                                     peer_info['most_recent_ip'],    # peer_ip_address
                                     filename,                       # filename
-                                    'tmp/retrieved-files/'          # tmp_store_path
+                                    os.path.join(self.temp_dir, 'retrieved-files/')          # tmp_store_path
                                 )
 
                 
                         # Delete the pending request now that we handled it 
                         db_connection.remove_pending_request(req_id)
-                        self.logger.info(f'in queued_request_checker() - done handling {request_info["request_type"]} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                        self.logger.info(f'in queued_request_checker() - done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
             # Sleep for Server.REQ_CHECK_SLEEP before next iteration
