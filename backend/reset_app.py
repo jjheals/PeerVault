@@ -1,6 +1,7 @@
 
 import os
 from configparser import ConfigParser
+from shutil import rmtree
 
 
 # Define vars to replace config w/
@@ -61,6 +62,11 @@ enc_config['misc']['pass_hash'] = ''
 
 with open('config/encryption.conf', 'w') as file:     
     enc_config.write(file)
+
+# Reset the tmp dir
+print('\033[93mRemoving temp files.\033[0m')
+
+rmtree('.tmp/', ignore_errors=True)
 
 
 # Create the app

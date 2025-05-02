@@ -19,6 +19,8 @@ backend/db_testing.ipynb
 
 # Test temp dirs
 backend/tests/listener-sender-testing/.tmp/
+backend/.tmp/
+backend/.tmp/* 
 
 # Installer files
 installer/*.o
