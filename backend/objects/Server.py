@@ -509,8 +509,8 @@ class Server(object):
         # Create a db connection for this thread 
         db_connection:DatabaseConnection = DatabaseConnection(
             self.db_filepath,
-            os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
-            logger_name='server_requests_db_logger'
+            log_filepath=os.path.join(os.path.dirname(self.db_filepath), 'outgoing_pending_requests_' + os.path.basename(self.db_log_filepath)),
+            logger_name='server_out_requests_db_logger'
         )
         
         # Run while the server is alive
@@ -635,8 +635,8 @@ class Server(object):
 
         db_connection: DatabaseConnection = DatabaseConnection(
             self.db_filepath,
-            os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
-            logger_name='server_requests_db_logger'
+            log_filepath=os.path.join(os.path.dirname(self.db_filepath), 'incoming_pending_requests_' + os.path.basename(self.db_log_filepath)),
+            logger_name='server_in_requests_db_logger'
         )
 
         while self.server_alive:
@@ -721,11 +721,11 @@ class Server(object):
         self.logger.info(f'in handle_accept_request(): got json: {response_plaintext_dict}')
         
         # Extract the needed variables from the response dict 
-        accepted_status:bool = response_plaintext_dict['accept']
-        filename:str = response_plaintext_dict['status']
         peer_pub_key_pem:str = response_plaintext_dict['pub_key_pem']
+        filename:str = response_plaintext_dict['filename']
         request_type:str = response_plaintext_dict['request_type']
-
+        accepted_status:bool = response_plaintext_dict['accept']
+    
         # Get this request ID from the DB
         request_id:int = db_connection.get_request_id(
             strip_pem_headers(peer_pub_key_pem),
@@ -734,9 +734,13 @@ class Server(object):
             'outgoing'
         )
 
+        self.logger.info(f'in handle_accept_request(): got request ID "{request_id}"')
+        
         # Check for a match
         # We didn't get a match, so return a fail code to the peer
         if request_id == -1: 
+            self.logger.info('in handle_accept_request(): sending FAIL message back.')
+            
             connection.send({
                 'code': Server.FAIL_CODE,
                 'pub_key_pem': self.pub_key_pem,
@@ -747,6 +751,7 @@ class Server(object):
             return
 
         # Update the accept status for this request ID
+        self.logger.info(f'in handle_accept_request(): marking {request_id} as accepted in the DB.')
         db_connection.update_request_accepted(request_id, accepted_status)
 
         # Send a DONE code back
