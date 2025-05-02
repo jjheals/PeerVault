@@ -152,6 +152,8 @@ class DatabaseConnection:
     def get_request_id(self, peer_pub_key:str, filename:str, request_type:str, direction:str) -> int: 
         """Returns the request ID for the request matching the given peer pub key, filename, request type, and direction."""
         
+        self.logger.debug(f'Getting request ID for "{filename}", request type "{request_type}", direction "{direction}"')
+        
         # Construct and execute query
         self.cursor.execute(
             'SELECT id FROM PendingRequests WHERE peer_pub_key = ? AND filename = ? AND request_type = ? AND direction = ?',

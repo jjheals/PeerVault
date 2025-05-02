@@ -41,7 +41,7 @@ class Server(object):
     WAIT_CODE:str = "124"       # Code for request received but user has not accepted the incoming request (sender has to wait for it to be accepted)
     
     BUFF:int = 2048             # Buffer for requests
-    REQ_CHECK_SLEEP:int = 3     # Amount of time (in seconds) to wait before checking the status of requests
+    REQ_CHECK_SLEEP:int = 10     # Amount of time (in seconds) to wait before checking the status of requests
         
     
     def __init__(
@@ -80,6 +80,7 @@ class Server(object):
         self.db_log_filepath = db_log_filepath
         self.db_logger_name = db_logger_name
         self.temp_dir = temp_dir
+        self.log_filepath = log_filepath
         
         # Init the connection
         self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -196,10 +197,10 @@ class Server(object):
                 
             # Pass connection to handle network req func in a new thread  
             try:  
-                self.thread_pool.submit(self.handle_network_request(
-                    cxn, 
-                    addr
-                ))
+                self.thread_pool.submit(self.handle_network_request, cxn, addr)
+
+
+                #self.thread_pool.submit(self.handle_network_request(cxn, addr))
             
             # Handle exceptions that arise during the handle process that are not handled elsewhere 
             except Exception as e: 
@@ -384,8 +385,46 @@ class Server(object):
                 message_json['data']                    # encrypted_data
             )
 
-            # Do nothing else 
+            # Log
             self.logger.info('in handle_network_request(): done responding to ID check.')
+            
+            # NOTE: when we get an ID check, we can update the status of that peer since we know they're online
+            # and since all requests have an ID check anyway
+            
+            # Init a DB connection for this thread 
+            db_connection:DatabaseConnection = DatabaseConnection(
+                self.db_filepath,
+                log_filepath=self.db_log_filepath,
+                logger_name=self.db_logger_name
+            )     
+        
+            # Check if this peer exists already
+            # Peer exists, so update their status
+            if db_connection.check_peer_exists(peer_pub_key):
+                self.logger.info(f'Updating status and IP for "{peer_common_name}".')
+                
+                db_connection.update_peer_status(       
+                    peer_pub_key,                     
+                    addr[0],
+                    new_online_status=True
+                )
+            
+            # Peer doesn't exist, so create an entry for them
+            else: 
+                self.logger.info(f'Creating a new Peer entry for "{peer_common_name}".')
+                
+                db_connection.new_peer(
+                    peer_pub_key,           # peer_pub_key
+                    True,                   # online_status
+                    addr[0],                # most_recent_ip
+                    peer_common_name,       # common_name
+                    peer_mac_last_four      # mac_last_four
+                )
+            
+            # NOTE: close the db connection
+            db_connection.cursor.close()
+            db_connection.cxn.close()
+            
             return 
         
         # NOTE: we know at this point that this is not an initiated ID check
@@ -398,7 +437,7 @@ class Server(object):
         # Strip pem headers from the peer pub key
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)       
         
-         # Init a DB connection for this thread 
+        # Init a DB connection for this thread 
         db_connection:DatabaseConnection = DatabaseConnection(
             self.db_filepath,
             log_filepath=self.db_log_filepath,
@@ -493,43 +532,64 @@ class Server(object):
                 self.logger.info(f'Peer "{peer_common_name}" ("{addr[0]}") sent an invalid code "{code}" - not sending a response.')
                 pass
         
-        # Close the connection
+        # Close the connection and DB connection
         connection.close()
-
+        
+        db_connection.cxn.commit()      # Commit just incase
+        db_connection.cursor.close()    # Close cursor
+        db_connection.cxn.close()       # Close connection
+        
 
     # ---- Methods that HANDLE INCOMING REQUESTS ---- #    
     # NOTE: the reverse methods of "Methods related to SENDING INFO TO OTHER PEERS"
 
     def handle_pending_outgoing_requests(self) -> None: 
         """Incrementally checks the queued outgoing requests and sends them if the peer is online."""
+        # Init a local logger
+        logger:logging.Logger = setup_logger(
+            os.path.join(os.path.dirname(self.log_filepath), 'server-out-request-handler.log'),
+            'server_out_req_logger'
+        )
         
         # Log
-        self.logger.info('Starting handle_pending_outgoing_requests().')
-        
-        # Create a db connection for this thread 
-        db_connection:DatabaseConnection = DatabaseConnection(
-            self.db_filepath,
-            os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
-            logger_name='server_requests_db_logger'
-        )
+        logger.info('Starting handle_pending_outgoing_requests().')
         
         # Run while the server is alive
         while self.server_alive: 
             
+            # Create a db connection for this thread 
+            db_connection:DatabaseConnection = DatabaseConnection(
+                self.db_filepath,
+                log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-out-request-db.log'),
+                logger_name='server_out_requests_db_logger'
+            )
+        
             # Log 
-            self.logger.info('Checking status of outgoing requests.')
+            logger.info('Checking status of outgoing requests.')
             
             # Get the request IDs for any outgoing requests where the peer is online
-            matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+            notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
                 'outgoing',
-                target_peer_online_status=True
+                target_peer_online_status=True,
+                notified=True
+            )
+            
+            not_notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'outgoing', 
+                target_peer_online_status=True,
+                notified=False
             )
 
+            # Combine the two lists
+            matched_req_ids:list[int] = notified_matched_req_ids + not_notified_matched_req_ids
+            
             # Check for results
             if not matched_req_ids or len(matched_req_ids) == 0: 
                 # No results
-                self.logger.info('... no queued outgoing requests have online peers ...')
+                logger.info('... no queued outgoing requests have online peers ...')
             else: 
+                
+                logger.info(f'Found matched request IDs: {matched_req_ids}')
                 
                 # Iterate over the matched request IDs
                 for req_id in matched_req_ids:
@@ -539,11 +599,11 @@ class Server(object):
 
                     # Make sure we got results to avoid a KeyError
                     if not request_info: 
-                        self.logger.error(f'in queued_request_checker() - expected to get a matching request for {req_id} but got None.')
+                        logger.error(f'expected to get a matching request for {req_id} but got None.')
                         continue 
                     
                     # Log
-                    self.logger.info(f'in queued_request_checker() - processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
+                    logger.info(f'processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
 
                     # Extract the peer_pub_key and get this peer's info from the Peer table
                     peer_pub_key:str = request_info['peer_pub_key']
@@ -557,9 +617,7 @@ class Server(object):
                         filename:str = request_info['filename']
                         
                         # Log
-                        self.logger.info(f'Sending queued "{req_type.upper()}" request to "{peer_info["common_name"]}.')
-                            
-                        
+                        logger.info(f'Sending queued "{req_type.upper()}" request to "{peer_info["common_name"]}.')
                             
                         # Act according to the request type
                         match(req_type.lower()): 
@@ -578,18 +636,15 @@ class Server(object):
                                 self.send_share_request(
                                     peer_info['most_recent_ip'],    # peer_ip_address
                                     file_contents,                  # plaintext_file
-                                    filename                        # filename
+                                    filename,                       # filename
+                                    db_connection
                                 )
-                                
-                                # Delete the tmp file 
-                                self.logger.info(f'Sent "{request_info["request_type"].upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
-                                os.remove(tmp_filepath)
                                 
                             # STORE request
                             case 'store': 
                                 
                                 # Construct the path to the tmp file 
-                                tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'share', filename)
+                                tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'store', filename)
                         
                                 # Get the file contents
                                 with open(tmp_filepath, 'rb') as file: 
@@ -599,12 +654,9 @@ class Server(object):
                                 self.send_store_request(
                                     peer_info['most_recent_ip'],    # peer_ip_address
                                     file_contents,                  # plaintext_file
-                                    filename                        # filename
+                                    filename,                       # filename
+                                    db_connection
                                 )
-
-                                # Delete the tmp file 
-                                self.logger.info(f'Sent "{req_type.upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
-                                os.remove(tmp_filepath)
                                 
                             # DELETE request
                             case 'delete': 
@@ -614,10 +666,8 @@ class Server(object):
                                     peer_info['most_recent_ip'],   # peer_ip_address
                                     filename,                      # filename
                                     request_info['sha256'],         # encrypted_file_hash
+                                    db_connection
                                 )
-                                
-                                # Log
-                                self.logger.info(f'Sent "{req_type.upper()}" request to "{peer_info["common_name"]} - deleting tmp file at "{tmp_filepath}".')
 
                             # RETRIEVE request
                             case 'retrieve': 
@@ -627,50 +677,81 @@ class Server(object):
                                     peer_info['peer_pub_key'],      # peer_pub_key
                                     peer_info['most_recent_ip'],    # peer_ip_address
                                     filename,                       # filename
-                                    os.path.join(self.temp_dir, 'retrieved-files/')          # tmp_store_path
+                                    os.path.join(self.temp_dir, 'retrieved-files/'),          # tmp_store_path
+                                    db_connection
                                 )
 
                 
-                        # Delete the pending request now that we handled it 
-                        db_connection.remove_pending_request(req_id)
-                        self.logger.info(f'in queued_request_checker() - done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                        # Log
+                        logger.info(f'done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
-            # Sleep for Server.REQ_CHECK_SLEEP before next iteration
+            
+            # Close DB connection
+            db_connection.cxn.commit()      # Commit just incase
+            db_connection.cursor.close()    # Close cursor
+            db_connection.cxn.close()       # Close connection
+            
+            # log and sleep
+            logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
             sleep(Server.REQ_CHECK_SLEEP)
 
 
     def handle_pending_incoming_requests(self) -> None:
-        self.logger.info('Starting handle_pending_incoming_requests().')
-
-        db_connection: DatabaseConnection = DatabaseConnection(
-            self.db_filepath,
-            os.path.join(os.path.dirname(self.db_filepath), 'pending_requests_' + os.path.basename(self.db_filepath)),
-            logger_name='server_requests_db_logger'
+        
+        # Init a local logger
+        logger:logging.Logger = setup_logger(
+            os.path.join(os.path.dirname(self.log_filepath), 'server-in-request-handler.log'),
+            'server_in_req_logger'
         )
+        
+        logger.info('Starting handle_pending_incoming_requests().')
 
         while self.server_alive:
-            self.logger.info('Checking status of incoming requests.')
-            matched_req_ids: list[int] = db_connection.check_pending_requests_status('incoming', target_peer_online_status=True)
+            
+            db_connection: DatabaseConnection = DatabaseConnection(
+                self.db_filepath,
+                log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-in-request-db.log'),
+                logger_name='server_in_requests_db_logger'
+            )
+            
+            logger.info('Checking status of incoming requests.')
+            
+            # Get the request IDs for any incoming requests where the peer is online
+            notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'incoming',
+                target_peer_online_status=True,
+                notified=True
+            )
+            
+            not_notified_matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'incoming', 
+                target_peer_online_status=True,
+                notified=False
+            )
 
+            # Combine the two lists
+            matched_req_ids:list[int] = notified_matched_req_ids + not_notified_matched_req_ids
+            
+            # Handle results
             if not matched_req_ids:
-                self.logger.info('... no queued incoming requests ...')
+                logger.info('... no queued incoming requests ...')
             else:
                 for req_id in matched_req_ids:
                     request_info = db_connection.get_pending_request(req_id)
                     if not request_info:
-                        self.logger.error(f'... expected to get a matching request for {req_id} but got None.')
+                        logger.error(f'... expected to get a matching request for {req_id} but got None.')
                         continue
 
                     self.logger.info(f'... processing incoming "{request_info["request_type"]}" (ID = {req_id})')
 
                     if request_info['accepted']:
-                        self.logger.info(f'... found accepted "{request_info["request_type"]}" for "{request_info["filename"]}"')
+                        logger.info(f'... found accepted "{request_info["request_type"]}" for "{request_info["filename"]}"')
                         peer_pub_key = request_info['peer_pub_key']
                         peer_info = db_connection.peer_info_from_pub_key(peer_pub_key)
 
                         if peer_info['online']:
-                            self.logger.info('... peer is ONLINE - sending request.')
+                            logger.info('... peer is ONLINE - sending request.')
                             try:
                                 self.send_accepted_message(
                                     peer_pub_key,
@@ -679,14 +760,19 @@ class Server(object):
                                     request_info['request_type']
                                 )
                             except Exception as e:
-                                self.logger.warning(f'... caught exception when sending message. {e.__class__}: {e}')
+                                logger.warning(f'... caught exception when sending message. {e.__class__}: {e}')
                         else:
-                            self.logger.info('... peer is OFFLINE - not sending message.')
+                            logger.info('... peer is OFFLINE - not sending message.')
 
-                        self.logger.info(f'... done handling request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                        logger.info(f'... done handling request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
-            # Sleep after each iteration
-            self.logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
+            # Close DB connection
+            db_connection.cxn.commit()      # Commit just incase
+            db_connection.cursor.close()    # Close cursor
+            db_connection.cxn.close()       # Close connection
+            
+            # log and sleep
+            logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
             sleep(Server.REQ_CHECK_SLEEP)
 
 
@@ -709,6 +795,8 @@ class Server(object):
         connection.send(json.dumps({
             'code': self.RESP_IDC_CODE, 
             'pub_key_pem': self.pub_key_pem,
+            'common_name': self.common_name,
+            'mac_last_four': self.mac_last_four,
             'data': encrypted_passcode_msg
         }).encode())
 
@@ -718,7 +806,8 @@ class Server(object):
     
     def handle_accept_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None: 
         """Handles an incoming message that one of our outgoing requests was accepted (or declined) by the peer."""
-    
+        self.logger.info('in handle_accept_request(): incoming accept request.')
+        
         # Read and decrypt the message
         response_plaintext_dict:dict = json.loads(
             decrypt_message(
@@ -727,12 +816,14 @@ class Server(object):
             )
         )
 
+        self.logger.info(f'in handle_accept_request(): got json: {response_plaintext_dict}')
+        
         # Extract the needed variables from the response dict 
-        accepted_status:bool = response_plaintext_dict['accept']
-        filename:str = response_plaintext_dict['status']
         peer_pub_key_pem:str = response_plaintext_dict['pub_key_pem']
+        filename:str = response_plaintext_dict['filename']
         request_type:str = response_plaintext_dict['request_type']
-
+        accepted_status:bool = response_plaintext_dict['accept']
+    
         # Get this request ID from the DB
         request_id:int = db_connection.get_request_id(
             strip_pem_headers(peer_pub_key_pem),
@@ -741,9 +832,13 @@ class Server(object):
             'outgoing'
         )
 
+        self.logger.info(f'in handle_accept_request(): got request ID "{request_id}"')
+        
         # Check for a match
         # We didn't get a match, so return a fail code to the peer
         if request_id == -1: 
+            self.logger.info('in handle_accept_request(): sending FAIL message back.')
+            
             connection.send({
                 'code': Server.FAIL_CODE,
                 'pub_key_pem': self.pub_key_pem,
@@ -754,6 +849,7 @@ class Server(object):
             return
 
         # Update the accept status for this request ID
+        self.logger.info(f'in handle_accept_request(): marking {request_id} as accepted in the DB.')
         db_connection.update_request_accepted(request_id, accepted_status)
 
         # Send a DONE code back
@@ -776,135 +872,138 @@ class Server(object):
             None
         """
         
-        # ---- Read incoming message ---- #
-        self.logger.debug('Called handle_share_request()')
-        
-        # Read and decrypt the incoming data
-        response_plaintext_dict:dict = json.loads(
-            decrypt_message(
-                self.priv_key_pem, 
-                Server.read_incoming_data(connection)
-            )
-        )        
-        
-        # Extract the necessary information from the plaintext dict
-        file_name:str = response_plaintext_dict["filename"]                     # Filename
-        encoded_file_content:str = response_plaintext_dict["plaintext_file"]    # File contents (b64 encoded)
-        signature_str:str = response_plaintext_dict['signature']                # Digital signature 
-        decoded_file_content:str = base64.b64decode(encoded_file_content)       # Decoded file content (now plaintext bytes)
-        peer_pub_key_pem:str = response_plaintext_dict['pub_key_pem']        # Peer pub key
-        peer_cn:str = db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem))    # NOTE: CN only used for logs
-        
-        # Log
-        self.logger.info(f'in handle_share_request(): handling incoming request for "{peer_cn}" to share "{file_name}"')
-        
-        # ---- Handle the incoming message ---- #
-        
-        # Get the request ID from the database 
-        # NOTE: DatabaseConnection.get_request_id() returns -1 if the request doesn't exist
-        pending_request_id:int = db_connection.get_request_id(strip_pem_headers(peer_pub_key_pem), file_name, 'share', "incoming")
-        self.logger.info(f'in handle_share_request(): got pending request ID from DB "{pending_request_id}"')
-        
-        # Init vars for returning a message to the sender
-        outgoing_code:int|str = None
-        msg:str = '' 
-        
-        # Verify the digital signature
-        if not verify_signature(peer_pub_key_pem, decoded_file_content, signature_str):
-            self.logger.warning(f'in handle_share_request(): "{peer_cn}" failed digital signature for filename "{file_name}"')
+        try: 
             
-            # Tell the sender that the request failed
-            outgoing_code = Server.FAIL_CODE
-            msg = 'Failed digital signature'
-
-        # Check if the request exists and/or is accepted 
-        # Request DOES NOT EXIST 
-        elif(pending_request_id == -1):
-            self.logger.info(f'in handle_share_request(): creating a new pending incoming SHARE request from "{peer_cn}" for "{file_name}"')
+            # ---- Read incoming message ---- #
+            self.logger.debug('Called handle_share_request()')
             
-            # Create an entry for an incoming pending request
-            db_connection.new_pending_request(
-                "incoming", 
-                "share", 
-                strip_pem_headers(peer_pub_key_pem), 
-                file_name, 
-                len(decoded_file_content), 
-                signature_str,
-                accepted=None
-            )
-
-            # Tell the peer they have to wait
-            outgoing_code = Server.WAIT_CODE
-            msg = 'Request received, but not yet accepted by the user'
-
-        # Request EXISTS BUT IS NOT ACCEPTED
-        elif not db_connection.get_pending_request(pending_request_id)["accepted"]:
-            
-            # Tell the client that they have to wait 
-            outgoing_code = Server.WAIT_CODE
-            msg = 'Request not accepted by the user'
-            
-        # Request EXISTS AND IS ACCEPTED
-        else:
-
-            # Construct the target directory path and create it if it doesn't exist
-            target_directory:str = os.path.join(self.temp_dir, 'incoming', 'shared')
-            os.makedirs(target_directory, exist_ok=True)
-
-            # Write the file to the target directory and get the message
-            message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
-            
-            # Check if the file was written successfully
-            # SUCCESS
-            if(message == "File written"):
-                
-                # Add a new row for the new shared file
-                db_connection.new_shared_file(
-                    strip_pem_headers(peer_pub_key_pem),
-                    'incoming',
-                    file_name,
-                    bytes_to_gb(len(decoded_file_content)),
-                    hash_bytes_sha256(decoded_file_content)
+            # Read and decrypt the incoming data
+            response_plaintext_dict:dict = json.loads(
+                decrypt_message(
+                    self.priv_key_pem, 
+                    Server.read_incoming_data(connection)
                 )
-                
-                # Log
-                self.logger.info(f'in handle_share_request(): request was handled and new shared file was saved to "{os.path.join(target_directory, file_name)}"')
-                
-                # Tell the sender that everything was processed successfully
-                outgoing_code = Server.DONE_CODE
-                msg = 'Request completed successfully'
-                
-            # FAIL 
-            else: 
-                
-                # Log
-                self.logger.info(f'in handle_share_request(): there was an error saving file "{file_name}" - write_to_file() returned "{message}"')
-                
-                # Tell the sender that something went wrong and we were unable to process the request 
-                outgoing_code = Server.FAIL_CODE
-                msg = 'There was an error processing the request'
-
-            # Remove the pending request from the DB
-            db_connection.remove_pending_request(pending_request_id)
+            )        
             
-            # Tell the sender that the request was successful and is complete 
-            outgoing_code = Server.DONE_CODE
-            msg = 'Request complete'
-        
-        # ---- Send response ---- #
-        # Prepare the outgoing message to be sent to the client
-        self.send_encrypted_message(
-            connection, 
-            peer_pub_key_pem,
-            {
-                "code": outgoing_code,
-                "message": msg
-            },
-            get_response=False          # We don't need the response 
-        )
-        
-        # Log
-        self.logger.info(f'in handle_share_request(): sent message to "{peer_cn}": CODE = {outgoing_code}, MESSAGE = "{msg}"')
+            # Extract the necessary information from the plaintext dict
+            file_name:str = response_plaintext_dict["filename"]                     # Filename
+            encoded_file_content:str = response_plaintext_dict["plaintext_file"]    # File contents (b64 encoded)
+            signature_str:str = response_plaintext_dict['signature']                # Digital signature 
+            decoded_file_content:str = base64.b64decode(encoded_file_content)       # Decoded file content (now plaintext bytes)
+            peer_pub_key_pem:str = response_plaintext_dict['pub_key_pem']        # Peer pub key
+            peer_cn:str = db_connection.cn_from_pub_key(strip_pem_headers(peer_pub_key_pem))    # NOTE: CN only used for logs
+            
+            # Log
+            self.logger.info(f'in handle_share_request(): handling incoming request for "{peer_cn}" to share "{file_name}"')
+            
+            # ---- Handle the incoming message ---- #
+            
+            # Get the request ID from the database 
+            # NOTE: DatabaseConnection.get_request_id() returns -1 if the request doesn't exist
+            pending_request_id:int = db_connection.get_request_id(strip_pem_headers(peer_pub_key_pem), file_name, 'share', "incoming")
+            self.logger.info(f'in handle_share_request(): got pending request ID from DB "{pending_request_id}"')
+            
+            # Init vars for returning a message to the sender
+            outgoing_code:int|str = None
+            msg:str = '' 
+            
+            # Verify the digital signature
+            if not verify_signature(peer_pub_key_pem, decoded_file_content, signature_str):
+                self.logger.warning(f'in handle_share_request(): "{peer_cn}" failed digital signature for filename "{file_name}"')
+                
+                # Tell the sender that the request failed
+                outgoing_code = Server.FAIL_CODE
+                msg = 'Failed digital signature'
+
+            # Check if the request exists and/or is accepted 
+            # Request DOES NOT EXIST 
+            elif(pending_request_id == -1):
+                self.logger.info(f'in handle_share_request(): creating a new pending incoming SHARE request from "{peer_cn}" for "{file_name}"')
+                
+                # Create an entry for an incoming pending request
+                db_connection.new_pending_request(
+                    "incoming", 
+                    "share", 
+                    strip_pem_headers(peer_pub_key_pem), 
+                    file_name, 
+                    len(decoded_file_content), 
+                    signature_str,
+                    accepted=None
+                )
+
+                # Tell the peer they have to wait
+                outgoing_code = Server.WAIT_CODE
+                msg = 'Request received, but not yet accepted by the user'
+
+            # Request EXISTS BUT IS NOT ACCEPTED
+            elif not db_connection.get_pending_request(pending_request_id)["accepted"]:
+                
+                # Tell the client that they have to wait 
+                outgoing_code = Server.WAIT_CODE
+                msg = 'Request not accepted by the user'
+                
+            # Request EXISTS AND IS ACCEPTED
+            else:
+
+                # Construct the target directory path and create it if it doesn't exist
+                target_directory:str = os.path.join(self.temp_dir, 'incoming', 'shared')
+                os.makedirs(target_directory, exist_ok=True)
+
+                # Write the file to the target directory and get the message
+                message:str = write_to_file(os.path.join(target_directory, file_name), decoded_file_content)
+                
+                # Check if the file was written successfully
+                # SUCCESS
+                if(message == "File written"):
+                    
+                    # Add a new row for the new shared file
+                    db_connection.new_shared_file(
+                        strip_pem_headers(peer_pub_key_pem),
+                        'incoming',
+                        file_name,
+                        bytes_to_gb(len(decoded_file_content)),
+                        hash_bytes_sha256(decoded_file_content)
+                    )
+                    
+                    # Log
+                    self.logger.info(f'in handle_share_request(): request was handled and new shared file was saved to "{os.path.join(target_directory, file_name)}"')
+                    
+                    # Tell the sender that everything was processed successfully
+                    outgoing_code = Server.DONE_CODE
+                    msg = 'Request completed successfully'
+                    
+                # FAIL 
+                else: 
+                    
+                    # Log
+                    self.logger.info(f'in handle_share_request(): there was an error saving file "{file_name}" - write_to_file() returned "{message}"')
+                    
+                    # Tell the sender that something went wrong and we were unable to process the request 
+                    outgoing_code = Server.FAIL_CODE
+                    msg = 'There was an error processing the request'
+
+                # Remove the pending request from the DB
+                db_connection.remove_pending_request(pending_request_id)
+                
+                # Tell the sender that the request was successful and is complete 
+                outgoing_code = Server.DONE_CODE
+                msg = 'Request complete'
+                
+        finally: 
+            # ---- Send response ---- #
+            # Prepare the outgoing message to be sent to the client
+            self.send_encrypted_message(
+                connection, 
+                peer_pub_key_pem,
+                {
+                    "code": outgoing_code,
+                    "message": msg
+                },
+                get_response=False          # We don't need the response 
+            )
+            
+            # Log
+            self.logger.info(f'in handle_share_request(): sent message to "{peer_cn}": CODE = {outgoing_code}, MESSAGE = "{msg}"')
         
            
     def handle_store_request(self, connection:socket.socket, db_connection:DatabaseConnection) -> None:
@@ -1373,7 +1472,7 @@ class Server(object):
             return json.loads(response_plaintext_str)
     
     
-    def send_share_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
+    def send_share_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str, db_connection:DatabaseConnection) -> None:
         """Sends a share request to the given client address, and shares the file if ID check is passed."""
 
         # Log
@@ -1424,21 +1523,21 @@ class Server(object):
                     
                     # Check if we already have a pending request for this peer, filename, and request type
                     # NOTE: DatabaseConnection.get_request_id() returns -1 if the request doesn't exist
-                    existing_request_id:int = self.send_db_connection.get_request_id(peer_pub_key, filename, 'share', 'outgoing') 
+                    existing_request_id:int = db_connection.get_request_id(peer_pub_key, filename, 'share', 'outgoing') 
                     
                     # Request ALREADY EXISTS 
                     if existing_request_id >= 0: 
                         
                         # Change the "notified" status for this request to TRUE
                         # NOTE: we do not need to create a temp file because it should already exist since the request existed in the DB
-                        self.send_db_connection.update_request_notified(existing_request_id)
+                        db_connection.update_request_notified(existing_request_id)
                         self.logger.info(f'in send_share_request(): received WAIT_CODE and request ID "{existing_request_id}" already exists - updated notified to TRUE.')
                         
                     # Request DOES NOT ALREADY EXIST  
                     else:                  
                                
                         # Add the request to PendingRequests in the DB
-                        self.send_db_connection.new_pending_request(
+                        db_connection.new_pending_request(
                             'outgoing', 
                             'share', 
                             peer_pub_key, 
@@ -1471,13 +1570,13 @@ class Server(object):
                 case Server.DONE_CODE: 
                     
                     # Get the request info from the DB
-                    request_id:int = self.send_db_connection.get_request_id(peer_pub_key, filename, 'share', 'outgoing') 
+                    request_id:int = db_connection.get_request_id(peer_pub_key, filename, 'share', 'outgoing') 
                     
                     # Change this request to completed in the DB
-                    self.send_db_connection.completed_pending_request(request_id)
+                    db_connection.completed_pending_request(request_id)
                     
                     # Add a new entry in the PreviouslySharedFiles table
-                    self.send_db_connection.new_shared_file(
+                    db_connection.new_shared_file(
                         peer_pub_key,
                         'outgoing',
                         filename,
@@ -1505,7 +1604,7 @@ class Server(object):
             self.logger.info('in send_share_request() - connection closed"')
     
 
-    def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str) -> None:
+    def send_store_request(self, peer_ip_address:str, plaintext_file:bytes, filename:str, db_connection:DatabaseConnection) -> None:
         """Sends a store request to the given client address, and sends the encrypted file if ID check is passed."""
         
         # Log
@@ -1578,21 +1677,21 @@ class Server(object):
                     
                     # Check if we already have a pending request for this peer, filename, and request type
                     # NOTE: DatabaseConnection.get_request_id() returns -1 if the request doesn't exist
-                    existing_request_id:int = self.send_db_connection.get_request_id(peer_pub_key, filename, 'store', 'outgoing') 
+                    existing_request_id:int = db_connection.get_request_id(peer_pub_key, filename, 'store', 'outgoing') 
                     
                     # Request ALREADY EXISTS 
                     if existing_request_id >= 0: 
                         
                         # Change the "notified" status for this request to TRUE
                         # NOTE: we do not need to create a temp file because it should already exist since the request existed in the DB
-                        self.send_db_connection.update_request_notified(existing_request_id)
+                        db_connection.update_request_notified(existing_request_id)
                         self.logger.info(f'in send_store_request(): received WAIT_CODE and request ID "{existing_request_id}" already exists - updated notified to TRUE.')
                         
                     # Request DOES NOT ALREADY EXIST  
                     else:                  
                                
                         # Add the request to PendingRequests in the DB
-                        self.send_db_connection.new_pending_request(
+                        db_connection.new_pending_request(
                             'outgoing', 
                             'store', 
                             peer_pub_key, 
@@ -1625,13 +1724,13 @@ class Server(object):
                 case Server.DONE_CODE: 
                     
                     # Get the request info from the DB
-                    request_id:int = self.send_db_connection.get_request_id(peer_pub_key, filename, 'store', 'outgoing') 
+                    request_id:int = db_connection.get_request_id(peer_pub_key, filename, 'store', 'outgoing') 
                     
                     # Change this request to completed in the DB
-                    self.send_db_connection.completed_pending_request(request_id)
+                    db_connection.completed_pending_request(request_id)
                     
                     # Add a new entry in the PreviouslySharedFiles table
-                    self.send_db_connection.new_storing_with_file(
+                    db_connection.new_storing_with_file(
                         peer_pub_key,
                         filename,                        
                         encrypted_file_size,
@@ -1659,7 +1758,7 @@ class Server(object):
             self.logger.info(f'in send_store_request() - connection closed.')
 
     
-    def send_delete_request(self, peer_pub_key:str, peer_ip_address:str, filename:str) -> None: 
+    def send_delete_request(self, peer_pub_key:str, peer_ip_address:str, filename:str, db_connection:DatabaseConnection) -> None: 
         """Sends a delete request to the given client address, and tells the remote peer to delete the file if ID check is passed."""
         
         # Log
@@ -1703,7 +1802,7 @@ class Server(object):
                     self.logger.info(f'in send_delete_request() - successfully deleted "{filename}" from peer "{peer_ip_address}"')
 
                     # Remove this row from the DB table
-                    self.send_db_connection.remove_storing_with_entry(
+                    db_connection.remove_storing_with_entry(
                         peer_pub_key,
                         filename                    
                     )
@@ -1722,7 +1821,7 @@ class Server(object):
             self.logger.info('in send_delete_request() - connection closed.')
 
 
-    def send_retrieve_request(self, peer_pub_key:str, peer_ip_address:str, filename:str, tmp_store_path:str) -> str: 
+    def send_retrieve_request(self, peer_pub_key:str, peer_ip_address:str, filename:str, tmp_store_path:str, db_connection:DatabaseConnection) -> str: 
         """Sends a request to retrieve a file that is currently stored with a peer and saves the contents of the file to the given 
         tmp_store_path, and returns the full file path of the stored file. NOTE: does not request the peer to delete the file,
         just retrieves the file from the peer, decrypts it, and returns the file contents."""
@@ -1807,7 +1906,7 @@ class Server(object):
                 self.logger.log(f'in retrieve_stored_file(): successfully retrieved file "{filename}" from "{peer_ip_address}".')
 
                 # Get the nonce for decrypting
-                nonce:str = self.send_db_connection.get_stored_file_nonce(
+                nonce:str = db_connection.get_stored_file_nonce(
                     peer_pub_key,
                     filename
                 )
@@ -1845,34 +1944,29 @@ class Server(object):
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # ---- Initial connection ---- #
-        # Connect to the peer's backend server
-        # NOTE: all peers use the same port for their backend server
-        connection.connect((peer_ip_address, self.port))
-        
-        # Construct an initial message to send
-        message = json.dumps({
-            'pub_key_pem': self.pub_key_pem,
-            'filename': filename,
-            'request_type': request_type,
-            'code': Server.ACC_CODE
-        })
-
-        # Send the message
-        response_dict:dict = self.send_encrypted_message(
+ 
+        peer_pub_key_pem:str = self.initiate_peer_connection(
             connection,
-            format_public_key_pem(peer_pub_key),
-            message
+            peer_ip_address,
+            Server.ACC_CODE,
+            'accept'
         )
 
-        # ---- Handle response ---- #
-        
-        self.logger.info(f'in send_accepted_message(): got response dict: {response_dict}')
-        
-        if response_dict['code'] == Server.DONE_CODE: 
-            self.logger.info('in send_accepted_message(): response is GOOD - message successfully received by peer.')
-        else: 
-            self.logger.error(f'in send_accepted_message(): received bad code from recipient ({response_dict["code"]}) - message failed to send.')
-    
+        # Send the message
+        # NOTE: we don't need the response
+        self.send_encrypted_message(
+            connection,
+            peer_pub_key_pem,
+            {
+                'pub_key_pem': self.pub_key_pem,
+                'filename': filename,
+                'request_type': request_type,
+                'accept': True,
+                'code': Server.ACC_CODE
+            },
+            get_response=False
+        )
+
     
     @staticmethod
     def read_incoming_data(connection:socket.socket) -> dict: 

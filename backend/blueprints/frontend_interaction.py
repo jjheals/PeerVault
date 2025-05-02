@@ -657,6 +657,11 @@ def get_pending_requests():
     # Fill NaN with empty string
     pending_requests_df = pending_requests_df.fillna(value='')
 
+    # Add peer_cn column using apply
+    pending_requests_df['peer_cn'] = pending_requests_df['peer_pub_key'].apply(
+        lambda pk: current_app.db_connection.cn_from_pub_key(pk)
+    )
+    
     # Filter into incoming and outgoing requests and return
     return jsonify({
         'incoming_requests': pending_requests_df.loc[pending_requests_df['direction'] == 'incoming'].to_dict(orient='records'),
