@@ -421,6 +421,10 @@ class Server(object):
                     peer_mac_last_four      # mac_last_four
                 )
             
+            # NOTE: close the db connection
+            db_connection.cursor.close()
+            db_connection.cxn.close()
+            
             return 
         
         # NOTE: we know at this point that this is not an initiated ID check
@@ -528,9 +532,12 @@ class Server(object):
                 self.logger.info(f'Peer "{peer_common_name}" ("{addr[0]}") sent an invalid code "{code}" - not sending a response.')
                 pass
         
-        # Close the connection
+        # Close the connection and DB connection
         connection.close()
-
+        db_connection.cxn.commit()      # Commit just incase
+        db_connection.cursor.close()    # Close cursor
+        db_connection.cxn.close()       # Close connection
+        
 
     # ---- Methods that HANDLE INCOMING REQUESTS ---- #    
     # NOTE: the reverse methods of "Methods related to SENDING INFO TO OTHER PEERS"
