@@ -18,6 +18,9 @@ export default function Home() {
   const router = useRouter();
   const [redraw, forceRedraw] = React.useState(0);
   const [identity, setIdentity] = React.useState();
+  const [storedLocally, setStoredLocally] = React.useState(0);
+  const [storedRemotely, setStoredRemotely] = React.useState(0);
+  const [shared, setShared] = React.useState(0);
 
   // a list of json objects with a user name and the total amount of data stored in each of three categories
   const [userData, setUserData] = React.useState({});
@@ -48,16 +51,18 @@ export default function Home() {
     .get("/ui/get-interacted-with-peers")
     .then(function (response){
       const userDataMap = response.data.user_data;
-      const matchingKey = Object.keys(userDataMap).find((key) => {
-        return key === identity.pub_key;
-      });
-
-      if (matchingKey) {
-        setUserData(userDataMap[matchingKey]['storage_data']);
-        console.log(userDataMap[matchingKey]['storage_data'])
-      } else {
-        console.warn("No matching key found for pub_key:", identity.pub_key);
+      let s = 0;
+      let sl = 0;
+      let sr = 0;
+      for (const peerKey in response.data.user_data) {
+        const storage = response.data.user_data[peerKey].storage_data;
+        s += storage.shared;
+        sl += storage.stored_locally;
+        sr += storage.stored_remotely;
       }
+      setShared(s);
+      setStoredLocally(sl);
+      setStoredRemotely(sr);
     })
     .catch (function (error) {
       console.error("errored:", error)
@@ -109,11 +114,11 @@ export default function Home() {
       <div className="subtitleText">Quick Facts</div>
       <div className="grid grid-cols-[150px_1fr] gap-4 mt-2">
         <div className="font-semibold">Total Files Stored Locally: </div>
-        <div>{userData['stored_locally'] ?? 0}</div>
+        <div>{storedLocally ?? 0}</div>
         <div className="font-semibold">Total Files Stored Remotely: </div>
-        <div>{userData['stored_remotely'] ?? 0}</div>
+        <div>{storedRemotely ?? 0}</div>
         <div className="font-semibold">Total Files Shared: </div>
-        <div>{userData['shared'] ?? 0}</div>
+        <div>{shared ?? 0}</div>
         
       </div>
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>

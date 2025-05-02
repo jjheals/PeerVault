@@ -7,6 +7,7 @@ import { filesSelectController } from "@/controllers";
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { motion } from "framer-motion";
+import { useAppContext } from "@/context/AppContext";
 
 const PORT = 8000;
 
@@ -23,9 +24,10 @@ export default function Home() {
     const [recipient, setRecipient] = React.useState("");
     const [users, setUsers] = React.useState<any[]>([]);
     const [identity, setIdentity] = React.useState({});
-    const [verifiedUser, setVerifiedUser] = React.useState(false)
+    const { verifiedUser, setVerifiedUser } = useAppContext();
     const [sendType, setSendType] = React.useState("");
     const [formValid, setFormValid] = React.useState(false);
+    const [passphrase, setPassphrase] = React.useState("");
 
     // for the sharing flow...
     const [showStartSharing, setShowStartSharing] = React.useState(true);
@@ -48,7 +50,32 @@ export default function Home() {
         forceRedraw(redraw + 1);
     }
 
+    const handleLogin = async () => {
+      if (!passphrase.trim()) {
+          alert("Passphrase required!");
+          return;
+      }
+      instance
+      .post("/ui/init-application", {
+        passphrase: passphrase
+      })
+      .then(function (response) {
+        if (response.data.status === "success") {
+          alert("Login successful");
+          setVerifiedUser(true);
+        }
+      })
+      .catch(function (error) {
+        alert("Login Failed\nPlease try again");
+        setPassphrase("");
+      });
+      console.log(verifiedUser);
+      refresh();
+    };
+
     React.useEffect(() =>{
+      if (!verifiedUser) return;
+
       instance
       .get("/ui/get-peer-list")
       .then(function (response){
@@ -62,10 +89,12 @@ export default function Home() {
 
         console.error("errored:", error)
       });
-    }, [redraw]);
+    }, [verifiedUser]);
 
     // Get the identity of the User on this device...
     React.useEffect(() =>{
+      if (!verifiedUser) return;
+
       instance
       .get("/ui/whoami")
       .then(function (response){
@@ -83,9 +112,11 @@ export default function Home() {
       .catch (function (error) {
         console.error("errored:", error)
       });
-    }, [redraw]);
+    }, [verifiedUser]);
 
     React.useEffect(() =>{
+      if (!verifiedUser) return;
+
       instance
       .get("/ui/get-pending-requests")
       .then(function (response){
@@ -97,13 +128,15 @@ export default function Home() {
       .catch (function (error) {
         console.error("errored:", error)
       });
-    }, [redraw]);
+    }, [verifiedUser]);
 
 
     // store the uploaded files
     React.useEffect(() => {
+      if (!verifiedUser) return;
+
       retreiveFilesToUpload(setFiles);
-    }, [redraw]);
+    }, [verifiedUser]);
 
 
     // check if th upload functionality should be enabled
@@ -199,6 +232,8 @@ export default function Home() {
     };
 
     React.useEffect(() =>{
+      if (!verifiedUser) return;
+
       instance
       .get("/ui/get-interacted-with-peers")
       .then(function (response){
@@ -212,7 +247,7 @@ export default function Home() {
       .catch (function (error) {
         console.error("errored:", error)
       });
-    }, [redraw]);
+    }, [redraw, verifiedUser]);
 
     function uploadData() {  
       const formData = new FormData();
@@ -407,6 +442,16 @@ export default function Home() {
 
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
       </div>
+        {!verifiedUser && (
+          <div>
+            <div className="flex items-center justify-center">
+            <div>
+            <input type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Passphrase" />
+              <button className="button" onClick={handleLogin}>Login</button>
+            </div>
+            </div>
+          </div>
+        )}
         {verifiedUser && showStartSharing && (
           <div>
             <div className="flex items-center justify-center">

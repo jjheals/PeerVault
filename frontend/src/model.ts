@@ -4,10 +4,9 @@ export class Model {
     filesUploaded: File[];
 
     constructor() {
-        this.user = new User(-1, "123.345.789", "dan", "dc:29", 32);
+        this.user = new User();
         this.filesToUpload = [];
         this.filesUploaded = [];
-
     }
 
     addFiles(files: any) {
@@ -32,7 +31,7 @@ export class Model {
             storage += file.size;
         }
         return storage;
-    }
+    }  
 } 
 
 export class File {
@@ -65,10 +64,7 @@ export class User {
     mac: string;
     ip: string;
 
-    // allowed_to_receive: number;
-    // total_storage_allocated: number;
-
-    constructor(pub_key: string, common_name: string, mac: string, ip: string) 
+    constructor(pub_key: string = "", common_name: string = "", mac: string = "", ip: string = "") 
     {
         this.pub_key = pub_key;
         this.common_name = common_name;
