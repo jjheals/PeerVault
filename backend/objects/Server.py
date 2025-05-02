@@ -11,7 +11,7 @@ import threading as th
 from .DatabaseConnection import DatabaseConnection
 from utils import strip_pem_headers, generate_random_passcode, encrypt_message, decrypt_message, write_to_file,  \
         hash_bytes_sha256, sign_file, bytes_to_gb, verify_signature, encrypt_bytes_with_aes, decrypt_bytes_with_aes, \
-        get_mac_address, setup_logger
+        get_mac_address, setup_logger, format_public_key_pem
 
 
 class Server(object):
@@ -650,6 +650,73 @@ class Server(object):
         )
 
         # Run while the server is alive 
+        while self.server_alive: 
+            
+            # Log 
+            self.logger.info('Checking status of incoming requests.')
+            
+            # Get the request IDs for any outgoing requests where the peer is online
+            matched_req_ids:list[int] = db_connection.check_pending_requests_status(
+                'incoming',
+                target_peer_online_status=True
+            )
+
+            # Check for results
+            if not matched_req_ids or len(matched_req_ids) == 0: 
+                # No results
+                self.logger.info('in handle_pending_incoming_requests() - no queued incoming requests have online peers.')
+                continue 
+
+            # Iterate over the matched request IDs
+            for req_id in matched_req_ids:
+
+                # Get the info for this request 
+                request_info:dict = db_connection.get_pending_request(req_id)
+
+                # Make sure we got results to avoid a KeyError
+                if not request_info: 
+                    self.logger.error(f'in handle_pending_incoming_requests() - expected to get a matching request for {req_id} but got None.')
+                    continue 
+                
+                # Log
+                self.logger.info(f'in handle_pending_incoming_requests() - processing incoming "{request_info["request_type"]}" (ID = {req_id})')
+
+                # Check if this request has been accepted
+                if request_info['accepted']: 
+                    
+                    # Log 
+                    self.logger.info(f'in handle_pending_incoming_requests(): found accepted "{request_info["request_type"]}" for "{request_info["filename"]}"')
+                    
+                    # Extract the peer_pub_key and get this peer's info from the Peer table
+                    peer_pub_key:str = request_info['peer_pub_key']
+                    peer_info:dict = db_connection.peer_info_from_pub_key(peer_pub_key)
+                    
+                    # Check if the peer is online
+                    if peer_info['online']: 
+                        
+                        # Log
+                        self.logger.info('in handle_pending_incoming_requests(): peer is ONLINE - sending reqmessageuest.')
+                                 
+                        # Send accepted message
+                        try: 
+                            self.send_accepted_message(
+                                peer_pub_key, 
+                                peer_info['most_recent_ip'], 
+                                request_info['filename'], 
+                                request_info['request_type']
+                            )
+                        except Exception as e: 
+                            self.logger.warning(f'in handle_pending_incoming_requests(): caught exception when sending the message. {e.__class__}: {e}')
+                            
+                    else: 
+                        self.logger.info('in handle_pending_incoming_requests(): peer is OFFLINE - not sending message.')
+                        
+                    # Log
+                    self.logger.info(f'in handle_pending_incoming_requests() - done handling {request_info["request_type"]} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+
+            # NOTE: now done iterating over queued requests 
+            # Sleep for Server.REQ_CHECK_SLEEP before next iteration
+            sleep(Server.REQ_CHECK_SLEEP)
 
 
     def respond_identity_check(self, connection:socket.socket, client_address:str, peer_pub_key_pem:str, encrypted_data:str) -> None:
@@ -1796,6 +1863,44 @@ class Server(object):
             self.logger.error(f'in Server.retrieve_stored_file(): \033[0m{e.__class__}", {e}')
             return ''
 
+    
+    def send_accepted_message(self, peer_pub_key:str, peer_ip_address:str, filename:str, request_type:str) -> None: 
+        
+        # Log
+        self.logger.info(f'in send_accepted_message(): sending ACCEPTED message for file "{filename}" to "{peer_ip_address}"')
+        
+        # Create a socket object
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # ---- Initial connection ---- #
+        # Connect to the peer's backend server
+        # NOTE: all peers use the same port for their backend server
+        connection.connect((peer_ip_address, self.port))
+        
+        # Construct an initial message to send
+        message = json.dumps({
+            'pub_key_pem': self.pub_key_pem,
+            'filename': filename,
+            'request_type': request_type,
+            'code': Server.ACC_CODE
+        })
+
+        # Send the message
+        response_dict:dict = self.send_encrypted_message(
+            connection,
+            format_public_key_pem(peer_pub_key),
+            message
+        )
+
+        # ---- Handle response ---- #
+        
+        self.logger.info(f'in send_accepted_message(): got response dict: {response_dict}')
+        
+        if response_dict['code'] == Server.DONE_CODE: 
+            self.logger.info('in send_accepted_message(): response is GOOD - message successfully received by peer.')
+        else: 
+            self.logger.error(f'in send_accepted_message(): received bad code from recipient ({response_dict["code"]}) - message failed to send.')
+    
     
     @staticmethod
     def read_incoming_data(connection:socket.socket) -> dict: 
