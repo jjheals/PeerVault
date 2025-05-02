@@ -385,8 +385,42 @@ class Server(object):
                 message_json['data']                    # encrypted_data
             )
 
-            # Do nothing else 
+            # Log
             self.logger.info('in handle_network_request(): done responding to ID check.')
+            
+            # NOTE: when we get an ID check, we can update the status of that peer since we know they're online
+            # and since all requests have an ID check anyway
+            
+            # Init a DB connection for this thread 
+            db_connection:DatabaseConnection = DatabaseConnection(
+                self.db_filepath,
+                log_filepath=self.db_log_filepath,
+                logger_name=self.db_logger_name
+            )     
+        
+            # Check if this peer exists already
+            # Peer exists, so update their status
+            if db_connection.check_peer_exists(peer_pub_key):
+                self.logger.info(f'Updating status and IP for "{peer_common_name}".')
+                
+                db_connection.update_peer_status(       
+                    peer_pub_key,                     
+                    addr[0],
+                    new_online_status=True
+                )
+            
+            # Peer doesn't exist, so create an entry for them
+            else: 
+                self.logger.info(f'Creating a new Peer entry for "{peer_common_name}".')
+                
+                db_connection.new_peer(
+                    peer_pub_key,           # peer_pub_key
+                    True,                   # online_status
+                    addr[0],                # most_recent_ip
+                    peer_common_name,       # common_name
+                    peer_mac_last_four      # mac_last_four
+                )
+            
             return 
         
         # NOTE: we know at this point that this is not an initiated ID check
@@ -399,7 +433,7 @@ class Server(object):
         # Strip pem headers from the peer pub key
         peer_pub_key:str = strip_pem_headers(peer_pub_key_pem)       
         
-         # Init a DB connection for this thread 
+        # Init a DB connection for this thread 
         db_connection:DatabaseConnection = DatabaseConnection(
             self.db_filepath,
             log_filepath=self.db_log_filepath,
@@ -741,6 +775,8 @@ class Server(object):
         connection.send(json.dumps({
             'code': self.RESP_IDC_CODE, 
             'pub_key_pem': self.pub_key_pem,
+            'common_name': self.common_name,
+            'mac_last_four': self.mac_last_four,
             'data': encrypted_passcode_msg
         }).encode())
 
