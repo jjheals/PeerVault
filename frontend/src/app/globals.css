@@ -260,3 +260,13 @@ body {
     text-align: left;
     background-color: #f2f2f2;
 }
+
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}

@@ -76,8 +76,6 @@ export default function Home() {
 
     const handleSignOut = async () => {
       setVerifiedUser(false);
-      setIdentity({})
-      setPassphrase("")
       refresh();
     };
 
