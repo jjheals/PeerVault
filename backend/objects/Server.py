@@ -1842,20 +1842,24 @@ class Server(object):
         # NOTE: all peers use the same port for their backend server
         connection.connect((peer_ip_address, self.port))
         
-        # Construct an initial message to send
-        message = json.dumps({
-            'pub_key_pem': self.pub_key_pem,
-            'filename': filename,
-            'request_type': request_type,
-            'code': Server.ACC_CODE
-        })
+        peer_pub_key_pem:str = self.initiate_peer_connection(
+            connection,
+            peer_ip_address,
+            Server.ACC_CODE,
+            'accept'
+        )
 
         # Send the message
         # NOTE: we don't need the response
         self.send_encrypted_message(
             connection,
-            format_public_key_pem(peer_pub_key),
-            message,
+            peer_pub_key_pem,
+            {
+                'pub_key_pem': self.pub_key_pem,
+                'filename': filename,
+                'request_type': request_type,
+                'code': Server.ACC_CODE
+            },
             get_response=False
         )
 
