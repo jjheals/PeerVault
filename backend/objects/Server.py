@@ -80,6 +80,7 @@ class Server(object):
         self.db_log_filepath = db_log_filepath
         self.db_logger_name = db_logger_name
         self.temp_dir = temp_dir
+        self.log_filepath = log_filepath
         
         # Init the connection
         self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -502,14 +503,19 @@ class Server(object):
 
     def handle_pending_outgoing_requests(self) -> None: 
         """Incrementally checks the queued outgoing requests and sends them if the peer is online."""
+        # Init a local logger
+        logger:logging.Logger = setup_logger(
+            os.path.join(os.path.dirname(self.log_filepath), 'server-out-request-handler.log'),
+            'server_out_req_logger'
+        )
         
         # Log
-        self.logger.info('Starting handle_pending_outgoing_requests().')
+        logger.info('Starting handle_pending_outgoing_requests().')
         
         # Create a db connection for this thread 
         db_connection:DatabaseConnection = DatabaseConnection(
             self.db_filepath,
-            log_filepath=os.path.join(os.path.dirname(self.db_filepath), 'outgoing_pending_requests_' + os.path.basename(self.db_log_filepath)),
+            log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-out-request-db.log'),
             logger_name='server_out_requests_db_logger'
         )
         
@@ -517,7 +523,7 @@ class Server(object):
         while self.server_alive: 
             
             # Log 
-            self.logger.info('Checking status of outgoing requests.')
+            logger.info('Checking status of outgoing requests.')
             
             # Get the request IDs for any outgoing requests where the peer is online
             matched_req_ids:list[int] = db_connection.check_pending_requests_status(
@@ -543,7 +549,7 @@ class Server(object):
                         continue 
                     
                     # Log
-                    self.logger.info(f'in handle_pending_outgoing_requests() - processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
+                    logger.info(f'in handle_pending_outgoing_requests() - processing outgoing "{request_info["request_type"]}" (ID = {req_id})')
 
                     # Extract the peer_pub_key and get this peer's info from the Peer table
                     peer_pub_key:str = request_info['peer_pub_key']
@@ -557,7 +563,7 @@ class Server(object):
                         filename:str = request_info['filename']
                         
                         # Log
-                        self.logger.info(f'Sending queued "{req_type.upper()}" request to "{peer_info["common_name"]}.')
+                        logger.info(f'Sending queued "{req_type.upper()}" request to "{peer_info["common_name"]}.')
                             
                         # Act according to the request type
                         match(req_type.lower()): 
@@ -584,7 +590,7 @@ class Server(object):
                             case 'store': 
                                 
                                 # Construct the path to the tmp file 
-                                tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'share', filename)
+                                tmp_filepath:str = os.path.join(self.temp_dir, 'outgoing', 'store', filename)
                         
                                 # Get the file contents
                                 with open(tmp_filepath, 'rb') as file: 
@@ -623,7 +629,7 @@ class Server(object):
 
                 
                         # Log
-                        self.logger.info(f'in queued_request_checker() - done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                        logger.info(f'in queued_request_checker() - done handling {req_type.upper()} request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # NOTE: now done iterating over queued requests 
             # Sleep for Server.REQ_CHECK_SLEEP before next iteration
@@ -631,36 +637,43 @@ class Server(object):
 
 
     def handle_pending_incoming_requests(self) -> None:
-        self.logger.info('Starting handle_pending_incoming_requests().')
+        
+        # Init a local logger
+        logger:logging.Logger = setup_logger(
+            os.path.join(os.path.dirname(self.log_filepath), 'server-in-request-handler.log'),
+            'server_in_req_logger'
+        )
+        
+        logger.info('Starting handle_pending_incoming_requests().')
 
         db_connection: DatabaseConnection = DatabaseConnection(
             self.db_filepath,
-            log_filepath=os.path.join(os.path.dirname(self.db_filepath), 'incoming_pending_requests_' + os.path.basename(self.db_log_filepath)),
+            log_filepath=os.path.join(os.path.dirname(self.db_log_filepath), 'server-in-request-db.log'),
             logger_name='server_in_requests_db_logger'
         )
 
         while self.server_alive:
-            self.logger.info('Checking status of incoming requests.')
+            logger.info('Checking status of incoming requests.')
             matched_req_ids: list[int] = db_connection.check_pending_requests_status('incoming', target_peer_online_status=True)
 
             if not matched_req_ids:
-                self.logger.info('... no queued incoming requests ...')
+                logger.info('... no queued incoming requests ...')
             else:
                 for req_id in matched_req_ids:
                     request_info = db_connection.get_pending_request(req_id)
                     if not request_info:
-                        self.logger.error(f'... expected to get a matching request for {req_id} but got None.')
+                        logger.error(f'... expected to get a matching request for {req_id} but got None.')
                         continue
 
                     self.logger.info(f'... processing incoming "{request_info["request_type"]}" (ID = {req_id})')
 
                     if request_info['accepted']:
-                        self.logger.info(f'... found accepted "{request_info["request_type"]}" for "{request_info["filename"]}"')
+                        logger.info(f'... found accepted "{request_info["request_type"]}" for "{request_info["filename"]}"')
                         peer_pub_key = request_info['peer_pub_key']
                         peer_info = db_connection.peer_info_from_pub_key(peer_pub_key)
 
                         if peer_info['online']:
-                            self.logger.info('... peer is ONLINE - sending request.')
+                            logger.info('... peer is ONLINE - sending request.')
                             try:
                                 self.send_accepted_message(
                                     peer_pub_key,
@@ -669,14 +682,14 @@ class Server(object):
                                     request_info['request_type']
                                 )
                             except Exception as e:
-                                self.logger.warning(f'... caught exception when sending message. {e.__class__}: {e}')
+                                logger.warning(f'... caught exception when sending message. {e.__class__}: {e}')
                         else:
-                            self.logger.info('... peer is OFFLINE - not sending message.')
+                            logger.info('... peer is OFFLINE - not sending message.')
 
-                        self.logger.info(f'... done handling request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
+                        logger.info(f'... done handling request to peer "{peer_info["common_name"]}" (req ID = {req_id})')
 
             # Sleep after each iteration
-            self.logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
+            logger.debug(f'Sleeping for {Server.REQ_CHECK_SLEEP} seconds before next check.')
             sleep(Server.REQ_CHECK_SLEEP)
 
 
