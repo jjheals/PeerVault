@@ -106,8 +106,6 @@ export default function Home() {
 
         <div className="font-semibold">IP Address: </div>
         <div className="break-all">{identity?.ip}</div>
-
-        <a className="button" href={'/changePassphrase'}>Change Passphrase</a>
       </div>
 
       <hr className="h-px my-3 bg-gray-200 border-0 dark:bg-gray-700"></hr>
