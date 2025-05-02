@@ -1838,10 +1838,7 @@ class Server(object):
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # ---- Initial connection ---- #
-        # Connect to the peer's backend server
-        # NOTE: all peers use the same port for their backend server
-        connection.connect((peer_ip_address, self.port))
-        
+ 
         peer_pub_key_pem:str = self.initiate_peer_connection(
             connection,
             peer_ip_address,
