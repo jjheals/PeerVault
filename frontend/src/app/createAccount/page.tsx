@@ -34,20 +34,24 @@ export default function Home() {
           return;
       }
       try {
-        // new_common_name:str = request_body.get('common_name', None)
-        // new_allocated_storage:int = request_body.get('allocated_storage', None)
-        // new_peer_storage_path:str = request_body.get('peer_storage_path', None)
-        // new_passphrase:str = request_body.get('passphrase', None) 
+        const response = await instance.post("/ui/signup", { common_name: username,
+                                                              passphrase: passphrase,
+                                                              allocated_storage: storage,
+                                                              peer_storage_path: path });
 
-          const response = await instance.post("/ui/signup", { common_name: username,
-                                                                passphrase: passphrase,
-                                                                allocated_storage: storage,
-                                                                peer_storage_path: path });
-
-          alert("signup successful");
+        alert("signup successful");
       } catch (error) {
-          console.error("Signup failed:", error);
-          alert("Signup failed. Please try again.");
+        const statuscode = error.response.status
+        
+        switch (statuscode){
+          case 400:
+            alert("Bad Request. There is missing or misformated data")
+          case 409:
+            alert("A user already exists for this machine")
+          default:
+            alert("Signup failed. Please try again.");
+        }
+
       }
       router.push('/');
   };
@@ -68,7 +72,7 @@ export default function Home() {
             <div className="subtitleText">Signup</div>
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" />
             <input type="text" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Passphrase" />
-            <input type="int" value={storage} onChange={(e) => setStorage(e.target.value)} placeholder="Storage Amount" />
+            <input type="int" value={storage} onChange={(e) => setStorage(e.target.value)} placeholder="Storage Amount GB" />
             <input type="text" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Storage Path" />
             <button className="button" onClick={handleSignup}>Sign Up</button>
         </div>
